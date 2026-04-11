@@ -9,11 +9,14 @@
   const NOTE_ATTR = 'data-ot-note-id';
   const STALE_ATTR = 'data-ot-source-stale';
   const TRANSLATED_ATTR = 'data-ot-translated';
+  const PROCESSED_ATTR = 'data-translated';
   const QUEUED_ATTR = 'data-ot-queued';
   const ROOT_ATTR = 'data-ot-role';
   const STYLE_ID = 'ot-translator-style';
   const PREFETCH_VIEWPORTS = 2;
-  const VISIBLE_TRANSLATION_FLUSH_DELAY_MS = 80;
+  const VISIBLE_TRANSLATION_FLUSH_DELAY_MS = 200;
+  const OBSERVER_DEBOUNCE_MS = 200;
+  const MAIN_CONTENT_SELECTOR = 'main, article, [role="main"]';
   const DEFAULT_TRANSLATION_APPEARANCE = Object.freeze({
     underlineColor: '#1f7a4f',
     underlineStyle: 'dashed',
@@ -21,12 +24,6 @@
     underlineOffset: 3
   });
   const SEMANTIC_BLOCK_SELECTOR = [
-    'h1',
-    'h2',
-    'h3',
-    'h4',
-    'h5',
-    'h6',
     'p',
     'li',
     'blockquote',
@@ -53,6 +50,7 @@
     '[role="math"]',
     '[aria-hidden="true"]',
     '[contenteditable="true"]',
+    '.translation',
     `[${ROOT_ATTR}]`
   ].join(', ');
   const MATH_SELECTOR = [
@@ -68,6 +66,19 @@
   ].join(', ');
   const PROTECTED_PLACEHOLDER_REGEX = /__OT_(?:TOKEN|MATH)_\d+__/g;
   const INLINE_CODE_SELECTOR = 'code, kbd, samp';
+  const UNSUPPORTED_ELEMENT_SELECTOR = [
+    'time',
+    'button',
+    '[role="button"]',
+    'header',
+    'nav',
+    'footer',
+    'aside',
+    '.meta',
+    '.metadata',
+    '.byline',
+    '.timestamp'
+  ].join(', ');
   const TERMINAL_LIKE_SELECTOR = [
     '[role="log"]',
     '[role="textbox"]',
@@ -78,9 +89,12 @@
     '.monaco-editor'
   ].join(', ');
   let observerStarted = false;
+  let pageObserver = null;
+  let observerFlushTimer = null;
   let staleFlushTimer = null;
   let visibleTranslationFlushTimer = null;
   const pendingStaleSources = new Set();
+  const pendingObserverMutations = [];
   const ViewportApi = window.TranslatorContentViewport || {
     DEFAULT_PREFETCH_VIEWPORTS: 2,
     DEFAULT_TOP_MARGIN: 96,
@@ -399,6 +413,74 @@
     element.setAttribute(QUEUED_ATTR, queued ? 'true' : 'false');
   }
 
+  function setSourceTranslated(element, value) {
+    if (!element) {
+      return;
+    }
+
+    if (value) {
+      element.setAttribute(TRANSLATED_ATTR, 'true');
+      element.setAttribute(PROCESSED_ATTR, 'true');
+      return;
+    }
+
+    element.removeAttribute(TRANSLATED_ATTR);
+    element.removeAttribute(PROCESSED_ATTR);
+  }
+
+  function debugSkip(reason, element) {
+    const tagName =
+      element && element.tagName
+        ? element.tagName.toLowerCase()
+        : element && element.nodeType === Node.TEXT_NODE
+          ? '#text'
+          : 'unknown';
+
+    console.debug(`[OpenAI Translator] Skipping ${tagName}: ${reason}`);
+  }
+
+  function isInsideTranslation(element) {
+    return Boolean(element && element.closest && element.closest('.translation'));
+  }
+
+  function isUnsupportedElement(element) {
+    if (!element || !element.matches) {
+      return false;
+    }
+
+    return Boolean(element.matches(UNSUPPORTED_ELEMENT_SELECTOR) || element.closest(UNSUPPORTED_ELEMENT_SELECTOR));
+  }
+
+  function getTranslationRoot() {
+    return document.querySelector(MAIN_CONTENT_SELECTOR) || document.body;
+  }
+
+  function observePageMutations() {
+    if (!pageObserver || !document.body) {
+      return;
+    }
+
+    pageObserver.observe(document.body, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+  }
+
+  function withObserverPaused(callback) {
+    if (!pageObserver || !document.body) {
+      return callback();
+    }
+
+    pageObserver.disconnect();
+
+    try {
+      return callback();
+    } finally {
+      observePageMutations();
+    }
+  }
+
   function activatePageTranslationSession(sessionId) {
     pageState.pageTranslation.active = true;
     pageState.pageTranslation.sessionId = sessionId || '';
@@ -608,13 +690,34 @@
   }
 
   function isTranslatorOwned(element) {
-    return Boolean(element && element.closest && element.closest(`[${ROOT_ATTR}]`));
+    return Boolean(
+      element && element.closest && element.closest(`[${ROOT_ATTR}], .translation`)
+    );
   }
 
   function isCandidateElement(element, options) {
     const relaxed = Boolean(options && options.relaxed);
 
-    if (!element || isTranslatorOwned(element) || !isVisible(element)) {
+    if (!element) {
+      return false;
+    }
+
+    if (isInsideTranslation(element) || isTranslatorOwned(element)) {
+      debugSkip('inside translation', element);
+      return false;
+    }
+
+    if (element.getAttribute(PROCESSED_ATTR) === 'true' && element.getAttribute(STALE_ATTR) !== 'true') {
+      debugSkip('already translated', element);
+      return false;
+    }
+
+    if (isUnsupportedElement(element)) {
+      debugSkip('unsupported element', element);
+      return false;
+    }
+
+    if (!isVisible(element)) {
       return false;
     }
 
@@ -670,6 +773,7 @@
 
     element.setAttribute(STALE_ATTR, 'true');
     element.setAttribute(TRANSLATED_ATTR, 'stale');
+    element.removeAttribute(PROCESSED_ATTR);
     setSourceQueued(element, false);
     const note = getExistingNoteForSource(element, id);
 
@@ -689,7 +793,7 @@
       return;
     }
 
-    if (element.closest(`[${ROOT_ATTR}]`)) {
+    if (element.closest(`[${ROOT_ATTR}]`) || isInsideTranslation(element)) {
       return;
     }
 
@@ -724,14 +828,18 @@
       return;
     }
 
-    const observer = new MutationObserver((mutations) => {
+    function flushObserverMutations() {
+      observerFlushTimer = null;
+
+      const mutations = pendingObserverMutations.splice(0, pendingObserverMutations.length);
+
       for (const mutation of mutations) {
         const targetElement =
           mutation.target && mutation.target.nodeType === Node.ELEMENT_NODE
             ? mutation.target
             : mutation.target && mutation.target.parentElement;
 
-        if (targetElement && targetElement.closest(`[${ROOT_ATTR}]`)) {
+        if (targetElement && (targetElement.closest(`[${ROOT_ATTR}]`) || isInsideTranslation(targetElement))) {
           continue;
         }
 
@@ -745,19 +853,29 @@
           markRelatedSourcesStale(mutation.target);
 
           for (const node of mutation.addedNodes) {
+            if (node.nodeType === Node.ELEMENT_NODE && isInsideTranslation(node)) {
+              continue;
+            }
+
             markRelatedSourcesStale(node);
           }
 
           scheduleVisiblePageTranslation();
         }
       }
+    }
+
+    pageObserver = new MutationObserver((mutations) => {
+      pendingObserverMutations.push(...mutations);
+
+      if (observerFlushTimer) {
+        return;
+      }
+
+      observerFlushTimer = window.setTimeout(flushObserverMutations, OBSERVER_DEBOUNCE_MS);
     });
 
-    observer.observe(document.body, {
-      childList: true,
-      characterData: true,
-      subtree: true
-    });
+    observePageMutations();
 
     window.addEventListener(
       'scroll',
@@ -828,7 +946,8 @@
     const windowCandidates = [];
     const totalElements = [];
     const counterRef = { value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length };
-    const elements = Array.from(document.body.querySelectorAll(SEMANTIC_BLOCK_SELECTOR));
+    const root = getTranslationRoot();
+    const elements = root ? Array.from(root.querySelectorAll(SEMANTIC_BLOCK_SELECTOR)) : [];
     const windowed = Boolean(options && options.windowed);
     const viewportOptions = windowed ? getViewportWindowOptions() : null;
 
@@ -873,14 +992,33 @@
     let totalSegments = 0;
     const windowed = Boolean(options && options.windowed);
     const viewportOptions = windowed ? getViewportWindowOptions() : null;
+    const root = getTranslationRoot();
+
+    if (!root) {
+      return {
+        items: [],
+        totalSegments: 0
+      };
+    }
+
     const walker = document.createTreeWalker(
-      document.body,
+      root,
       NodeFilter.SHOW_TEXT,
       {
         acceptNode(node) {
           const parent = node.parentElement;
 
-          if (!parent || parent.closest(SKIP_ANCESTOR_SELECTOR)) {
+          if (!parent || parent.closest(SKIP_ANCESTOR_SELECTOR) || isInsideTranslation(parent)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+
+          if (isUnsupportedElement(parent)) {
+            debugSkip('unsupported element', parent);
+            return NodeFilter.FILTER_REJECT;
+          }
+
+          if (parent.closest(`[${PROCESSED_ATTR}="true"]`)) {
+            debugSkip('already translated', parent);
             return NodeFilter.FILTER_REJECT;
           }
 
@@ -996,6 +1134,7 @@
     const note = document.createElement(tagName);
     const body = document.createElement('span');
 
+    note.classList.add('translation');
     note.setAttribute(ROOT_ATTR, 'note');
     note.setAttribute(NOTE_ATTR, id);
     body.setAttribute(ROOT_ATTR, 'note-body');
@@ -1082,19 +1221,22 @@
     const note = existingNote || buildNote(element, id);
     const body = note.querySelector(`[${ROOT_ATTR}="note-body"]`);
 
-    note.setAttribute('data-phase', 'ready');
-    note.setAttribute('data-lang', targetLanguage);
-    body.setAttribute('data-state', 'ready');
-    body.replaceChildren();
-    appendFormattedText(body, translation, protectedFragments);
-    note.removeAttribute('data-stale');
-    element.removeAttribute(STALE_ATTR);
-    element.setAttribute(TRANSLATED_ATTR, 'true');
-    setSourceQueued(element, false);
+    withObserverPaused(() => {
+      note.setAttribute('data-phase', 'ready');
+      note.setAttribute('data-lang', targetLanguage);
+      body.setAttribute('data-state', 'ready');
+      body.replaceChildren();
+      appendFormattedText(body, translation, protectedFragments);
+      note.removeAttribute('data-stale');
 
-    if (!existingNote) {
-      element.insertAdjacentElement('afterend', note);
-    }
+      if (!existingNote) {
+        element.insertAdjacentElement('afterend', note);
+      }
+    });
+
+    element.removeAttribute(STALE_ATTR);
+    setSourceTranslated(element, true);
+    setSourceQueued(element, false);
 
     return note;
   }
@@ -1115,12 +1257,14 @@
 
       const note = getExistingNoteForSource(element, id) || buildNote(element, id);
 
-      setNotePending(note, payload.targetLanguage);
-      setSourceQueued(element, true);
+      withObserverPaused(() => {
+        setNotePending(note, payload.targetLanguage);
 
-      if (!note.isConnected) {
-        element.insertAdjacentElement('afterend', note);
-      }
+        if (!note.isConnected) {
+          element.insertAdjacentElement('afterend', note);
+        }
+      });
+      setSourceQueued(element, true);
       rendered += 1;
     }
 
@@ -1195,13 +1339,15 @@
         continue;
       }
 
-      note.remove();
+      withObserverPaused(() => {
+        note.remove();
+      });
       cleared += 1;
 
       const source = document.querySelector(`[${SOURCE_ATTR}="${id}"]`);
 
       if (source) {
-        source.removeAttribute(TRANSLATED_ATTR);
+        setSourceTranslated(source, false);
         source.removeAttribute(STALE_ATTR);
         setSourceQueued(source, false);
       }
@@ -1214,7 +1360,9 @@
     const panel = document.querySelector(`[${ROOT_ATTR}="selection-panel"]`);
 
     if (panel) {
-      panel.remove();
+      withObserverPaused(() => {
+        panel.remove();
+      });
     }
   }
 
@@ -1232,6 +1380,7 @@
     const closeButton = document.createElement('button');
     const body = document.createElement('div');
 
+    panel.classList.add('translation');
     panel.setAttribute(ROOT_ATTR, 'selection-panel');
     panel.setAttribute('aria-live', 'polite');
     panel.setAttribute('aria-label', 'Selected text translation');
@@ -1253,11 +1402,13 @@
     panel.appendChild(header);
     panel.appendChild(body);
 
-    if (document.body) {
-      document.body.appendChild(panel);
-    } else {
-      document.documentElement.appendChild(panel);
-    }
+    withObserverPaused(() => {
+      if (document.body) {
+        document.body.appendChild(panel);
+      } else {
+        document.documentElement.appendChild(panel);
+      }
+    });
 
     return panel;
   }
@@ -1277,15 +1428,18 @@
       return panel;
     }
 
-    body.setAttribute('data-state', payload.pending ? 'pending' : 'ready');
-    body.replaceChildren();
+    withObserverPaused(() => {
+      body.setAttribute('data-state', payload.pending ? 'pending' : 'ready');
+      body.replaceChildren();
 
-    if (payload.pending) {
-      body.appendChild(document.createTextNode(' '));
-      return panel;
-    }
+      if (payload.pending) {
+        body.appendChild(document.createTextNode(' '));
+        return;
+      }
 
-    appendFormattedText(body, payload.translation || '', payload.protectedFragments);
+      appendFormattedText(body, payload.translation || '', payload.protectedFragments);
+    });
+
     return panel;
   }
 
@@ -1325,11 +1479,14 @@
     }
 
     for (const note of notes) {
-      note.remove();
+      withObserverPaused(() => {
+        note.remove();
+      });
     }
 
     for (const source of document.querySelectorAll(`[${SOURCE_ATTR}]`)) {
       if (source.getAttribute(TRANSLATED_ATTR) !== 'true') {
+        source.removeAttribute(PROCESSED_ATTR);
         setSourceQueued(source, false);
       }
     }
