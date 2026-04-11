@@ -4,8 +4,7 @@
     apiKey: '',
     baseUrl: 'https://api.openai.com/v1',
     model: '',
-    instructions:
-      'You are a translation engine. Preserve meaning and tone. Output only the requested translation JSON with no explanations.',
+    instructions: 'Preserve meaning, tone, and technical accuracy in translation.',
     targetLanguage: '繁體中文',
     disabledDomains: ''
   });

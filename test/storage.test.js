@@ -35,6 +35,10 @@ test('validateSettings merges defaults', () => {
 
   assert.equal(result.isValid, true);
   assert.equal(result.settings.instructions, DEFAULT_SETTINGS.instructions);
+  assert.equal(
+    DEFAULT_SETTINGS.instructions,
+    'Preserve meaning, tone, and technical accuracy in translation.'
+  );
 });
 
 test('getApiPermissionPattern derives origin wildcard', () => {

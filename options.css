@@ -81,6 +81,11 @@ h1 {
   gap: 8px;
 }
 
+.field-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .field span,
 .status-card h2 {
   font-size: 0.95rem;
@@ -115,6 +120,35 @@ textarea:focus {
 textarea {
   min-height: 180px;
   resize: vertical;
+}
+
+textarea[readonly] {
+  background: rgba(247, 242, 233, 0.9);
+  color: var(--muted);
+  font: 500 0.95rem/1.5 ui-monospace, 'SFMono-Regular', 'Cascadia Code', 'Roboto Mono', monospace;
+}
+
+.prompt-preview {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px dashed rgba(88, 67, 47, 0.18);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.prompt-preview-header h2 {
+  margin-bottom: 6px;
+}
+
+.prompt-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.prompt-preview-actions button {
+  box-shadow: none;
 }
 
 .status-grid {
@@ -195,6 +229,14 @@ button.secondary {
   }
 
   .actions button {
+    width: 100%;
+  }
+
+  .prompt-preview-actions {
+    flex-direction: column;
+  }
+
+  .prompt-preview-actions button {
     width: 100%;
   }
 }

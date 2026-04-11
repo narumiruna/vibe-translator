@@ -53,14 +53,43 @@
           </label>
 
           <label class="field">
-            <span>Instructions</span>
+            <span>Custom Instructions</span>
+            <small class="field-note">
+              Added to the fixed system prompt. The live preview below shows the
+              actual system and user prompts sent to the model.
+            </small>
             <textarea
               id="instructions"
               name="instructions"
               rows="8"
-              placeholder="Add translation instructions here."
+              placeholder="Add extra translation guidance here."
             ></textarea>
           </label>
+
+          <section class="prompt-preview" aria-labelledby="prompt-preview-title">
+            <div class="prompt-preview-header">
+              <h2 id="prompt-preview-title">Actual Prompt Preview</h2>
+              <p class="field-note">Generated from the same prompt builder used by translation requests.</p>
+              <div class="prompt-preview-actions">
+                <button id="reset-system-prompt-button" type="button" class="secondary">
+                  Reset System Prompt
+                </button>
+                <button id="reset-user-prompt-button" type="button" class="secondary">
+                  Reset User Prompt
+                </button>
+              </div>
+            </div>
+
+            <label class="field">
+              <span>System Prompt</span>
+              <textarea id="system-prompt-preview" rows="8" readonly></textarea>
+            </label>
+
+            <label class="field">
+              <span>User Prompt</span>
+              <textarea id="user-prompt-preview" rows="8" readonly></textarea>
+            </label>
+          </section>
 
           <label class="field">
             <span>Disabled Domains</span>
@@ -94,6 +123,7 @@
     </main>
 
     <script src="storage.js"></script>
+    <script src="api.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

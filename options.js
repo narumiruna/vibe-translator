@@ -1,4 +1,4 @@
-(function () {
+(function (root) {
   const form = document.getElementById('settings-form');
   const apiKeyInput = document.getElementById('api-key');
   const baseUrlInput = document.getElementById('base-url');
@@ -6,6 +6,10 @@
   const targetLanguageInput = document.getElementById('target-language');
   const instructionsInput = document.getElementById('instructions');
   const disabledDomainsInput = document.getElementById('disabled-domains');
+  const systemPromptPreview = document.getElementById('system-prompt-preview');
+  const userPromptPreview = document.getElementById('user-prompt-preview');
+  const resetSystemPromptButton = document.getElementById('reset-system-prompt-button');
+  const resetUserPromptButton = document.getElementById('reset-user-prompt-button');
   const permissionStatus = document.getElementById('permission-status');
   const testStatus = document.getElementById('test-status');
   const formStatus = document.getElementById('form-status');
@@ -32,6 +36,46 @@
     formStatus.hidden = true;
     formStatus.textContent = '';
     formStatus.classList.remove('is-error');
+  }
+
+  function buildPreviewSettings() {
+    const formSettings = getFormSettings();
+
+    return {
+      instructions: formSettings.instructions.trim() || TranslatorStorage.DEFAULT_SETTINGS.instructions,
+      targetLanguage: formSettings.targetLanguage.trim() || TranslatorStorage.DEFAULT_SETTINGS.targetLanguage
+    };
+  }
+
+  function renderPromptPreview() {
+    if (!root.TranslatorApi || typeof root.TranslatorApi.buildTranslationMessages !== 'function') {
+      systemPromptPreview.value = 'Prompt preview is unavailable.';
+      userPromptPreview.value = 'Prompt preview is unavailable.';
+      return;
+    }
+
+    const settings = buildPreviewSettings();
+    const messages = root.TranslatorApi.buildTranslationMessages({
+      instructions: settings.instructions,
+      items: [{ id: 'preview-1', kind: 'paragraph', text: 'Sample source text.' }],
+      strictJson: false,
+      targetLanguage: settings.targetLanguage
+    });
+
+    systemPromptPreview.value = messages[0] && messages[0].content ? messages[0].content : '';
+    userPromptPreview.value = messages[1] && messages[1].content ? messages[1].content : '';
+  }
+
+  function resetSystemPrompt() {
+    instructionsInput.value = TranslatorStorage.DEFAULT_SETTINGS.instructions;
+    renderPromptPreview();
+    showBanner('System prompt reset to the default custom instructions.', false);
+  }
+
+  function resetUserPrompt() {
+    targetLanguageInput.value = TranslatorStorage.DEFAULT_SETTINGS.targetLanguage;
+    renderPromptPreview();
+    showBanner('User prompt reset to the default target language.', false);
   }
 
   async function updatePermissionStatus(baseUrl) {
@@ -72,6 +116,7 @@
     targetLanguageInput.value = settings.targetLanguage;
     instructionsInput.value = settings.instructions;
     disabledDomainsInput.value = settings.disabledDomains || '';
+    renderPromptPreview();
     await updatePermissionStatus(settings.baseUrl);
   }
 
@@ -151,7 +196,12 @@
     updatePermissionStatus(baseUrlInput.value).catch(() => {});
   });
 
+  targetLanguageInput.addEventListener('input', renderPromptPreview);
+  instructionsInput.addEventListener('input', renderPromptPreview);
+  resetSystemPromptButton.addEventListener('click', resetSystemPrompt);
+  resetUserPromptButton.addEventListener('click', resetUserPrompt);
+
   loadSettings().catch((error) => {
     showBanner(error.message, true);
   });
-})();
+})(typeof globalThis !== 'undefined' ? globalThis : this);
