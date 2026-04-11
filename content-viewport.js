@@ -8,11 +8,16 @@
       0,
       Number(options && options.prefetchViewports) || DEFAULT_PREFETCH_VIEWPORTS
     );
+    const topPrefetchViewports = Math.max(
+      0,
+      Number(options && options.topPrefetchViewports) || prefetchViewports
+    );
     const topMargin = Math.max(0, Number(options && options.topMargin) || DEFAULT_TOP_MARGIN);
 
     return {
       viewportHeight,
       prefetchViewports,
+      topPrefetchViewports,
       topMargin
     };
   }
@@ -23,9 +28,10 @@
     }
 
     const normalized = normalizeViewportOptions(options);
+    const minBottom = -normalized.topMargin - (normalized.viewportHeight * normalized.topPrefetchViewports);
     const maxTop = normalized.viewportHeight * (1 + normalized.prefetchViewports);
 
-    return Number(rect.bottom) >= -normalized.topMargin && Number(rect.top) <= maxTop;
+    return Number(rect.bottom) >= minBottom && Number(rect.top) <= maxTop;
   }
 
   function sortByViewportPosition(items) {

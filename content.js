@@ -59,21 +59,29 @@
     DEFAULT_PREFETCH_VIEWPORTS: 2,
     DEFAULT_TOP_MARGIN: 96,
     normalizeViewportOptions(options) {
+      const prefetchViewports = Math.max(
+        0,
+        Number(options && options.prefetchViewports) || PREFETCH_VIEWPORTS
+      );
+
       return {
         viewportHeight: Math.max(0, Number(options && options.viewportHeight) || 0),
-        prefetchViewports: Math.max(
+        prefetchViewports,
+        topPrefetchViewports: Math.max(
           0,
-          Number(options && options.prefetchViewports) || PREFETCH_VIEWPORTS
+          Number(options && options.topPrefetchViewports) || prefetchViewports
         ),
         topMargin: Math.max(0, Number(options && options.topMargin) || 96)
       };
     },
     isRectWithinTranslationWindow(rect, options) {
       const normalized = this.normalizeViewportOptions(options);
+      const minBottom =
+        -normalized.topMargin - (normalized.viewportHeight * normalized.topPrefetchViewports);
 
       return (
         rect &&
-        Number(rect.bottom) >= -normalized.topMargin &&
+        Number(rect.bottom) >= minBottom &&
         Number(rect.top) <= normalized.viewportHeight * (1 + normalized.prefetchViewports)
       );
     },

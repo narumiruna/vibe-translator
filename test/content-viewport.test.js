@@ -13,6 +13,7 @@ test('normalizeViewportOptions fills defaults', () => {
   assert.deepEqual(normalizeViewportOptions({ viewportHeight: 720 }), {
     viewportHeight: 720,
     prefetchViewports: DEFAULT_PREFETCH_VIEWPORTS,
+    topPrefetchViewports: DEFAULT_PREFETCH_VIEWPORTS,
     topMargin: 96
   });
 });
@@ -22,8 +23,9 @@ test('isRectWithinTranslationWindow includes visible and prefetched blocks', () 
 
   assert.equal(isRectWithinTranslationWindow({ top: 20, bottom: 120 }, options), true);
   assert.equal(isRectWithinTranslationWindow({ top: 1200, bottom: 1300 }, options), true);
+  assert.equal(isRectWithinTranslationWindow({ top: -700, bottom: -620 }, options), true);
   assert.equal(isRectWithinTranslationWindow({ top: 1700, bottom: 1800 }, options), false);
-  assert.equal(isRectWithinTranslationWindow({ top: -220, bottom: -120 }, options), false);
+  assert.equal(isRectWithinTranslationWindow({ top: -1100, bottom: -1020 }, options), false);
 });
 
 test('selectWindowCandidates keeps viewport order', () => {
