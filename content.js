@@ -13,7 +13,8 @@
   const ROOT_ATTR = 'data-ot-role';
   const SELECTED_NOTE_ID = 'selection-note';
   const STYLE_ID = 'ot-translator-style';
-  const PREFETCH_VIEWPORTS = 1;
+  const PREFETCH_VIEWPORTS = 2;
+  const VISIBLE_TRANSLATION_FLUSH_DELAY_MS = 80;
   const SEMANTIC_BLOCK_SELECTOR = [
     'h1',
     'h2',
@@ -55,7 +56,7 @@
   let visibleTranslationFlushTimer = null;
   const pendingStaleSources = new Set();
   const ViewportApi = window.TranslatorContentViewport || {
-    DEFAULT_PREFETCH_VIEWPORTS: 1,
+    DEFAULT_PREFETCH_VIEWPORTS: 2,
     DEFAULT_TOP_MARGIN: 96,
     normalizeViewportOptions(options) {
       return {
@@ -80,6 +81,26 @@
       return [...(items || [])]
         .filter((item) => this.isRectWithinTranslationWindow(item.rect, options))
         .sort((left, right) => left.rect.top - right.rect.top);
+    },
+    getTranslationWindowPriority(rect, options) {
+      const normalized = this.normalizeViewportOptions(options);
+      const viewportHeight = normalized.viewportHeight;
+      const top = Number(rect && rect.top) || 0;
+      const bottom = Number(rect && rect.bottom) || 0;
+
+      if (viewportHeight <= 0) {
+        return Math.max(0, top);
+      }
+
+      if (bottom < 0) {
+        return viewportHeight + Math.abs(bottom);
+      }
+
+      if (top < viewportHeight) {
+        return Math.max(0, top);
+      }
+
+      return viewportHeight + Math.max(0, top - viewportHeight);
     }
   };
   const pageState = {
@@ -500,7 +521,12 @@
   }
 
   function buildSegmentItem(element, counterRef) {
-    const itemId = element.getAttribute(SOURCE_ATTR) || `ot-${counterRef.value += 1}`;
+    let itemId = element.getAttribute(SOURCE_ATTR);
+
+    if (!itemId) {
+      counterRef.value += 1;
+      itemId = `ot-${counterRef.value}`;
+    }
 
     element.setAttribute(SOURCE_ATTR, itemId);
     if (!element.hasAttribute(QUEUED_ATTR)) {
@@ -705,7 +731,7 @@
 
     visibleTranslationFlushTimer = window.setTimeout(() => {
       requestVisiblePageTranslationBatch().catch(() => {});
-    }, 140);
+    }, VISIBLE_TRANSLATION_FLUSH_DELAY_MS);
   }
 
   function buildNote(sourceElement, id) {

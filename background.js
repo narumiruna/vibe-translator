@@ -239,17 +239,15 @@ async function processSinglePageTranslationItem(tabId, sessionId, item) {
   } finally {
     const currentSession = getPageTranslationSession(tabId, sessionId);
 
-    if (!currentSession) {
-      return;
-    }
+    if (currentSession) {
+      currentSession.pendingIds.delete(itemId);
+      currentSession.inFlightCount = Math.max(0, currentSession.inFlightCount - 1);
 
-    currentSession.pendingIds.delete(itemId);
-    currentSession.inFlightCount = Math.max(0, currentSession.inFlightCount - 1);
-
-    if (currentSession.pendingItems.length > 0) {
-      processQueuedPageTranslationItems(tabId, currentSession.sessionId).catch((error) => {
-        console.error('Failed to continue page translation queue:', error);
-      });
+      if (currentSession.pendingItems.length > 0) {
+        processQueuedPageTranslationItems(tabId, currentSession.sessionId).catch((error) => {
+          console.error('Failed to continue page translation queue:', error);
+        });
+      }
     }
   }
 }
@@ -269,11 +267,11 @@ async function queuePageTranslationItems(tabId, sessionId, items) {
     }
 
     session.pendingIds.add(item.id);
-    session.pendingItems.push(item);
     queuedItems.push(item);
   }
 
   if (queuedItems.length > 0) {
+    session.pendingItems = queuedItems.concat(session.pendingItems);
     processQueuedPageTranslationItems(tabId, session.sessionId).catch((error) => {
       console.error('Failed to queue page translation items:', error);
     });

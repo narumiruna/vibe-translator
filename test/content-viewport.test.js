@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   DEFAULT_PREFETCH_VIEWPORTS,
+  getTranslationWindowPriority,
   isRectWithinTranslationWindow,
   normalizeViewportOptions,
   selectWindowCandidates
@@ -37,5 +38,18 @@ test('selectWindowCandidates keeps viewport order', () => {
       (item) => item.id
     ),
     ['early', 'later', 'prefetch']
+  );
+});
+
+test('getTranslationWindowPriority prefers visible blocks over nearby offscreen blocks', () => {
+  const options = { viewportHeight: 700, prefetchViewports: 2, topMargin: 96 };
+
+  assert.ok(
+    getTranslationWindowPriority({ top: 40, bottom: 90 }, options) <
+      getTranslationWindowPriority({ top: 760, bottom: 820 }, options)
+  );
+  assert.ok(
+    getTranslationWindowPriority({ top: 40, bottom: 90 }, options) <
+      getTranslationWindowPriority({ top: -80, bottom: -20 }, options)
   );
 });

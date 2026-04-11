@@ -1,5 +1,5 @@
 (function (root) {
-  const DEFAULT_PREFETCH_VIEWPORTS = 1;
+  const DEFAULT_PREFETCH_VIEWPORTS = 2;
   const DEFAULT_TOP_MARGIN = 96;
 
   function normalizeViewportOptions(options) {
@@ -38,20 +38,60 @@
     });
   }
 
+  function getTranslationWindowPriority(rect, options) {
+    if (!rect) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    const normalized = normalizeViewportOptions(options);
+    const viewportHeight = normalized.viewportHeight;
+    const top = Number(rect.top) || 0;
+    const bottom = Number(rect.bottom) || 0;
+
+    if (viewportHeight <= 0) {
+      return Math.max(0, top);
+    }
+
+    if (bottom < 0) {
+      return viewportHeight + Math.abs(bottom);
+    }
+
+    if (top < viewportHeight) {
+      return Math.max(0, top);
+    }
+
+    return viewportHeight + Math.max(0, top - viewportHeight);
+  }
+
+  function sortByTranslationWindowPriority(items, options) {
+    return [...(items || [])].sort((left, right) => {
+      const leftPriority = getTranslationWindowPriority(left.rect, options);
+      const rightPriority = getTranslationWindowPriority(right.rect, options);
+
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+      }
+
+      return sortByViewportPosition([left, right])[0] === left ? -1 : 1;
+    });
+  }
+
   function selectWindowCandidates(items, options) {
     const filtered = (items || []).filter((item) =>
       isRectWithinTranslationWindow(item.rect, options)
     );
 
-    return sortByViewportPosition(filtered);
+    return sortByTranslationWindowPriority(filtered, options);
   }
 
   const api = {
     DEFAULT_PREFETCH_VIEWPORTS,
     DEFAULT_TOP_MARGIN,
+    getTranslationWindowPriority,
     isRectWithinTranslationWindow,
     normalizeViewportOptions,
     selectWindowCandidates,
+    sortByTranslationWindowPriority,
     sortByViewportPosition
   };
 

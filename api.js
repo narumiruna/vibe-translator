@@ -1,6 +1,7 @@
 (function (root) {
   const DEFAULT_MAX_BATCH_CHARS = 5000;
   const DEFAULT_MAX_CONCURRENCY = 5;
+  const TRANSLATION_CACHE_LIMIT = 500;
   const SPLIT_BOUNDARIES = [
     { regex: /\n\s*\n+/g, joiner: '\n\n' },
     { regex: /\n+/g, joiner: '\n' },
@@ -12,6 +13,102 @@
   const FILE_PATH_REGEX = /\b(?:\.{0,2}\/)?(?:[\w.-]+\/)+[\w./-]*[\w.-]\b|\b[\w.-]+\.(?:md|txt|json|ya?ml|toml|js|jsx|ts|tsx|css|html|py|sh|rb|go|rs|java|kt|swift)\b/g;
   const URL_REGEX = /\bhttps?:\/\/[^\s<>"']+/g;
   const INLINE_CODE_REGEX = /`[^`\n]+`/g;
+  const translationCache = new Map();
+
+  function buildTranslationCacheKey(settings, item) {
+    return JSON.stringify({
+      baseUrl: String((settings && settings.baseUrl) || '').trim(),
+      model: String((settings && settings.model) || '').trim(),
+      instructions: String((settings && settings.instructions) || '').trim(),
+      targetLanguage: String((settings && settings.targetLanguage) || '').trim(),
+      kind: String((item && item.kind) || 'paragraph'),
+      text: String((item && item.text) || '')
+    });
+  }
+
+  function getCachedTranslation(settings, item) {
+    const cacheKey = buildTranslationCacheKey(settings, item);
+
+    if (!translationCache.has(cacheKey)) {
+      return null;
+    }
+
+    const cachedTranslation = translationCache.get(cacheKey);
+
+    translationCache.delete(cacheKey);
+    translationCache.set(cacheKey, cachedTranslation);
+
+    return cachedTranslation;
+  }
+
+  function setCachedTranslation(settings, item, translation) {
+    const cacheKey = buildTranslationCacheKey(settings, item);
+
+    translationCache.delete(cacheKey);
+    translationCache.set(cacheKey, String(translation || ''));
+
+    while (translationCache.size > TRANSLATION_CACHE_LIMIT) {
+      const oldestKey = translationCache.keys().next().value;
+
+      if (!oldestKey) {
+        break;
+      }
+
+      translationCache.delete(oldestKey);
+    }
+  }
+
+  function clearTranslationCache() {
+    translationCache.clear();
+  }
+
+  function splitItemsByCache(settings, items) {
+    const cachedTranslations = [];
+    const missingItems = [];
+
+    for (const item of items || []) {
+      const cachedTranslation = getCachedTranslation(settings, item);
+
+      if (typeof cachedTranslation === 'string') {
+        cachedTranslations.push({
+          id: item.id,
+          translation: cachedTranslation
+        });
+      } else {
+        missingItems.push(item);
+      }
+    }
+
+    return {
+      cachedTranslations,
+      missingItems
+    };
+  }
+
+  function mergeTranslationsInItemOrder(items, translations) {
+    const translationById = new Map((translations || []).map((item) => [item.id, item.translation]));
+
+    return (items || [])
+      .filter((item) => translationById.has(item.id))
+      .map((item) => ({
+        id: item.id,
+        translation: translationById.get(item.id)
+      }));
+  }
+
+  function cacheTranslations(settings, items, translations) {
+    const itemsById = new Map((items || []).map((item) => [item.id, item]));
+
+    for (const translation of translations || []) {
+      const item = itemsById.get(translation.id);
+
+      if (!item) {
+        continue;
+      }
+
+      setCachedTranslation(settings, item, translation.translation);
+    }
+  }
 
   function normalizeChunkText(text) {
     return String(text || '').trim();
@@ -418,22 +515,38 @@
     const items = options.items || [];
     const fetchImpl = options.fetchImpl || root.fetch;
 
+    if (items.length === 0) {
+      return [];
+    }
+
+    const { cachedTranslations, missingItems } = splitItemsByCache(settings, items);
+
+    if (missingItems.length === 0) {
+      return mergeTranslationsInItemOrder(items, cachedTranslations);
+    }
+
     if (typeof fetchImpl !== 'function') {
       throw new Error('Fetch is not available.');
     }
 
+    let freshTranslations;
+
     try {
-      return await callChatCompletions(settings, items, fetchImpl, false);
+      freshTranslations = await callChatCompletions(settings, missingItems, fetchImpl, false);
     } catch (error) {
       if (
         error instanceof SyntaxError ||
         /Response JSON|Unexpected token|missing id|Protected placeholder/i.test(error.message)
       ) {
-        return callChatCompletions(settings, items, fetchImpl, true);
+        freshTranslations = await callChatCompletions(settings, missingItems, fetchImpl, true);
+      } else {
+        throw error;
       }
-
-      throw error;
     }
+
+    cacheTranslations(settings, missingItems, freshTranslations);
+
+    return mergeTranslationsInItemOrder(items, cachedTranslations.concat(freshTranslations));
   }
 
   async function requestTranslationsBatched(options) {
@@ -656,6 +769,7 @@
     DEFAULT_MAX_CONCURRENCY,
     buildChatCompletionRequest,
     buildTranslationMessages,
+    clearTranslationCache,
     chunkTranslationItems,
     createRecursiveChunkPlan,
     extractAssistantText,

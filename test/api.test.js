@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   buildChatCompletionRequest,
   chunkTranslationItems,
+  clearTranslationCache,
   consumeProgressiveTranslations,
   createRecursiveChunkPlan,
   createProgressiveMergeState,
@@ -180,6 +181,45 @@ test('requestTranslations retries once when first response is invalid JSON', asy
   assert.deepEqual(result, [{ id: '1', translation: '你好' }]);
 });
 
+test('requestTranslations reuses cached translations for identical text and settings', async () => {
+  clearTranslationCache();
+
+  let calls = 0;
+  const fakeFetch = async () => {
+    calls += 1;
+
+    return {
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          choices: [{ message: { content: '[{"id":"1","translation":"你好"}]' } }]
+        })
+    };
+  };
+  const settings = {
+    apiKey: 'x',
+    baseUrl: 'https://example.com/v1',
+    model: 'demo-cache',
+    instructions: 'Translate carefully.',
+    targetLanguage: '繁體中文'
+  };
+
+  const first = await requestTranslations({
+    settings,
+    items: [{ id: '1', kind: 'paragraph', text: 'Hello' }],
+    fetchImpl: fakeFetch
+  });
+  const second = await requestTranslations({
+    settings,
+    items: [{ id: '2', kind: 'paragraph', text: 'Hello' }],
+    fetchImpl: fakeFetch
+  });
+
+  assert.equal(calls, 1);
+  assert.deepEqual(first, [{ id: '1', translation: '你好' }]);
+  assert.deepEqual(second, [{ id: '2', translation: '你好' }]);
+});
+
 test('validateProtectedFragments rejects missing placeholders', () => {
   assert.throws(() => {
     validateProtectedFragments(
@@ -196,6 +236,8 @@ test('validateProtectedFragments rejects missing placeholders', () => {
 });
 
 test('requestTranslationsBatched runs chunks in parallel and preserves chunk order', async () => {
+  clearTranslationCache();
+
   let inFlight = 0;
   let maxInFlight = 0;
   const delays = {
@@ -290,6 +332,8 @@ test('consumeProgressiveTranslations only emits a split segment after all parts 
 });
 
 test('requestTranslationsBatchedProgressive emits chunks in completion order', async () => {
+  clearTranslationCache();
+
   const completionOrder = [];
   const fakeFetch = async (url, options) => {
     const body = JSON.parse(options.body);
@@ -341,6 +385,8 @@ test('requestTranslationsBatchedProgressive emits chunks in completion order', a
 });
 
 test('requestTranslationsBatchedProgressive sends one item per request for normal items', async () => {
+  clearTranslationCache();
+
   const plan = createRecursiveChunkPlan(
     [
       { id: 'a', kind: 'paragraph', text: 'Alpha' },
