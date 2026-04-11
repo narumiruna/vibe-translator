@@ -246,36 +246,43 @@
     }
 
     style.textContent = `
-      [${ROOT_ATTR}="note"] {
+      .translation[${ROOT_ATTR}="note"] {
+        all: initial;
         display: block;
         box-sizing: border-box;
+        contain: layout style paint;
+        isolation: isolate;
+        transform: none;
+        filter: none;
+        backdrop-filter: none;
+        mix-blend-mode: normal;
+        overflow: visible;
+        float: none;
+        clear: both;
         max-width: 100%;
         margin: 0.28rem 0 0.76rem;
         padding: 0;
-        font-family: inherit;
-        font-size: 0.92em;
-        font-weight: 500;
-        line-height: 1.55;
+        font: 500 0.92em/1.55 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
         color: #5f646d;
         text-align: start;
         background: transparent;
         position: static;
       }
 
-      [${ROOT_ATTR}="note"][data-phase="ready"] {
+      .translation[${ROOT_ATTR}="note"][data-phase="ready"] {
         animation: ot-fade-in 0.22s ease forwards;
       }
 
-      [${ROOT_ATTR}="note"][data-stale="true"] {
+      .translation[${ROOT_ATTR}="note"][data-stale="true"] {
         opacity: 0.72;
       }
 
-      [${ROOT_ATTR}="note-body"] {
+      .translation [${ROOT_ATTR}="note-body"] {
+        all: initial;
         display: block;
         margin-top: 0.18rem;
         padding: 0;
-        font-family: inherit;
-        font-size: inherit;
+        font: inherit;
         line-height: 1.6;
         color: inherit;
         text-decoration-line: underline;
@@ -287,7 +294,7 @@
         word-break: break-word;
       }
 
-      [${ROOT_ATTR}="note-body"][data-state="pending"] {
+      .translation [${ROOT_ATTR}="note-body"][data-state="pending"] {
         min-height: 1.2em;
         color: transparent;
         border-radius: 0.55rem;
@@ -303,7 +310,8 @@
         animation: ot-shimmer 1.2s linear infinite;
       }
 
-      [${ROOT_ATTR}="note-body"] code {
+      .translation [${ROOT_ATTR}="note-body"] code {
+        all: initial;
         display: inline;
         padding: 0.08em 0.34em;
         border-radius: 0.35em;
@@ -337,7 +345,7 @@
         background: rgba(121, 33, 33, 0.97);
       }
 
-      [${ROOT_ATTR}="selection-panel"] {
+      .translation[${ROOT_ATTR}="selection-panel"] {
         position: fixed;
         right: 18px;
         bottom: 18px;
@@ -348,12 +356,11 @@
         border-radius: 18px;
         background: rgba(255, 252, 248, 0.98);
         box-shadow: 0 20px 48px rgba(32, 39, 36, 0.18);
-        backdrop-filter: blur(10px);
         color: #2f352f;
         font: 500 14px/1.55 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       }
 
-      [${ROOT_ATTR}="selection-panel-header"] {
+      .translation [${ROOT_ATTR}="selection-panel-header"] {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -361,7 +368,7 @@
         margin-bottom: 10px;
       }
 
-      [${ROOT_ATTR}="selection-panel-title"] {
+      .translation [${ROOT_ATTR}="selection-panel-title"] {
         margin: 0;
         color: #45614c;
         font-size: 12px;
@@ -370,7 +377,7 @@
         text-transform: uppercase;
       }
 
-      [${ROOT_ATTR}="selection-panel-close"] {
+      .translation [${ROOT_ATTR}="selection-panel-close"] {
         border: 0;
         background: transparent;
         color: #6a726c;
@@ -380,12 +387,12 @@
         font: 700 18px/1 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       }
 
-      [${ROOT_ATTR}="selection-panel-close"]:hover {
+      .translation [${ROOT_ATTR}="selection-panel-close"]:hover {
         background: rgba(69, 97, 76, 0.1);
         color: #2c4734;
       }
 
-      [${ROOT_ATTR}="selection-panel-body"] {
+      .translation [${ROOT_ATTR}="selection-panel-body"] {
         display: block;
         max-height: min(44vh, 24rem);
         overflow: auto;
@@ -400,7 +407,7 @@
         text-underline-offset: ${resolvedAppearance.underlineOffset}px;
       }
 
-      [${ROOT_ATTR}="selection-panel-body"][data-state="pending"] {
+      .translation [${ROOT_ATTR}="selection-panel-body"][data-state="pending"] {
         min-height: 3.4em;
         color: transparent;
         border-radius: 0.75rem;
@@ -416,7 +423,7 @@
         animation: ot-shimmer 1.2s linear infinite;
       }
 
-      [${ROOT_ATTR}="selection-panel-body"] code {
+      .translation [${ROOT_ATTR}="selection-panel-body"] code {
         display: inline;
         padding: 0.08em 0.34em;
         border-radius: 0.35em;
@@ -427,7 +434,7 @@
       }
 
       @media (max-width: 640px) {
-        [${ROOT_ATTR}="selection-panel"] {
+        .translation[${ROOT_ATTR}="selection-panel"] {
           right: 12px;
           left: 12px;
           bottom: 12px;
@@ -1440,6 +1447,18 @@
     return note;
   }
 
+  function isSafeNoteInsertionTarget(element) {
+    if (!element || !element.matches || !element.matches(READABLE_BLOCK_SELECTOR)) {
+      return false;
+    }
+
+    if (element.matches('article, main, section, div, body')) {
+      return false;
+    }
+
+    return !hasUnsafeLayoutContext(element);
+  }
+
   function startPageTranslationSession(payload) {
     ensureStyles(payload && payload.translationAppearance);
     ensureObserver();
@@ -1509,7 +1528,7 @@
   }
 
   function upsertNoteForSource(element, id, translation, targetLanguage, protectedFragments) {
-    if (hasUnsafeLayoutContext(element)) {
+    if (!isSafeNoteInsertionTarget(element)) {
       return null;
     }
 
@@ -1547,7 +1566,7 @@
     for (const element of document.querySelectorAll(`[${SOURCE_ATTR}]`)) {
       const id = element.getAttribute(SOURCE_ATTR);
 
-      if (!ids.has(id) || hasUnsafeLayoutContext(element)) {
+      if (!ids.has(id) || !isSafeNoteInsertionTarget(element)) {
         continue;
       }
 
@@ -1581,7 +1600,8 @@
         style.transform !== 'none' ||
         style.perspective !== 'none' ||
         style.filter !== 'none' ||
-        style.backdropFilter !== 'none'
+        style.backdropFilter !== 'none' ||
+        style.mixBlendMode !== 'normal'
       ) {
         return true;
       }
