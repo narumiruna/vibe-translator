@@ -4,6 +4,7 @@ const MENU_TRANSLATE_PAGE = 'translate-page';
 const MENU_TRANSLATE_SELECTION = 'translate-selection';
 const BADGE_COLOR = '#1f7a4f';
 const PAGE_TRANSLATION_CONCURRENCY = 3;
+const pageTranslationSessions = new Map();
 
 function isSupportedPage(url) {
   return /^https?:\/\//i.test(String(url || ''));
@@ -86,7 +87,7 @@ async function ensureContentScript(tabId) {
 
   await chrome.scripting.executeScript({
     target: { tabId },
-    files: ['content.js']
+    files: ['content-viewport.js', 'content.js']
   });
 }
 
@@ -128,6 +129,159 @@ async function loadSettingsOrOpenOptions() {
   throw new Error('Settings are incomplete. Configure the extension first.');
 }
 
+function createPageTranslationSession(tabId, settings) {
+  return {
+    tabId,
+    sessionId: `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    settings,
+    pendingItems: [],
+    pendingIds: new Set(),
+    translatedIds: new Set(),
+    inFlightCount: 0
+  };
+}
+
+function getPageTranslationSession(tabId, sessionId) {
+  const session = pageTranslationSessions.get(tabId);
+
+  if (!session) {
+    return null;
+  }
+
+  if (sessionId && session.sessionId !== sessionId) {
+    return null;
+  }
+
+  return session;
+}
+
+async function processQueuedPageTranslationItems(tabId, sessionId) {
+  const session = getPageTranslationSession(tabId, sessionId);
+
+  if (!session) {
+    return;
+  }
+
+  while (
+    session.pendingItems.length > 0 &&
+    session.inFlightCount < PAGE_TRANSLATION_CONCURRENCY
+  ) {
+    const item = session.pendingItems.shift();
+
+    if (!item) {
+      break;
+    }
+
+    session.inFlightCount += 1;
+    processSinglePageTranslationItem(tabId, sessionId, item).catch((error) => {
+      console.error('Failed to process page translation item:', error);
+    });
+  }
+}
+
+async function processSinglePageTranslationItem(tabId, sessionId, item) {
+  const session = getPageTranslationSession(tabId, sessionId);
+
+  if (!session || !item || typeof item.id !== 'string') {
+    return;
+  }
+
+  const itemId = item.id;
+
+  try {
+    await chrome.tabs.sendMessage(tabId, {
+      type: 'render-page-placeholders',
+      payload: {
+        ids: [itemId],
+        targetLanguage: session.settings.targetLanguage
+      }
+    });
+
+    const chunkPlan = TranslatorApi.createRecursiveChunkPlan([item]);
+    const mergeState = TranslatorApi.createProgressiveMergeState(chunkPlan);
+    await TranslatorApi.requestTranslationsBatchedProgressive({
+      settings: session.settings,
+      chunks: chunkPlan.chunks,
+      concurrency: Math.min(PAGE_TRANSLATION_CONCURRENCY, chunkPlan.chunks.length || 1),
+      onChunkResolved: async ({ translations }) => {
+        const currentSession = getPageTranslationSession(tabId, sessionId);
+
+        if (!currentSession) {
+          return;
+        }
+
+        const completedTranslations = TranslatorApi.consumeProgressiveTranslations(
+          chunkPlan,
+          mergeState,
+          translations
+        );
+
+        if (completedTranslations.length > 0) {
+          for (const translation of completedTranslations) {
+            currentSession.translatedIds.add(translation.id);
+          }
+
+          await renderPageTranslationUpdates(
+            tabId,
+            currentSession.settings.targetLanguage,
+            completedTranslations
+          );
+          setBadge(tabId, String(currentSession.translatedIds.size));
+        }
+      }
+    });
+
+    const incompleteSegmentIds = TranslatorApi.getIncompleteSegmentIds(chunkPlan, mergeState);
+
+    if (incompleteSegmentIds.length > 0) {
+      await clearPagePlaceholders(tabId, incompleteSegmentIds);
+    }
+  } finally {
+    const currentSession = getPageTranslationSession(tabId, sessionId);
+
+    if (!currentSession) {
+      return;
+    }
+
+    currentSession.pendingIds.delete(itemId);
+    currentSession.inFlightCount = Math.max(0, currentSession.inFlightCount - 1);
+
+    if (currentSession.pendingItems.length > 0) {
+      processQueuedPageTranslationItems(tabId, currentSession.sessionId).catch((error) => {
+        console.error('Failed to continue page translation queue:', error);
+      });
+    }
+  }
+}
+
+async function queuePageTranslationItems(tabId, sessionId, items) {
+  const session = getPageTranslationSession(tabId, sessionId);
+
+  if (!session) {
+    return { queued: 0 };
+  }
+
+  const queuedItems = [];
+
+  for (const item of items || []) {
+    if (!item || typeof item.id !== 'string' || session.pendingIds.has(item.id)) {
+      continue;
+    }
+
+    session.pendingIds.add(item.id);
+    session.pendingItems.push(item);
+    queuedItems.push(item);
+  }
+
+  if (queuedItems.length > 0) {
+    processQueuedPageTranslationItems(tabId, session.sessionId).catch((error) => {
+      console.error('Failed to queue page translation items:', error);
+    });
+  }
+
+  return { queued: queuedItems.length };
+}
+
 async function translatePage(tab) {
   if (!tab || !tab.id || !isSupportedPage(tab.url)) {
     throw new Error('This page cannot be translated.');
@@ -146,80 +300,44 @@ async function translatePage(tab) {
   }
 
   await ensureContentScript(tab.id);
+  const session = createPageTranslationSession(tab.id, settings);
+
+  pageTranslationSessions.set(tab.id, session);
+
   const extraction = await chrome.tabs.sendMessage(tab.id, {
-    type: 'extract-page-content'
+    type: 'start-page-translation-session',
+    payload: {
+      sessionId: session.sessionId,
+      targetLanguage: settings.targetLanguage
+    }
   });
 
   if (!extraction || !Array.isArray(extraction.items)) {
+    pageTranslationSessions.delete(tab.id);
     await sendToast(tab.id, 'No translatable text was found on this page.', 'info');
     setBadge(tab.id, '');
     return;
   }
 
   if (extraction.items.length === 0) {
-    const message =
-      extraction.totalSegments > 0
-        ? 'No new or changed text was found on this page.'
-        : 'No translatable text was found on this page.';
+    if (extraction.totalSegments > 0) {
+      await sendToast(
+        tab.id,
+        'Visible content is already translated. More content will translate as you scroll.',
+        'info'
+      );
+      setBadge(tab.id, session.translatedIds.size > 0 ? String(session.translatedIds.size) : '');
+      return;
+    }
 
-    await sendToast(tab.id, message, 'info');
+    pageTranslationSessions.delete(tab.id);
+    await sendToast(tab.id, 'No translatable text was found on this page.', 'info');
     setBadge(tab.id, '');
     return;
   }
 
-  await chrome.tabs.sendMessage(tab.id, {
-    type: 'render-page-placeholders',
-    payload: {
-      ids: extraction.items.map((item) => item.id),
-      targetLanguage: settings.targetLanguage
-    }
-  });
-
-  const chunkPlan = TranslatorApi.createRecursiveChunkPlan(extraction.items);
-  const mergeState = TranslatorApi.createProgressiveMergeState(chunkPlan);
-  await TranslatorApi.requestTranslationsBatchedProgressive({
-    settings,
-    chunks: chunkPlan.chunks,
-    concurrency: PAGE_TRANSLATION_CONCURRENCY,
-    onChunkResolved: async ({ translations }) => {
-      const completedTranslations = TranslatorApi.consumeProgressiveTranslations(
-        chunkPlan,
-        mergeState,
-        translations
-      );
-
-      if (completedTranslations.length > 0) {
-        await renderPageTranslationUpdates(
-          tab.id,
-          settings.targetLanguage,
-          completedTranslations
-        );
-        setBadge(tab.id, String(mergeState.completedSegmentIds.size));
-      }
-    }
-  });
-  const incompleteSegmentIds = TranslatorApi.getIncompleteSegmentIds(chunkPlan, mergeState);
-
-  await clearPagePlaceholders(tab.id, incompleteSegmentIds);
-
-  const completedCount = mergeState.completedSegmentIds.size;
-  const failedCount = incompleteSegmentIds.length;
-
-  if (failedCount > 0) {
-    await sendToast(
-      tab.id,
-      `Translated ${completedCount} blocks, ${failedCount} failed.`,
-      completedCount > 0 ? 'info' : 'error'
-    );
-  } else {
-    await sendToast(tab.id, `Translated ${completedCount} page blocks.`, 'success');
-  }
-
-  if (completedCount > 0) {
-    setBadge(tab.id, 'TR');
-  } else {
-    setBadge(tab.id, '!');
-  }
+  await queuePageTranslationItems(tab.id, session.sessionId, extraction.items);
+  await sendToast(tab.id, 'Started translating visible content.', 'success');
 }
 
 async function translateSelection(tabId, selectionText) {
@@ -281,7 +399,7 @@ async function translateSelection(tabId, selectionText) {
   setBadge(tabId, 'TR');
 }
 
-async function handleRuntimeMessage(message) {
+async function handleRuntimeMessage(message, sender) {
   if (!message || typeof message !== 'object') {
     return { ok: false };
   }
@@ -301,6 +419,25 @@ async function handleRuntimeMessage(message) {
     return {
       ok: true,
       translation: translations[0] ? translations[0].translation : ''
+    };
+  }
+
+  if (message.type === 'queue-page-translation-items') {
+    const tabId = sender && sender.tab && sender.tab.id;
+
+    if (!tabId) {
+      return { ok: false, queued: 0 };
+    }
+
+    const result = await queuePageTranslationItems(
+      tabId,
+      message.payload && message.payload.sessionId,
+      message.payload && message.payload.items
+    );
+
+    return {
+      ok: true,
+      ...result
     };
   }
 
@@ -324,6 +461,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     await translatePage(tab);
   } catch (error) {
     if (tab && tab.id) {
+      pageTranslationSessions.delete(tab.id);
       await chrome.tabs.sendMessage(tab.id, {
         type: 'clear-pending-translations'
       }).catch(() => {});
@@ -345,6 +483,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
   } catch (error) {
     if (tab && tab.id) {
+      pageTranslationSessions.delete(tab.id);
       await chrome.tabs.sendMessage(tab.id, {
         type: 'clear-pending-translations'
       }).catch(() => {});
@@ -356,12 +495,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === 'loading') {
+    pageTranslationSessions.delete(tabId);
     setBadge(tabId, '');
   }
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleRuntimeMessage(message)
+  handleRuntimeMessage(message, sender)
     .then((result) => sendResponse(result))
     .catch((error) => sendResponse({ ok: false, error: error.message }));
 

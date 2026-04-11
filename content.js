@@ -9,9 +9,11 @@
   const NOTE_ATTR = 'data-ot-note-id';
   const STALE_ATTR = 'data-ot-source-stale';
   const TRANSLATED_ATTR = 'data-ot-translated';
+  const QUEUED_ATTR = 'data-ot-queued';
   const ROOT_ATTR = 'data-ot-role';
   const SELECTED_NOTE_ID = 'selection-note';
   const STYLE_ID = 'ot-translator-style';
+  const PREFETCH_VIEWPORTS = 1;
   const SEMANTIC_BLOCK_SELECTOR = [
     'h1',
     'h2',
@@ -22,9 +24,7 @@
     'p',
     'li',
     'blockquote',
-    'figcaption',
-    'td',
-    'th'
+    'figcaption'
   ].join(', ');
   const GENERIC_BLOCK_SELECTOR = ['article', 'main', 'section', 'div'].join(', ');
   const SKIP_ANCESTOR_SELECTOR = [
@@ -52,7 +52,42 @@
   ].join(', ');
   let observerStarted = false;
   let staleFlushTimer = null;
+  let visibleTranslationFlushTimer = null;
   const pendingStaleSources = new Set();
+  const ViewportApi = window.TranslatorContentViewport || {
+    DEFAULT_PREFETCH_VIEWPORTS: 1,
+    DEFAULT_TOP_MARGIN: 96,
+    normalizeViewportOptions(options) {
+      return {
+        viewportHeight: Math.max(0, Number(options && options.viewportHeight) || 0),
+        prefetchViewports: Math.max(
+          0,
+          Number(options && options.prefetchViewports) || PREFETCH_VIEWPORTS
+        ),
+        topMargin: Math.max(0, Number(options && options.topMargin) || 96)
+      };
+    },
+    isRectWithinTranslationWindow(rect, options) {
+      const normalized = this.normalizeViewportOptions(options);
+
+      return (
+        rect &&
+        Number(rect.bottom) >= -normalized.topMargin &&
+        Number(rect.top) <= normalized.viewportHeight * (1 + normalized.prefetchViewports)
+      );
+    },
+    selectWindowCandidates(items, options) {
+      return [...(items || [])]
+        .filter((item) => this.isRectWithinTranslationWindow(item.rect, options))
+        .sort((left, right) => left.rect.top - right.rect.top);
+    }
+  };
+  const pageState = {
+    pageTranslation: {
+      active: false,
+      sessionId: ''
+    }
+  };
 
   function ensureStyles() {
     if (document.getElementById(STYLE_ID)) {
@@ -63,98 +98,78 @@
     style.id = STYLE_ID;
     style.textContent = `
       [${ROOT_ATTR}="note"] {
-        all: initial;
         display: block;
         box-sizing: border-box;
         max-width: 100%;
-        margin: 0.32rem 0 0.72rem;
-        padding: 0.12rem 0 0.34rem;
+        margin: 0.28rem 0 0.76rem;
+        padding: 0;
         font-family: inherit;
-        font-size: inherit;
-        line-height: inherit;
-        color: #25553c;
+        font-size: 0.92em;
+        font-weight: 500;
+        line-height: 1.55;
+        color: #5f646d;
         text-align: start;
-        letter-spacing: normal;
-        white-space: normal;
         background: transparent;
-        border: 0;
-        outline: 0;
         position: static;
-        transform: none;
-        perspective: none;
-        overflow: visible;
-        z-index: auto;
       }
 
       [${ROOT_ATTR}="note"][data-phase="ready"] {
-        animation: ot-slide-fade 0.35s ease forwards;
+        animation: ot-fade-in 0.22s ease forwards;
       }
 
       [${ROOT_ATTR}="note"][data-stale="true"] {
-        opacity: 0.65;
+        opacity: 0.72;
       }
 
       [${ROOT_ATTR}="note-body"] {
-        all: initial;
         display: block;
-        padding-top: 0.06rem;
-        padding-bottom: 0.22rem;
-        border-bottom: 1px dashed rgba(41, 133, 75, 0.75);
+        margin-top: 0.18rem;
+        padding: 0;
         font-family: inherit;
         font-size: inherit;
         line-height: 1.6;
-        color: #25553c;
+        color: inherit;
         white-space: pre-wrap;
         word-break: break-word;
       }
 
       [${ROOT_ATTR}="note-body"][data-state="pending"] {
         min-height: 1.2em;
-        border-bottom-color: rgba(41, 133, 75, 0.32);
         color: transparent;
+        border-radius: 0.55rem;
         background:
           linear-gradient(
             90deg,
-            rgba(37, 85, 60, 0.08) 0%,
-            rgba(255, 255, 255, 0.68) 50%,
-            rgba(37, 85, 60, 0.08) 100%
+            rgba(132, 138, 150, 0.12) 0%,
+            rgba(255, 255, 255, 0.72) 50%,
+            rgba(132, 138, 150, 0.12) 100%
           );
         background-size: 200% 100%;
         animation: ot-shimmer 1.2s linear infinite;
       }
 
-      [${ROOT_ATTR}="note-body"][data-state="ready"] {
-        animation: ot-slide-fade 0.35s ease forwards;
-      }
-
       [${ROOT_ATTR}="note-body"] code {
-        all: initial;
         display: inline;
         padding: 0.08em 0.34em;
         border-radius: 0.35em;
-        background: rgba(37, 85, 60, 0.09);
-        color: #1d4330;
+        background: rgba(111, 118, 129, 0.12);
+        color: #39414d;
         font: 0.92em/1.4 ui-monospace, 'SFMono-Regular', Menlo, monospace;
       }
 
       [${ROOT_ATTR}="toast-layer"] {
-        position: fixed;
-        top: 16px;
-        right: 16px;
-        z-index: 2147483647;
         display: flex;
         flex-direction: column;
         gap: 8px;
+        margin: 0 0 1rem;
       }
 
       [${ROOT_ATTR}="toast"] {
-        min-width: 240px;
-        max-width: 360px;
+        max-width: min(100%, 32rem);
         padding: 12px 14px;
         border-radius: 12px;
         background: rgba(28, 33, 36, 0.94);
         color: #f7f9f8;
-        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
         font: 500 13px/1.45 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       }
 
@@ -176,19 +191,34 @@
         }
       }
 
-      @keyframes ot-slide-fade {
+      @keyframes ot-fade-in {
         from {
           opacity: 0;
-          transform: translateY(6px);
         }
 
         to {
           opacity: 1;
-          transform: translateY(0);
         }
       }
     `;
     document.documentElement.appendChild(style);
+  }
+
+  function setSourceQueued(element, queued) {
+    if (!element) {
+      return;
+    }
+
+    element.setAttribute(QUEUED_ATTR, queued ? 'true' : 'false');
+  }
+
+  function activatePageTranslationSession(sessionId) {
+    pageState.pageTranslation.active = true;
+    pageState.pageTranslation.sessionId = sessionId || '';
+  }
+
+  function isPageTranslationSessionActive() {
+    return pageState.pageTranslation.active && Boolean(pageState.pageTranslation.sessionId);
   }
 
   function normalizeInlineWhitespace(text) {
@@ -344,10 +374,6 @@
       return null;
     }
 
-    if (element.tagName === 'LI') {
-      return element.querySelector(`:scope > [${NOTE_ATTR}="${id}"]`);
-    }
-
     const next = element.nextElementSibling;
 
     if (next && next.getAttribute(NOTE_ATTR) === id) {
@@ -370,6 +396,7 @@
 
     element.setAttribute(STALE_ATTR, 'true');
     element.setAttribute(TRANSLATED_ATTR, 'stale');
+    setSourceQueued(element, false);
     const note = getExistingNoteForSource(element, id);
 
     if (note) {
@@ -436,6 +463,7 @@
 
         if (mutation.type === 'characterData') {
           markRelatedSourcesStale(mutation.target);
+          scheduleVisiblePageTranslation();
           continue;
         }
 
@@ -445,6 +473,8 @@
           for (const node of mutation.addedNodes) {
             markRelatedSourcesStale(node);
           }
+
+          scheduleVisiblePageTranslation();
         }
       }
     });
@@ -454,6 +484,18 @@
       characterData: true,
       subtree: true
     });
+
+    window.addEventListener(
+      'scroll',
+      () => {
+        scheduleVisiblePageTranslation();
+      },
+      { passive: true }
+    );
+    window.addEventListener('resize', () => {
+      scheduleVisiblePageTranslation();
+    });
+
     observerStarted = true;
   }
 
@@ -461,6 +503,9 @@
     const itemId = element.getAttribute(SOURCE_ATTR) || `ot-${counterRef.value += 1}`;
 
     element.setAttribute(SOURCE_ATTR, itemId);
+    if (!element.hasAttribute(QUEUED_ATTR)) {
+      element.setAttribute(QUEUED_ATTR, 'false');
+    }
 
     return {
       id: itemId,
@@ -469,11 +514,42 @@
     };
   }
 
-  function collectSemanticItems() {
+  function getViewportWindowOptions() {
+    return ViewportApi.normalizeViewportOptions({
+      viewportHeight: window.innerHeight || document.documentElement.clientHeight || 0,
+      prefetchViewports: PREFETCH_VIEWPORTS
+    });
+  }
+
+  function shouldQueueElementForTranslation(element, existingId) {
+    const stale = element.getAttribute(STALE_ATTR) === 'true';
+    const translated = element.getAttribute(TRANSLATED_ATTR) === 'true';
+    const queued = element.getAttribute(QUEUED_ATTR) === 'true';
+    const hasNote = existingId ? Boolean(getExistingNoteForSource(element, existingId)) : false;
+
+    if (stale) {
+      return true;
+    }
+
+    return !(hasNote || translated || queued);
+  }
+
+  function createWindowCandidate(element, item) {
+    return {
+      element,
+      item,
+      rect: element.getBoundingClientRect()
+    };
+  }
+
+  function collectSemanticItems(options) {
     const items = [];
+    const windowCandidates = [];
     const totalElements = [];
     const counterRef = { value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length };
     const elements = Array.from(document.body.querySelectorAll(SEMANTIC_BLOCK_SELECTOR));
+    const windowed = Boolean(options && options.windowed);
+    const viewportOptions = windowed ? getViewportWindowOptions() : null;
 
     for (const element of elements) {
       if (!isCandidateElement(element)) {
@@ -483,28 +559,39 @@
       totalElements.push(element);
 
       const existingId = element.getAttribute(SOURCE_ATTR);
-      const stale = element.getAttribute(STALE_ATTR) === 'true';
-      const hasNote = existingId ? Boolean(getExistingNoteForSource(element, existingId)) : false;
-      const translated = element.getAttribute(TRANSLATED_ATTR) === 'true';
+      const shouldQueue = shouldQueueElementForTranslation(element, existingId);
 
-      if ((hasNote || translated) && !stale) {
+      if (!shouldQueue) {
         continue;
       }
 
-      items.push(buildSegmentItem(element, counterRef));
+      const item = buildSegmentItem(element, counterRef);
+
+      if (windowed) {
+        windowCandidates.push(createWindowCandidate(element, item));
+      } else {
+        items.push(item);
+      }
     }
 
     return {
-      items,
+      items: windowed
+        ? ViewportApi.selectWindowCandidates(windowCandidates, viewportOptions).map(
+            (candidate) => candidate.item
+          )
+        : items,
       totalSegments: totalElements.length
     };
   }
 
-  function collectFallbackItems() {
+  function collectFallbackItems(options) {
     const counterRef = { value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length };
     const seen = new Set();
     const items = [];
+    const windowCandidates = [];
     let totalSegments = 0;
+    const windowed = Boolean(options && options.windowed);
+    const viewportOptions = windowed ? getViewportWindowOptions() : null;
     const walker = document.createTreeWalker(
       document.body,
       NodeFilter.SHOW_TEXT,
@@ -536,12 +623,16 @@
         totalSegments += 1;
 
         const existingId = anchor.getAttribute(SOURCE_ATTR);
-        const stale = anchor.getAttribute(STALE_ATTR) === 'true';
-        const hasNote = existingId ? Boolean(getExistingNoteForSource(anchor, existingId)) : false;
-        const translated = anchor.getAttribute(TRANSLATED_ATTR) === 'true';
+        const shouldQueue = shouldQueueElementForTranslation(anchor, existingId);
 
-        if (!hasNote && !translated || stale) {
-          items.push(buildSegmentItem(anchor, counterRef));
+        if (shouldQueue) {
+          const item = buildSegmentItem(anchor, counterRef);
+
+          if (windowed) {
+            windowCandidates.push(createWindowCandidate(anchor, item));
+          } else {
+            items.push(item);
+          }
         }
       }
 
@@ -549,16 +640,20 @@
     }
 
     return {
-      items,
+      items: windowed
+        ? ViewportApi.selectWindowCandidates(windowCandidates, viewportOptions).map(
+            (candidate) => candidate.item
+          )
+        : items,
       totalSegments
     };
   }
 
-  function collectPageItems() {
+  function collectPageItems(options) {
     ensureStyles();
     ensureObserver();
 
-    const semantic = collectSemanticItems();
+    const semantic = collectSemanticItems(options);
 
     if (semantic.totalSegments > 0) {
       return {
@@ -568,7 +663,7 @@
       };
     }
 
-    const fallback = collectFallbackItems();
+    const fallback = collectFallbackItems(options);
 
     return {
       items: fallback.items,
@@ -577,16 +672,65 @@
     };
   }
 
-  function buildNote(id) {
-    const note = document.createElement('div');
-    const body = document.createElement('div');
+  async function requestVisiblePageTranslationBatch() {
+    visibleTranslationFlushTimer = null;
+
+    if (!isPageTranslationSessionActive()) {
+      return;
+    }
+
+    const extraction = collectPageItems({ windowed: true });
+
+    if (!extraction.items || extraction.items.length === 0) {
+      return;
+    }
+
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'queue-page-translation-items',
+        payload: {
+          sessionId: pageState.pageTranslation.sessionId,
+          items: extraction.items
+        }
+      });
+    } catch (error) {
+      // Ignore runtime messaging failures on teardown or unsupported pages.
+    }
+  }
+
+  function scheduleVisiblePageTranslation() {
+    if (!isPageTranslationSessionActive() || visibleTranslationFlushTimer) {
+      return;
+    }
+
+    visibleTranslationFlushTimer = window.setTimeout(() => {
+      requestVisiblePageTranslationBatch().catch(() => {});
+    }, 140);
+  }
+
+  function buildNote(sourceElement, id) {
+    const tagName = sourceElement && sourceElement.tagName
+      ? sourceElement.tagName.toLowerCase()
+      : 'p';
+    const note = document.createElement(tagName);
+    const body = document.createElement('span');
 
     note.setAttribute(ROOT_ATTR, 'note');
     note.setAttribute(NOTE_ATTR, id);
     body.setAttribute(ROOT_ATTR, 'note-body');
+    body.setAttribute('data-state', 'ready');
     note.appendChild(body);
 
     return note;
+  }
+
+  function startPageTranslationSession(payload) {
+    ensureStyles();
+    ensureObserver();
+    clearPendingTranslations();
+    activatePageTranslationSession(payload.sessionId);
+
+    return collectPageItems({ windowed: true });
   }
 
   function setNotePending(note, targetLanguage) {
@@ -628,7 +772,7 @@
     }
 
     const existingNote = getExistingNoteForSource(element, id);
-    const note = existingNote || buildNote(id);
+    const note = existingNote || buildNote(element, id);
     const body = note.querySelector(`[${ROOT_ATTR}="note-body"]`);
 
     note.setAttribute('data-phase', 'ready');
@@ -639,13 +783,10 @@
     note.removeAttribute('data-stale');
     element.removeAttribute(STALE_ATTR);
     element.setAttribute(TRANSLATED_ATTR, 'true');
+    setSourceQueued(element, false);
 
     if (!existingNote) {
-      if (element.tagName === 'LI') {
-        element.appendChild(note);
-      } else {
-        element.insertAdjacentElement('afterend', note);
-      }
+      element.insertAdjacentElement('afterend', note);
     }
 
     return note;
@@ -665,18 +806,14 @@
         continue;
       }
 
-      const note = getExistingNoteForSource(element, id) || buildNote(id);
+      const note = getExistingNoteForSource(element, id) || buildNote(element, id);
 
       setNotePending(note, payload.targetLanguage);
+      setSourceQueued(element, true);
 
       if (!note.isConnected) {
-        if (element.tagName === 'LI') {
-          element.appendChild(note);
-        } else {
-          element.insertAdjacentElement('afterend', note);
-        }
+        element.insertAdjacentElement('afterend', note);
       }
-
       rendered += 1;
     }
 
@@ -754,6 +891,7 @@
       if (source) {
         source.removeAttribute(TRANSLATED_ATTR);
         source.removeAttribute(STALE_ATTR);
+        setSourceQueued(source, false);
       }
     }
 
@@ -794,7 +932,12 @@
       return { rendered: 'toast' };
     }
 
-    upsertNoteForSource(container, SELECTED_NOTE_ID, payload.translation, payload.targetLanguage);
+    upsertNoteForSource(
+      container,
+      SELECTED_NOTE_ID,
+      payload.translation,
+      payload.targetLanguage
+    );
 
     return { rendered: 'inline' };
   }
@@ -809,16 +952,14 @@
       return { rendered: 'toast' };
     }
 
-    const note = getExistingNoteForSource(container, SELECTED_NOTE_ID) || buildNote(SELECTED_NOTE_ID);
+    const note =
+      getExistingNoteForSource(container, SELECTED_NOTE_ID) ||
+      buildNote(container, SELECTED_NOTE_ID);
 
     setNotePending(note, payload.targetLanguage);
 
     if (!note.isConnected) {
-      if (container.tagName === 'LI') {
-        container.appendChild(note);
-      } else {
-        container.insertAdjacentElement('afterend', note);
-      }
+      container.insertAdjacentElement('afterend', note);
     }
 
     return { rendered: 'inline' };
@@ -827,8 +968,21 @@
   function clearPendingTranslations() {
     const notes = Array.from(document.querySelectorAll(`[${ROOT_ATTR}="note"][data-phase="pending"]`));
 
+    pageState.pageTranslation.active = false;
+    pageState.pageTranslation.sessionId = '';
+    if (visibleTranslationFlushTimer) {
+      window.clearTimeout(visibleTranslationFlushTimer);
+      visibleTranslationFlushTimer = null;
+    }
+
     for (const note of notes) {
       note.remove();
+    }
+
+    for (const source of document.querySelectorAll(`[${SOURCE_ATTR}]`)) {
+      if (source.getAttribute(TRANSLATED_ATTR) !== 'true') {
+        setSourceQueued(source, false);
+      }
     }
 
     return { cleared: notes.length };
@@ -841,7 +995,11 @@
     if (!layer) {
       layer = document.createElement('div');
       layer.setAttribute(ROOT_ATTR, 'toast-layer');
-      document.documentElement.appendChild(layer);
+      if (document.body) {
+        document.body.insertAdjacentElement('afterbegin', layer);
+      } else {
+        document.documentElement.appendChild(layer);
+      }
     }
 
     return layer;
@@ -880,6 +1038,14 @@
       sendResponse({
         ok: true,
         ...collectPageItems()
+      });
+      return;
+    }
+
+    if (message.type === 'start-page-translation-session') {
+      sendResponse({
+        ok: true,
+        ...startPageTranslationSession(message.payload || {})
       });
       return;
     }

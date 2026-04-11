@@ -1,5 +1,4 @@
 (function (root) {
-  const DEFAULT_TEMPERATURE = 0.2;
   const DEFAULT_MAX_BATCH_CHARS = 5000;
   const DEFAULT_MAX_CONCURRENCY = 3;
   const SPLIT_BOUNDARIES = [
@@ -231,7 +230,7 @@
     }
 
     return {
-      chunks: chunkTranslationItems(expandedItems, limit),
+      chunks: expandedItems.map((item) => [item]),
       expandedItems,
       items: normalizedItems,
       mergePlan
@@ -289,7 +288,6 @@
   function buildChatCompletionRequest(settings, items, strictJson) {
     return {
       model: settings.model,
-      temperature: DEFAULT_TEMPERATURE,
       stream: false,
       messages: buildTranslationMessages({
         instructions: settings.instructions,

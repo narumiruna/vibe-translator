@@ -11,16 +11,24 @@
 
 1. Open `test/fixture-page.html` in a local HTTP server or use a normal article page
 2. Click the extension icon
-3. Confirm the page shows translation notes below the original blocks
-4. Right-click a blank area and choose **Translate entire page**
-5. Confirm a second run updates existing notes instead of duplicating them
+3. Confirm only the visible area and roughly the next screenful start showing placeholders/translations
+4. Confirm deeper content below that window does not start translating yet
+5. Scroll down and confirm the next group of blocks starts translating after it enters the prefetch window
+6. Confirm the page shows translation notes as sibling blocks instead of nested inside headings or list items
+7. Confirm headings and list items keep their original structure and ordering
+8. Confirm completed translations stay visible inline with the original text
+9. Confirm there is no display mode toolbar on the page
+10. Right-click a blank area and choose **Translate entire page**
+11. Confirm a second run updates existing notes instead of duplicating them
+12. Confirm there are no per-block “顯示翻譯” or “收起翻譯” buttons
 
 ## Selection translation
 
 1. Select a sentence on the page
 2. Right-click the selected text
 3. Choose **Translate selected text**
-4. Confirm the translation appears near the selected block or as a toast fallback
+4. Confirm the translation appears as a sibling note near the selected block or as a toast fallback
+5. Confirm selection translation keeps the original text visible
 
 ## Error handling
 

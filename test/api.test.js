@@ -44,6 +44,24 @@ test('splitTextRecursively breaks a long text into bounded parts', () => {
   assert.ok(parts.every((part) => part.text.length <= 12));
 });
 
+test('createRecursiveChunkPlan creates one request per non-oversized item', () => {
+  const plan = createRecursiveChunkPlan(
+    [
+      { id: 'a', kind: 'paragraph', text: 'Alpha paragraph.' },
+      { id: 'b', kind: 'paragraph', text: 'Beta paragraph.' },
+      { id: 'c', kind: 'heading', text: 'Gamma heading' }
+    ],
+    200
+  );
+
+  assert.equal(plan.chunks.length, 3);
+  assert.deepEqual(plan.chunks.map((chunk) => chunk.map((item) => item.id)), [
+    ['a'],
+    ['b'],
+    ['c']
+  ]);
+});
+
 test('createRecursiveChunkPlan splits oversized items and mergeRecursiveTranslations restores them', () => {
   const plan = createRecursiveChunkPlan(
     [
@@ -58,6 +76,7 @@ test('createRecursiveChunkPlan splits oversized items and mergeRecursiveTranslat
 
   assert.ok(plan.expandedItems.length > 1);
   assert.ok(plan.expandedItems.every((item) => item.text.length <= 24));
+  assert.ok(plan.chunks.every((chunk) => chunk.length === 1));
 
   const merged = mergeRecursiveTranslations(plan, plan.expandedItems.map((item) => ({
     id: item.id,
@@ -101,6 +120,7 @@ test('buildChatCompletionRequest uses chat completions shape', () => {
 
   assert.equal(payload.model, 'demo');
   assert.equal(payload.stream, false);
+  assert.equal('temperature' in payload, false);
   assert.equal(payload.messages.length, 2);
   assert.match(payload.messages[0].content, /Return only valid JSON/);
   assert.match(payload.messages[0].content, /Preserve placeholders/);
@@ -313,4 +333,57 @@ test('requestTranslationsBatchedProgressive emits chunks in completion order', a
   assert.deepEqual(completionOrder, ['b', 'c', 'a']);
   assert.equal(result.failures.length, 0);
   assert.equal(result.successes.length, 3);
+});
+
+test('requestTranslationsBatchedProgressive sends one item per request for normal items', async () => {
+  const plan = createRecursiveChunkPlan(
+    [
+      { id: 'a', kind: 'paragraph', text: 'Alpha' },
+      { id: 'b', kind: 'paragraph', text: 'Beta' }
+    ],
+    200
+  );
+  const requestPayloadIds = [];
+  const fakeFetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    const items = JSON.parse(body.messages[1].content.split('\n\n').at(-1)).items;
+
+    requestPayloadIds.push(items.map((item) => item.id));
+
+    return {
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify(
+                  items.map((item) => ({
+                    id: item.id,
+                    translation: `translated-${item.id}`
+                  }))
+                )
+              }
+            }
+          ]
+        })
+    };
+  };
+
+  const result = await requestTranslationsBatchedProgressive({
+    settings: {
+      apiKey: 'x',
+      baseUrl: 'https://example.com/v1',
+      model: 'demo',
+      instructions: 'Translate carefully.',
+      targetLanguage: '繁體中文'
+    },
+    chunks: plan.chunks,
+    concurrency: 2,
+    fetchImpl: fakeFetch
+  });
+
+  assert.deepEqual(requestPayloadIds, [['a'], ['b']]);
+  assert.equal(result.failures.length, 0);
+  assert.equal(result.successes.length, 2);
 });
