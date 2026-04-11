@@ -17,7 +17,7 @@
   const VISIBLE_TRANSLATION_FLUSH_DELAY_MS = 80;
   const DEFAULT_TRANSLATION_APPEARANCE = Object.freeze({
     underlineColor: '#1f7a4f',
-    underlineStyle: 'solid',
+    underlineStyle: 'dashed',
     underlineThickness: 2,
     underlineOffset: 3
   });

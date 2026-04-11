@@ -43,7 +43,7 @@
   function normalizeUnderlineStyle(value) {
     const normalized = String(value || '').trim().toLowerCase();
 
-    return TRANSLATION_UNDERLINE_STYLES.includes(normalized) ? normalized : 'solid';
+    return TRANSLATION_UNDERLINE_STYLES.includes(normalized) ? normalized : 'dashed';
   }
 
   function normalizeTranslationAppearance(input) {
@@ -64,10 +64,10 @@
     systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_TEMPLATE,
     userPromptTemplate: DEFAULT_USER_PROMPT_TEMPLATE,
     translationUnderlineColor: '#1f7a4f',
-    translationUnderlineStyle: 'solid',
+    translationUnderlineStyle: 'dashed',
     translationUnderlineThickness: 2,
     translationUnderlineOffset: 3,
-    targetLanguage: '繁體中文',
+    targetLanguage: '台灣正體中文',
     disabledDomains: ''
   });
 

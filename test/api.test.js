@@ -29,7 +29,7 @@ function buildSettings(overrides) {
     model: 'demo',
     systemPromptTemplate: 'System template for {{targetLanguage}} ({{itemCount}} items).',
     userPromptTemplate: 'User template for {{itemKind}}.\n\n{{sourcePayload}}',
-    targetLanguage: '繁體中文',
+    targetLanguage: '台灣正體中文',
     ...overrides
   };
 }
@@ -128,11 +128,11 @@ test('buildTranslationInput renders prompt templates with source payload', () =>
 
   assert.equal(input.length, 2);
   assert.equal(input[0].role, 'system');
-  assert.match(input[0].content, /繁體中文/);
+  assert.match(input[0].content, /台灣正體中文/);
   assert.match(input[0].content, /1 items/);
   assert.equal(input[1].role, 'user');
   assert.match(input[1].content, /User template for heading/);
-  assert.match(input[1].content, /"targetLanguage":"繁體中文"/);
+  assert.match(input[1].content, /"targetLanguage":"台灣正體中文"/);
   assert.match(input[1].content, /"id":"1"/);
   assert.match(input[1].content, /"kind":"heading"/);
   assert.match(input[1].content, /"text":"Hello"/);

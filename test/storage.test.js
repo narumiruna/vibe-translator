@@ -56,7 +56,7 @@ test('normalizeTranslationAppearance clamps and sanitizes underline settings', (
     translationUnderlineOffset: -4
   }), {
     translationUnderlineColor: '#1f7a4f',
-    translationUnderlineStyle: 'solid',
+    translationUnderlineStyle: 'dashed',
     translationUnderlineThickness: 6,
     translationUnderlineOffset: 0
   });
