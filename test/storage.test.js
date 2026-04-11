@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 
 const {
   DEFAULT_SETTINGS,
+  DEFAULT_SYSTEM_PROMPT_TEMPLATE,
+  DEFAULT_USER_PROMPT_TEMPLATE,
   getApiPermissionPattern,
+  migrateLegacyPromptSettings,
   normalizeDisabledDomains,
   normalizeBaseUrl,
   validateSettings
@@ -25,7 +28,7 @@ test('validateSettings rejects incomplete settings', () => {
   assert.ok(result.errors.length >= 3);
 });
 
-test('validateSettings merges defaults', () => {
+test('validateSettings merges prompt template defaults', () => {
   const result = validateSettings({
     apiKey: 'sk-demo',
     baseUrl: 'https://example.com/v1',
@@ -34,11 +37,34 @@ test('validateSettings merges defaults', () => {
   });
 
   assert.equal(result.isValid, true);
-  assert.equal(result.settings.instructions, DEFAULT_SETTINGS.instructions);
-  assert.equal(
-    DEFAULT_SETTINGS.instructions,
-    'Preserve meaning, tone, and technical accuracy in translation.'
-  );
+  assert.equal(result.settings.systemPromptTemplate, DEFAULT_SYSTEM_PROMPT_TEMPLATE);
+  assert.equal(result.settings.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+  assert.equal(DEFAULT_SETTINGS.systemPromptTemplate, DEFAULT_SYSTEM_PROMPT_TEMPLATE);
+  assert.equal(DEFAULT_SETTINGS.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+});
+
+test('validateSettings requires sourcePayload in user prompt template', () => {
+  const result = validateSettings({
+    apiKey: 'sk-demo',
+    baseUrl: 'https://example.com/v1',
+    model: 'gpt-demo',
+    systemPromptTemplate: 'System',
+    userPromptTemplate: 'Translate into {{targetLanguage}}.',
+    targetLanguage: '日本語'
+  });
+
+  assert.equal(result.isValid, false);
+  assert.match(result.errors.join(' '), /sourcePayload/);
+});
+
+test('migrateLegacyPromptSettings folds instructions into system prompt template', () => {
+  const result = migrateLegacyPromptSettings({
+    instructions: 'Translate carefully.',
+    targetLanguage: '繁體中文'
+  });
+
+  assert.match(result.systemPromptTemplate, /^Translate carefully\./);
+  assert.equal(result.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
 });
 
 test('getApiPermissionPattern derives origin wildcard', () => {

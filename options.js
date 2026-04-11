@@ -4,7 +4,8 @@
   const baseUrlInput = document.getElementById('base-url');
   const modelInput = document.getElementById('model');
   const targetLanguageInput = document.getElementById('target-language');
-  const instructionsInput = document.getElementById('instructions');
+  const systemPromptTemplateInput = document.getElementById('system-prompt-template');
+  const userPromptTemplateInput = document.getElementById('user-prompt-template');
   const disabledDomainsInput = document.getElementById('disabled-domains');
   const systemPromptPreview = document.getElementById('system-prompt-preview');
   const userPromptPreview = document.getElementById('user-prompt-preview');
@@ -20,7 +21,8 @@
       apiKey: apiKeyInput.value,
       baseUrl: baseUrlInput.value,
       model: modelInput.value,
-      instructions: instructionsInput.value,
+      systemPromptTemplate: systemPromptTemplateInput.value,
+      userPromptTemplate: userPromptTemplateInput.value,
       targetLanguage: targetLanguageInput.value,
       disabledDomains: disabledDomainsInput.value
     };
@@ -42,40 +44,41 @@
     const formSettings = getFormSettings();
 
     return {
-      instructions: formSettings.instructions.trim() || TranslatorStorage.DEFAULT_SETTINGS.instructions,
+      systemPromptTemplate: formSettings.systemPromptTemplate.trim() || TranslatorStorage.DEFAULT_SETTINGS.systemPromptTemplate,
+      userPromptTemplate: formSettings.userPromptTemplate.trim() || TranslatorStorage.DEFAULT_SETTINGS.userPromptTemplate,
       targetLanguage: formSettings.targetLanguage.trim() || TranslatorStorage.DEFAULT_SETTINGS.targetLanguage
     };
   }
 
   function renderPromptPreview() {
-    if (!root.TranslatorApi || typeof root.TranslatorApi.buildTranslationMessages !== 'function') {
+    if (!root.TranslatorApi || typeof root.TranslatorApi.buildTranslationInput !== 'function') {
       systemPromptPreview.value = 'Prompt preview is unavailable.';
       userPromptPreview.value = 'Prompt preview is unavailable.';
       return;
     }
 
     const settings = buildPreviewSettings();
-    const messages = root.TranslatorApi.buildTranslationMessages({
-      instructions: settings.instructions,
+    const input = root.TranslatorApi.buildTranslationInput({
+      systemPromptTemplate: settings.systemPromptTemplate,
+      userPromptTemplate: settings.userPromptTemplate,
       items: [{ id: 'preview-1', kind: 'paragraph', text: 'Sample source text.' }],
-      strictJson: false,
       targetLanguage: settings.targetLanguage
     });
 
-    systemPromptPreview.value = messages[0] && messages[0].content ? messages[0].content : '';
-    userPromptPreview.value = messages[1] && messages[1].content ? messages[1].content : '';
+    systemPromptPreview.value = input[0] && input[0].content ? input[0].content : '';
+    userPromptPreview.value = input[1] && input[1].content ? input[1].content : '';
   }
 
   function resetSystemPrompt() {
-    instructionsInput.value = TranslatorStorage.DEFAULT_SETTINGS.instructions;
+    systemPromptTemplateInput.value = TranslatorStorage.DEFAULT_SETTINGS.systemPromptTemplate;
     renderPromptPreview();
-    showBanner('System prompt reset to the default custom instructions.', false);
+    showBanner('System prompt template reset to the default value.', false);
   }
 
   function resetUserPrompt() {
-    targetLanguageInput.value = TranslatorStorage.DEFAULT_SETTINGS.targetLanguage;
+    userPromptTemplateInput.value = TranslatorStorage.DEFAULT_SETTINGS.userPromptTemplate;
     renderPromptPreview();
-    showBanner('User prompt reset to the default target language.', false);
+    showBanner('User prompt template reset to the default value.', false);
   }
 
   async function updatePermissionStatus(baseUrl) {
@@ -114,7 +117,8 @@
     baseUrlInput.value = settings.baseUrl;
     modelInput.value = settings.model;
     targetLanguageInput.value = settings.targetLanguage;
-    instructionsInput.value = settings.instructions;
+    systemPromptTemplateInput.value = settings.systemPromptTemplate;
+    userPromptTemplateInput.value = settings.userPromptTemplate;
     disabledDomainsInput.value = settings.disabledDomains || '';
     renderPromptPreview();
     await updatePermissionStatus(settings.baseUrl);
@@ -197,7 +201,8 @@
   });
 
   targetLanguageInput.addEventListener('input', renderPromptPreview);
-  instructionsInput.addEventListener('input', renderPromptPreview);
+  systemPromptTemplateInput.addEventListener('input', renderPromptPreview);
+  userPromptTemplateInput.addEventListener('input', renderPromptPreview);
   resetSystemPromptButton.addEventListener('click', resetSystemPrompt);
   resetUserPromptButton.addEventListener('click', resetUserPrompt);
 

@@ -13,8 +13,8 @@
           <p class="eyebrow">OpenAI-Compatible Translator</p>
           <h1>Extension Settings</h1>
           <p class="subtitle">
-            Configure the API endpoint, model, prompt, and target language used
-            for page and selection translation.
+            Configure the API endpoint, model, prompt templates, and target
+            language used for page and selection translation.
           </p>
         </header>
 
@@ -53,29 +53,45 @@
           </label>
 
           <label class="field">
-            <span>Custom Instructions</span>
+            <span>System Prompt Template</span>
             <small class="field-note">
-              Added to the fixed system prompt. The live preview below shows the
-              actual system and user prompts sent to the model.
+              Fully controls the system prompt sent to the model. You can use
+              placeholders like <code>&#123;&#123;targetLanguage&#125;&#125;</code>,
+              <code>&#123;&#123;itemCount&#125;&#125;</code>, and <code>&#123;&#123;itemKind&#125;&#125;</code>.
             </small>
             <textarea
-              id="instructions"
-              name="instructions"
+              id="system-prompt-template"
+              name="systemPromptTemplate"
               rows="8"
-              placeholder="Add extra translation guidance here."
+              placeholder="Write the full system prompt template here."
+            ></textarea>
+          </label>
+
+          <label class="field">
+            <span>User Prompt Template</span>
+            <small class="field-note">
+              Fully controls the user prompt. It must include
+              <code>&#123;&#123;sourcePayload&#125;&#125;</code> so the source items are actually
+              sent to the model.
+            </small>
+            <textarea
+              id="user-prompt-template"
+              name="userPromptTemplate"
+              rows="8"
+              placeholder="Write the full user prompt template here."
             ></textarea>
           </label>
 
           <section class="prompt-preview" aria-labelledby="prompt-preview-title">
             <div class="prompt-preview-header">
               <h2 id="prompt-preview-title">Actual Prompt Preview</h2>
-              <p class="field-note">Generated from the same prompt builder used by translation requests.</p>
+              <p class="field-note">Generated from the same request builder used by translation requests.</p>
               <div class="prompt-preview-actions">
                 <button id="reset-system-prompt-button" type="button" class="secondary">
-                  Reset System Prompt
+                  Reset System Template
                 </button>
                 <button id="reset-user-prompt-button" type="button" class="secondary">
-                  Reset User Prompt
+                  Reset User Template
                 </button>
               </div>
             </div>

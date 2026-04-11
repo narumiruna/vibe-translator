@@ -2,12 +2,14 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  buildChatCompletionRequest,
+  buildResponsesRequest,
+  buildTranslationInput,
   chunkTranslationItems,
   clearTranslationCache,
   consumeProgressiveTranslations,
   createRecursiveChunkPlan,
   createProgressiveMergeState,
+  extractOutputText,
   getIncompleteSegmentIds,
   maskProtectedFragments,
   mergeRecursiveTranslations,
@@ -19,6 +21,18 @@ const {
   unmaskProtectedFragments,
   validateProtectedFragments
 } = require('../api.js');
+
+function buildSettings(overrides) {
+  return {
+    apiKey: 'x',
+    baseUrl: 'https://example.com/v1',
+    model: 'demo',
+    systemPromptTemplate: 'System template for {{targetLanguage}} ({{itemCount}} items).',
+    userPromptTemplate: 'User template for {{itemKind}}.\n\n{{sourcePayload}}',
+    targetLanguage: '繁體中文',
+    ...overrides
+  };
+}
 
 test('chunkTranslationItems splits by character limit', () => {
   const chunks = chunkTranslationItems(
@@ -106,39 +120,63 @@ test('maskProtectedFragments preserves code paths urls and tech terms', () => {
   );
 });
 
-test('buildChatCompletionRequest uses chat completions shape', () => {
-  const payload = buildChatCompletionRequest(
-    {
-      apiKey: 'x',
-      baseUrl: 'https://example.com/v1',
-      model: 'demo',
-      instructions: 'Translate carefully.',
-      targetLanguage: '繁體中文'
-    },
-    [{ id: '1', kind: 'heading', text: 'Hello' }],
-    false
+test('buildTranslationInput renders prompt templates with source payload', () => {
+  const input = buildTranslationInput({
+    ...buildSettings(),
+    items: [{ id: '1', kind: 'heading', text: 'Hello' }]
+  });
+
+  assert.equal(input.length, 2);
+  assert.equal(input[0].role, 'system');
+  assert.match(input[0].content, /繁體中文/);
+  assert.match(input[0].content, /1 items/);
+  assert.equal(input[1].role, 'user');
+  assert.match(input[1].content, /User template for heading/);
+  assert.match(input[1].content, /"targetLanguage":"繁體中文"/);
+  assert.match(input[1].content, /"id":"1"/);
+  assert.match(input[1].content, /"kind":"heading"/);
+  assert.match(input[1].content, /"text":"Hello"/);
+  assert.doesNotMatch(input[1].content, /"items":\[/);
+});
+
+test('buildResponsesRequest uses responses api shape', () => {
+  const payload = buildResponsesRequest(
+    buildSettings(),
+    [{ id: '1', kind: 'heading', text: 'Hello' }]
   );
 
   assert.equal(payload.model, 'demo');
-  assert.equal(payload.stream, false);
-  assert.equal('temperature' in payload, false);
-  assert.equal(payload.messages.length, 2);
-  assert.match(payload.messages[0].content, /Return only valid JSON/);
-  assert.match(payload.messages[0].content, /Preserve placeholders/);
-  assert.match(payload.messages[1].content, /Translate this heading into 繁體中文\./);
-  assert.match(payload.messages[1].content, /"targetLanguage":"繁體中文"/);
-  assert.match(payload.messages[1].content, /"id":"1"/);
-  assert.match(payload.messages[1].content, /"kind":"heading"/);
-  assert.match(payload.messages[1].content, /"text":"Hello"/);
-  assert.doesNotMatch(payload.messages[1].content, /"items":\[/);
+  assert.equal(payload.input.length, 2);
+  assert.equal(payload.text.format.type, 'json_schema');
+  assert.equal(payload.text.format.name, 'translation_result');
+  assert.equal(payload.text.format.strict, true);
+  assert.deepEqual(payload.text.format.schema.required, ['translations']);
 });
 
-test('parseTranslationResponse accepts fenced JSON', () => {
-  const parsed = parseTranslationResponse(
-    '```json\n[{"id":"1","translation":"你好"}]\n```'
-  );
+test('parseTranslationResponse reads output_parsed translations', () => {
+  const parsed = parseTranslationResponse({
+    output_parsed: {
+      translations: [{ id: '1', translation: '你好' }]
+    }
+  });
 
   assert.deepEqual(parsed, [{ id: '1', translation: '你好' }]);
+});
+
+test('extractOutputText aggregates output text content', () => {
+  const text = extractOutputText({
+    output: [
+      {
+        type: 'message',
+        content: [
+          { type: 'output_text', text: '{"translations":' },
+          { type: 'output_text', text: '[{"id":"1","translation":"你好"}]}' }
+        ]
+      }
+    ]
+  });
+
+  assert.equal(text, '{"translations":\n[{"id":"1","translation":"你好"}]}');
 });
 
 test('requestTranslations retries once when first response is invalid JSON', async () => {
@@ -151,7 +189,7 @@ test('requestTranslations retries once when first response is invalid JSON', asy
         ok: true,
         text: async () =>
           JSON.stringify({
-            choices: [{ message: { content: 'not-json' } }]
+            output: [{ type: 'message', content: [{ type: 'output_text', text: 'not-json' }] }]
           })
       };
     }
@@ -160,19 +198,15 @@ test('requestTranslations retries once when first response is invalid JSON', asy
       ok: true,
       text: async () =>
         JSON.stringify({
-          choices: [{ message: { content: '[{"id":"1","translation":"你好"}]' } }]
+          output_parsed: {
+            translations: [{ id: '1', translation: '你好' }]
+          }
         })
     };
   };
 
   const result = await requestTranslations({
-    settings: {
-      apiKey: 'x',
-      baseUrl: 'https://example.com/v1',
-      model: 'demo',
-      instructions: 'Translate carefully.',
-      targetLanguage: '繁體中文'
-    },
+    settings: buildSettings(),
     items: [{ id: '1', text: 'Hello' }],
     fetchImpl: fakeFetch
   });
@@ -192,17 +226,13 @@ test('requestTranslations reuses cached translations for identical text and sett
       ok: true,
       text: async () =>
         JSON.stringify({
-          choices: [{ message: { content: '[{"id":"1","translation":"你好"}]' } }]
+          output_parsed: {
+            translations: [{ id: '1', translation: '你好' }]
+          }
         })
     };
   };
-  const settings = {
-    apiKey: 'x',
-    baseUrl: 'https://example.com/v1',
-    model: 'demo-cache',
-    instructions: 'Translate carefully.',
-    targetLanguage: '繁體中文'
-  };
+  const settings = buildSettings({ model: 'demo-cache' });
 
   const first = await requestTranslations({
     settings,
@@ -247,7 +277,7 @@ test('requestTranslationsBatched runs chunks in parallel and preserves chunk ord
   };
   const fakeFetch = async (url, options) => {
     const body = JSON.parse(options.body);
-    const item = JSON.parse(body.messages[1].content.split('\n\n').at(-1));
+    const item = JSON.parse(body.input[1].content.split('\n\n').at(-1));
 
     inFlight += 1;
     maxInFlight = Math.max(maxInFlight, inFlight);
@@ -258,27 +288,15 @@ test('requestTranslationsBatched runs chunks in parallel and preserves chunk ord
       ok: true,
       text: async () =>
         JSON.stringify({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify([
-                  { id: item.id, translation: `translated-${item.id}` }
-                ])
-              }
-            }
-          ]
+          output_parsed: {
+            translations: [{ id: item.id, translation: `translated-${item.id}` }]
+          }
         })
     };
   };
 
   const result = await requestTranslationsBatched({
-    settings: {
-      apiKey: 'x',
-      baseUrl: 'https://example.com/v1',
-      model: 'demo',
-      instructions: 'Translate carefully.',
-      targetLanguage: '繁體中文'
-    },
+    settings: buildSettings(),
     chunks: [
       [{ id: 'a', kind: 'paragraph', text: 'A', protectedFragments: [] }],
       [{ id: 'b', kind: 'paragraph', text: 'B', protectedFragments: [] }],
@@ -337,7 +355,7 @@ test('requestTranslationsBatchedProgressive emits chunks in completion order', a
   const completionOrder = [];
   const fakeFetch = async (url, options) => {
     const body = JSON.parse(options.body);
-    const item = JSON.parse(body.messages[1].content.split('\n\n').at(-1));
+    const item = JSON.parse(body.input[1].content.split('\n\n').at(-1));
     const delays = { a: 40, b: 5, c: 20 };
 
     await new Promise((resolve) => setTimeout(resolve, delays[item.id]));
@@ -346,27 +364,15 @@ test('requestTranslationsBatchedProgressive emits chunks in completion order', a
       ok: true,
       text: async () =>
         JSON.stringify({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify([
-                  { id: item.id, translation: `translated-${item.id}` }
-                ])
-              }
-            }
-          ]
+          output_parsed: {
+            translations: [{ id: item.id, translation: `translated-${item.id}` }]
+          }
         })
     };
   };
 
   const result = await requestTranslationsBatchedProgressive({
-    settings: {
-      apiKey: 'x',
-      baseUrl: 'https://example.com/v1',
-      model: 'demo',
-      instructions: 'Translate carefully.',
-      targetLanguage: '繁體中文'
-    },
+    settings: buildSettings(),
     chunks: [
       [{ id: 'a', kind: 'paragraph', text: 'A', protectedFragments: [] }],
       [{ id: 'b', kind: 'paragraph', text: 'B', protectedFragments: [] }],
@@ -397,7 +403,7 @@ test('requestTranslationsBatchedProgressive sends one item per request for norma
   const requestPayloadIds = [];
   const fakeFetch = async (url, options) => {
     const body = JSON.parse(options.body);
-    const payload = JSON.parse(body.messages[1].content.split('\n\n').at(-1));
+    const payload = JSON.parse(body.input[1].content.split('\n\n').at(-1));
 
     requestPayloadIds.push([payload.id]);
 
@@ -405,32 +411,15 @@ test('requestTranslationsBatchedProgressive sends one item per request for norma
       ok: true,
       text: async () =>
         JSON.stringify({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify(
-                  [
-                    {
-                      id: payload.id,
-                      translation: `translated-${payload.id}`
-                    }
-                  ]
-                )
-              }
-            }
-          ]
+          output_parsed: {
+            translations: [{ id: payload.id, translation: `translated-${payload.id}` }]
+          }
         })
     };
   };
 
   const result = await requestTranslationsBatchedProgressive({
-    settings: {
-      apiKey: 'x',
-      baseUrl: 'https://example.com/v1',
-      model: 'demo',
-      instructions: 'Translate carefully.',
-      targetLanguage: '繁體中文'
-    },
+    settings: buildSettings(),
     chunks: plan.chunks,
     concurrency: 2,
     fetchImpl: fakeFetch

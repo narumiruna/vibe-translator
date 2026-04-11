@@ -1,13 +1,49 @@
 (function (root) {
   const STORAGE_KEY = 'settings';
+  const LEGACY_DEFAULT_INSTRUCTIONS = 'Preserve meaning, tone, and technical accuracy in translation.';
+
+  function createDefaultSystemPromptTemplate(leadInstruction) {
+    return [
+      String(leadInstruction || LEGACY_DEFAULT_INSTRUCTIONS).trim(),
+      'You are rendering bilingual technical reading aids.',
+      'Translate only natural-language prose into the target language.',
+      'Preserve placeholders like __OT_TOKEN_1__ exactly and do not translate, remove, or reorder them unnecessarily.',
+      'Keep structure by item kind. Headings stay headings, list items stay list items, table cells stay table cells.'
+    ].join('\n');
+  }
+
+  const DEFAULT_SYSTEM_PROMPT_TEMPLATE = createDefaultSystemPromptTemplate();
+  const DEFAULT_USER_PROMPT_TEMPLATE = [
+    'Translate the provided source items into {{targetLanguage}}.',
+    'Preserve meaning, order, and inline structure.',
+    'Keep file paths, commands, URLs, code spans, identifiers, and product names in their original form.',
+    'Return translations for every source item.',
+    '',
+    '{{sourcePayload}}'
+  ].join('\n');
+
   const DEFAULT_SETTINGS = Object.freeze({
     apiKey: '',
     baseUrl: 'https://api.openai.com/v1',
     model: '',
-    instructions: 'Preserve meaning, tone, and technical accuracy in translation.',
+    systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_TEMPLATE,
+    userPromptTemplate: DEFAULT_USER_PROMPT_TEMPLATE,
     targetLanguage: '繁體中文',
     disabledDomains: ''
   });
+
+  function migrateLegacyPromptSettings(input) {
+    const source = input || {};
+    const legacyInstructions = String(source.instructions || '').trim();
+    const systemPromptTemplate = String(source.systemPromptTemplate || '').trim();
+    const userPromptTemplate = String(source.userPromptTemplate || '').trim();
+
+    return {
+      ...source,
+      systemPromptTemplate: systemPromptTemplate || createDefaultSystemPromptTemplate(legacyInstructions),
+      userPromptTemplate: userPromptTemplate || DEFAULT_USER_PROMPT_TEMPLATE
+    };
+  }
 
   function normalizeDisabledDomains(value) {
     return String(value || '')
@@ -28,15 +64,16 @@
   }
 
   function validateSettings(input) {
-    const merged = {
+    const merged = migrateLegacyPromptSettings({
       ...DEFAULT_SETTINGS,
       ...(input || {})
-    };
+    });
     const settings = {
       apiKey: String(merged.apiKey || '').trim(),
       baseUrl: normalizeBaseUrl(merged.baseUrl),
       model: String(merged.model || '').trim(),
-      instructions: String(merged.instructions || '').trim() || DEFAULT_SETTINGS.instructions,
+      systemPromptTemplate: String(merged.systemPromptTemplate || '').trim() || DEFAULT_SETTINGS.systemPromptTemplate,
+      userPromptTemplate: String(merged.userPromptTemplate || '').trim() || DEFAULT_SETTINGS.userPromptTemplate,
       targetLanguage: String(merged.targetLanguage || '').trim(),
       disabledDomains: normalizeDisabledDomains(merged.disabledDomains)
     };
@@ -52,6 +89,16 @@
 
     if (!settings.targetLanguage) {
       errors.push('Target language is required.');
+    }
+
+    if (!settings.systemPromptTemplate) {
+      errors.push('System prompt template is required.');
+    }
+
+    if (!settings.userPromptTemplate) {
+      errors.push('User prompt template is required.');
+    } else if (!settings.userPromptTemplate.includes('{{sourcePayload}}')) {
+      errors.push('User prompt template must include {{sourcePayload}}.');
     }
 
     try {
@@ -89,10 +136,10 @@
 
     const stored = await chrome.storage.sync.get(STORAGE_KEY);
 
-    return {
+    return migrateLegacyPromptSettings({
       ...DEFAULT_SETTINGS,
       ...(stored[STORAGE_KEY] || {})
-    };
+    });
   }
 
   async function saveSettings(input) {
@@ -115,10 +162,15 @@
 
   const api = {
     DEFAULT_SETTINGS,
+    DEFAULT_SYSTEM_PROMPT_TEMPLATE,
+    DEFAULT_USER_PROMPT_TEMPLATE,
+    LEGACY_DEFAULT_INSTRUCTIONS,
     STORAGE_KEY,
+    createDefaultSystemPromptTemplate,
     getApiPermissionPattern,
     getSettings,
     hasCompleteSettings,
+    migrateLegacyPromptSettings,
     normalizeBaseUrl,
     normalizeDisabledDomains,
     saveSettings,

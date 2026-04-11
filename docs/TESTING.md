@@ -4,8 +4,9 @@
 
 1. Load the extension from `chrome://extensions/`
 2. Open the extension options page
-3. Save a valid API key, base URL, model, target language, and instructions
+3. Save a valid API key, base URL, model, target language, system prompt template, and user prompt template
 4. Confirm the API origin permission is granted
+5. Confirm the user prompt template still contains `{{sourcePayload}}`
 
 ## Entire page translation
 

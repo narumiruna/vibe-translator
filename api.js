@@ -2,6 +2,31 @@
   const DEFAULT_MAX_BATCH_CHARS = 5000;
   const DEFAULT_MAX_CONCURRENCY = 5;
   const TRANSLATION_CACHE_LIMIT = 500;
+  const TRANSLATION_SCHEMA_VERSION = 1;
+  const TRANSLATION_RESPONSE_FORMAT = Object.freeze({
+    type: 'json_schema',
+    name: 'translation_result',
+    schema: {
+      type: 'object',
+      properties: {
+        translations: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              translation: { type: 'string' }
+            },
+            required: ['id', 'translation'],
+            additionalProperties: false
+          }
+        }
+      },
+      required: ['translations'],
+      additionalProperties: false
+    },
+    strict: true
+  });
   const SPLIT_BOUNDARIES = [
     { regex: /\n\s*\n+/g, joiner: '\n\n' },
     { regex: /\n+/g, joiner: '\n' },
@@ -17,9 +42,11 @@
 
   function buildTranslationCacheKey(settings, item) {
     return JSON.stringify({
+      schemaVersion: TRANSLATION_SCHEMA_VERSION,
       baseUrl: String((settings && settings.baseUrl) || '').trim(),
       model: String((settings && settings.model) || '').trim(),
-      instructions: String((settings && settings.instructions) || '').trim(),
+      systemPromptTemplate: String((settings && settings.systemPromptTemplate) || '').trim(),
+      userPromptTemplate: String((settings && settings.userPromptTemplate) || '').trim(),
       targetLanguage: String((settings && settings.targetLanguage) || '').trim(),
       kind: String((item && item.kind) || 'paragraph'),
       text: String((item && item.text) || '')
@@ -334,11 +361,19 @@
     };
   }
 
-  function buildTranslationMessages(options) {
+  function renderPromptTemplate(template, variables) {
+    return String(template || '').replace(/\{\{(\w+)\}\}/g, (match, key) => {
+      if (!Object.prototype.hasOwnProperty.call(variables, key)) {
+        return '';
+      }
+
+      return String(variables[key]);
+    });
+  }
+
+  function buildTranslationInput(options) {
     const items = options.items || [];
     const targetLanguage = options.targetLanguage;
-    const instructions = String(options.instructions || '').trim();
-    const strictJson = Boolean(options.strictJson);
     const payloadItems = items.map((item) => ({
       id: item.id,
       kind: item.kind || 'paragraph',
@@ -353,75 +388,61 @@
           targetLanguage,
           items: payloadItems
         };
-    const systemParts = [
-      instructions,
-      'You are rendering bilingual technical reading aids.',
-      'Translate only natural-language prose into the target language.',
-      'Preserve placeholders like __OT_TOKEN_1__ exactly and do not translate, remove, or reorder them unnecessarily.',
-      'Keep structure by item kind. Headings stay headings, list items stay list items, table cells stay table cells.',
-      'Return only valid JSON.',
-      'Do not wrap the JSON in markdown fences.',
-      'Return an array of objects with this exact shape: [{"id":"...","translation":"..."}].',
-      'Use the provided id values unchanged.'
-    ];
-
-    if (strictJson) {
-      systemParts.push('If you are unsure, keep protected placeholders and any technical identifiers exactly as given.');
-      systemParts.push('If an item cannot be translated safely, return the original item text as translation.');
-    }
+    const templateVariables = {
+      targetLanguage,
+      sourcePayload: JSON.stringify(userPayload),
+      itemCount: String(payloadItems.length),
+      itemKind: payloadItems.length === 1 ? payloadItems[0].kind || 'text' : 'items'
+    };
 
     return [
       {
         role: 'system',
-        content: systemParts.join(' ')
+        content: renderPromptTemplate(options.systemPromptTemplate, templateVariables)
       },
       {
         role: 'user',
-        content: [
-          payloadItems.length === 1
-            ? `Translate this ${payloadItems[0].kind || 'text'} into ${targetLanguage}.`
-            : `Translate every item into ${targetLanguage}.`,
-          'Preserve meaning, order, and inline structure.',
-          'Keep file paths, commands, URLs, code spans, identifiers, and product names in their original form.',
-          'Reply with JSON only.',
-          JSON.stringify(userPayload)
-        ].join('\n\n')
+        content: renderPromptTemplate(options.userPromptTemplate, templateVariables)
       }
     ];
   }
 
-  function buildChatCompletionRequest(settings, items, strictJson) {
+  function buildResponsesRequest(settings, items) {
     return {
       model: settings.model,
-      stream: false,
-      messages: buildTranslationMessages({
-        instructions: settings.instructions,
+      input: buildTranslationInput({
+        systemPromptTemplate: settings.systemPromptTemplate,
+        userPromptTemplate: settings.userPromptTemplate,
         items,
-        strictJson,
         targetLanguage: settings.targetLanguage
-      })
+      }),
+      text: {
+        format: TRANSLATION_RESPONSE_FORMAT
+      }
     };
   }
 
-  function extractAssistantText(payload) {
-    const content = payload &&
-      payload.choices &&
-      payload.choices[0] &&
-      payload.choices[0].message &&
-      payload.choices[0].message.content;
-
-    if (typeof content === 'string') {
-      return content;
+  function extractOutputText(payload) {
+    if (payload && typeof payload.output_text === 'string' && payload.output_text.trim()) {
+      return payload.output_text;
     }
 
-    if (Array.isArray(content)) {
-      return content
-        .filter((item) => item && item.type === 'text' && typeof item.text === 'string')
-        .map((item) => item.text)
-        .join('\n');
+    const output = Array.isArray(payload && payload.output) ? payload.output : [];
+    const textParts = [];
+
+    for (const item of output) {
+      if (!item || !Array.isArray(item.content)) {
+        continue;
+      }
+
+      for (const contentItem of item.content) {
+        if (contentItem && contentItem.type === 'output_text' && typeof contentItem.text === 'string') {
+          textParts.push(contentItem.text);
+        }
+      }
     }
 
-    throw new Error('Unexpected API response shape.');
+    return textParts.join('\n');
   }
 
   function stripCodeFences(text) {
@@ -431,20 +452,28 @@
       .replace(/\s*```$/, '');
   }
 
-  function parseTranslationResponse(text) {
-    const cleaned = stripCodeFences(text);
-    const startIndex = cleaned.indexOf('[');
-    const endIndex = cleaned.lastIndexOf(']');
-    const candidate = startIndex >= 0 && endIndex >= startIndex
-      ? cleaned.slice(startIndex, endIndex + 1)
-      : cleaned;
-    const parsed = JSON.parse(candidate);
+  function parseTranslationResponse(payload) {
+    let parsed = payload && payload.output_parsed;
 
-    if (!Array.isArray(parsed)) {
-      throw new Error('Response JSON is not an array.');
+    if (!parsed) {
+      const fallbackText = stripCodeFences(extractOutputText(payload));
+
+      if (!fallbackText) {
+        throw new Error('Response did not include parsed output.');
+      }
+
+      parsed = JSON.parse(fallbackText);
     }
 
-    return parsed.map((item) => {
+    const translations = Array.isArray(parsed)
+      ? parsed
+      : parsed && parsed.translations;
+
+    if (!Array.isArray(translations)) {
+      throw new Error('Response JSON is missing translations array.');
+    }
+
+    return translations.map((item) => {
       if (!item || typeof item.id !== 'string' || typeof item.translation !== 'string') {
         throw new Error('Response item is missing id or translation.');
       }
@@ -474,9 +503,9 @@
     }
   }
 
-  async function callChatCompletions(settings, items, fetchImpl, strictJson) {
-    const requestPayload = buildChatCompletionRequest(settings, items, strictJson);
-    const response = await fetchImpl(`${settings.baseUrl}/chat/completions`, {
+  async function callResponsesApi(settings, items, fetchImpl) {
+    const requestPayload = buildResponsesRequest(settings, items);
+    const response = await fetchImpl(`${settings.baseUrl}/responses`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${settings.apiKey}`,
@@ -503,7 +532,7 @@
       throw new Error(message || `Translation request failed with status ${response.status}.`);
     }
 
-    const translations = parseTranslationResponse(extractAssistantText(payload));
+    const translations = parseTranslationResponse(payload);
 
     validateProtectedFragments(items, translations);
 
@@ -532,13 +561,13 @@
     let freshTranslations;
 
     try {
-      freshTranslations = await callChatCompletions(settings, missingItems, fetchImpl, false);
+      freshTranslations = await callResponsesApi(settings, missingItems, fetchImpl);
     } catch (error) {
       if (
         error instanceof SyntaxError ||
-        /Response JSON|Unexpected token|missing id|Protected placeholder/i.test(error.message)
+        /Response JSON|Unexpected token|missing id|parsed output|translations array|Protected placeholder/i.test(error.message)
       ) {
-        freshTranslations = await callChatCompletions(settings, missingItems, fetchImpl, true);
+        freshTranslations = await callResponsesApi(settings, missingItems, fetchImpl);
       } else {
         throw error;
       }
@@ -767,12 +796,12 @@
   const api = {
     DEFAULT_MAX_BATCH_CHARS,
     DEFAULT_MAX_CONCURRENCY,
-    buildChatCompletionRequest,
-    buildTranslationMessages,
+    buildResponsesRequest,
+    buildTranslationInput,
     clearTranslationCache,
     chunkTranslationItems,
     createRecursiveChunkPlan,
-    extractAssistantText,
+    extractOutputText,
     maskProtectedFragments,
     mergeRecursiveTranslations,
     parseTranslationResponse,

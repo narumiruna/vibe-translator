@@ -1,6 +1,6 @@
-# OpenAI Compatible Page Translator
+# Responses API Page Translator
 
-A Manifest V3 Chrome extension that translates web pages with an OpenAI-compatible API while keeping the original text visible and the translation shown inline.
+A Manifest V3 Chrome extension that translates web pages with the OpenAI `Responses API` while keeping the original text visible and the translation shown inline.
 
 ## Features
 
@@ -10,10 +10,10 @@ A Manifest V3 Chrome extension that translates web pages with an OpenAI-compatib
 - Keep original text untouched and inject a sibling translation block below each source segment
 - Preserve inline code, paths, URLs, and common technical terms through placeholder protection
 - Allow problematic domains to be disabled from the options page
-- Configure `API Key`, `Base URL`, `Model`, `Instructions`, and `Target Language`
+- Configure `API Key`, `Base URL`, `Model`, full prompt templates, and `Target Language`
 - Split large pages into batches, recursively break oversized blocks, and translate them with bounded parallel requests
 - Translate visible content first, then continue as you scroll
-- Works with OpenAI-compatible `/chat/completions` APIs
+- Uses `/responses` with structured JSON schema output
 
 ## Project Structure
 
@@ -22,7 +22,7 @@ A Manifest V3 Chrome extension that translates web pages with an OpenAI-compatib
 - `content-viewport.js`: Visible-window selection for progressive page translation
 - `content.js`: DOM extraction, progressive translation orchestration, and note rendering
 - `storage.js`: Settings validation and persistence
-- `api.js`: OpenAI-compatible request building and response parsing
+- `api.js`: Responses API request building and response parsing
 - `options.html`, `options.css`, `options.js`: Settings page
 - `test/`: Node unit tests
 - `docs/TESTING.md`: Manual test checklist
@@ -43,7 +43,8 @@ The options page lets you configure:
 - `OpenAI Base URL`
 - `Model`
 - `Target Language`
-- `Instructions`
+- `System Prompt Template`
+- `User Prompt Template`
 
 The extension requests permission only for the API origin derived from your configured `Base URL`.
 
