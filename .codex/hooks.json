@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run codhc biome lint",
+            "statusMessage": "Running biome lint",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -345,7 +345,7 @@ test('requestTranslationsBatched runs chunks in parallel and preserves chunk ord
     b: 10,
     c: 30
   };
-  const fakeFetch = async (url, options) => {
+  const fakeFetch = async (_url, options) => {
     const body = JSON.parse(options.body);
     const item = JSON.parse(body.input[1].content.split('\n\n').at(-1));
 
@@ -423,7 +423,7 @@ test('requestTranslationsBatchedProgressive emits chunks in completion order', a
   clearTranslationCache();
 
   const completionOrder = [];
-  const fakeFetch = async (url, options) => {
+  const fakeFetch = async (_url, options) => {
     const body = JSON.parse(options.body);
     const item = JSON.parse(body.input[1].content.split('\n\n').at(-1));
     const delays = { a: 40, b: 5, c: 20 };
@@ -471,7 +471,7 @@ test('requestTranslationsBatchedProgressive sends one item per request for norma
     200
   );
   const requestPayloadIds = [];
-  const fakeFetch = async (url, options) => {
+  const fakeFetch = async (_url, options) => {
     const body = JSON.parse(options.body);
     const payload = JSON.parse(body.input[1].content.split('\n\n').at(-1));
 

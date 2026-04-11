@@ -1,4 +1,4 @@
-(function (root) {
+((root) => {
   const STORAGE_KEY = 'settings';
   const LEGACY_DEFAULT_INSTRUCTIONS = 'Preserve meaning, tone, and technical accuracy in translation.';
 
@@ -147,7 +147,7 @@
       if (!/^https?:$/.test(parsed.protocol)) {
         errors.push('Base URL must use HTTP or HTTPS.');
       }
-    } catch (error) {
+    } catch (_error) {
       errors.push('Base URL must be a valid URL.');
     }
 
@@ -170,7 +170,7 @@
   }
 
   async function getSettings() {
-    if (!root.chrome || !chrome.storage || !chrome.storage.sync) {
+    if (!root.chrome || !chrome.storage?.sync) {
       return { ...DEFAULT_SETTINGS };
     }
 
@@ -189,7 +189,7 @@
       throw new Error(result.errors.join(' '));
     }
 
-    if (!root.chrome || !chrome.storage || !chrome.storage.sync) {
+    if (!root.chrome || !chrome.storage?.sync) {
       return result.settings;
     }
 

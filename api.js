@@ -1,4 +1,4 @@
-(function (root) {
+((root) => {
   const DEFAULT_MAX_BATCH_CHARS = 5000;
   const DEFAULT_MAX_CONCURRENCY = 5;
   const TRANSLATION_CACHE_LIMIT = 500;
@@ -47,13 +47,13 @@
   function buildTranslationCacheKey(settings, item) {
     return JSON.stringify({
       schemaVersion: TRANSLATION_SCHEMA_VERSION,
-      baseUrl: String((settings && settings.baseUrl) || '').trim(),
-      model: String((settings && settings.model) || '').trim(),
-      systemPromptTemplate: String((settings && settings.systemPromptTemplate) || '').trim(),
-      userPromptTemplate: String((settings && settings.userPromptTemplate) || '').trim(),
-      targetLanguage: String((settings && settings.targetLanguage) || '').trim(),
-      kind: String((item && item.kind) || 'paragraph'),
-      text: String((item && item.text) || '')
+      baseUrl: String((settings?.baseUrl) || '').trim(),
+      model: String((settings?.model) || '').trim(),
+      systemPromptTemplate: String((settings?.systemPromptTemplate) || '').trim(),
+      userPromptTemplate: String((settings?.userPromptTemplate) || '').trim(),
+      targetLanguage: String((settings?.targetLanguage) || '').trim(),
+      kind: String((item?.kind) || 'paragraph'),
+      text: String((item?.text) || '')
     });
   }
 
@@ -149,7 +149,7 @@
     const tokens = [...(existingTokens || [])];
     let maskedText = String(text || '');
     let counter = tokens.reduce((max, token) => {
-      const match = /^__OT_TOKEN_(\d+)__$/.exec(String(token && token.placeholder));
+      const match = /^__OT_TOKEN_(\d+)__$/.exec(String(token?.placeholder));
 
       return match ? Math.max(max, Number(match[1]) || 0) : max;
     }, 0);
@@ -183,7 +183,7 @@
   }
 
   function shouldPreservePlaceholder(token) {
-    return Boolean(token && token.preservePlaceholder);
+    return Boolean(token?.preservePlaceholder);
   }
 
   function unmaskProtectedFragments(text, tokens) {
@@ -211,11 +211,11 @@
   function splitByBoundary(text, boundary) {
     const parts = [];
     let lastIndex = 0;
-    let match;
 
     boundary.regex.lastIndex = 0;
+    let match = boundary.regex.exec(text);
 
-    while ((match = boundary.regex.exec(text)) !== null) {
+    while (match !== null) {
       const part = normalizeChunkText(text.slice(lastIndex, match.index + match[0].length));
 
       if (part) {
@@ -223,6 +223,7 @@
       }
 
       lastIndex = match.index + match[0].length;
+      match = boundary.regex.exec(text);
     }
 
     const tail = normalizeChunkText(text.slice(lastIndex));
@@ -386,8 +387,8 @@
   }
 
   function renderPromptTemplate(template, variables) {
-    return String(template || '').replace(/\{\{(\w+)\}\}/g, (match, key) => {
-      if (!Object.prototype.hasOwnProperty.call(variables, key)) {
+    return String(template || '').replace(/\{\{(\w+)\}\}/g, (_match, key) => {
+      if (!Object.hasOwn(variables, key)) {
         return '';
       }
 
@@ -451,7 +452,7 @@
       return payload.output_text;
     }
 
-    const output = Array.isArray(payload && payload.output) ? payload.output : [];
+    const output = Array.isArray(payload?.output) ? payload.output : [];
     const textParts = [];
 
     for (const item of output) {
@@ -477,7 +478,7 @@
   }
 
   function parseTranslationResponse(payload) {
-    let parsed = payload && payload.output_parsed;
+    let parsed = payload?.output_parsed;
 
     if (!parsed) {
       const fallbackText = stripCodeFences(extractOutputText(payload));
@@ -491,7 +492,7 @@
 
     const translations = Array.isArray(parsed)
       ? parsed
-      : parsed && parsed.translations;
+      : parsed?.translations;
 
     if (!Array.isArray(translations)) {
       throw new Error('Response JSON is missing translations array.');
@@ -542,14 +543,13 @@
 
     try {
       payload = rawText ? JSON.parse(rawText) : {};
-    } catch (error) {
+    } catch (_error) {
       payload = { error: { message: rawText || 'Invalid JSON response.' } };
     }
 
     if (!response.ok) {
       const message =
-        payload &&
-        payload.error &&
+        payload?.error &&
         typeof payload.error.message === 'string' &&
         payload.error.message.trim();
 

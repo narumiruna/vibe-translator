@@ -1,4 +1,4 @@
-(function () {
+(() => {
   if (window.__OPENAI_TRANSLATOR_CONTENT__) {
     return;
   }
@@ -154,17 +154,17 @@
     normalizeViewportOptions(options) {
       const prefetchViewports = Math.max(
         0,
-        Number(options && options.prefetchViewports) || PREFETCH_VIEWPORTS
+        Number(options?.prefetchViewports) || PREFETCH_VIEWPORTS
       );
 
       return {
-        viewportHeight: Math.max(0, Number(options && options.viewportHeight) || 0),
+        viewportHeight: Math.max(0, Number(options?.viewportHeight) || 0),
         prefetchViewports,
         topPrefetchViewports: Math.max(
           0,
-          Number(options && options.topPrefetchViewports) || prefetchViewports
+          Number(options?.topPrefetchViewports) || prefetchViewports
         ),
-        topMargin: Math.max(0, Number(options && options.topMargin) || 96)
+        topMargin: Math.max(0, Number(options?.topMargin) || 96)
       };
     },
     isRectWithinTranslationWindow(rect, options) {
@@ -186,8 +186,8 @@
     getTranslationWindowPriority(rect, options) {
       const normalized = this.normalizeViewportOptions(options);
       const viewportHeight = normalized.viewportHeight;
-      const top = Number(rect && rect.top) || 0;
-      const bottom = Number(rect && rect.bottom) || 0;
+      const top = Number(rect?.top) || 0;
+      const bottom = Number(rect?.bottom) || 0;
 
       if (viewportHeight <= 0) {
         return Math.max(0, top);
@@ -490,7 +490,7 @@
 
   function debugSkip(reason, element) {
     const tagName =
-      element && element.tagName
+      element?.tagName
         ? element.tagName.toLowerCase()
         : element && element.nodeType === Node.TEXT_NODE
           ? '#text'
@@ -500,17 +500,17 @@
   }
 
   function debugSelect(reason, element) {
-    const tagName = element && element.tagName ? element.tagName.toLowerCase() : 'unknown';
+    const tagName = element?.tagName ? element.tagName.toLowerCase() : 'unknown';
 
     console.debug(`[OpenAI Translator] Selected ${tagName}: ${reason}`);
   }
 
   function isInsideTranslation(element) {
-    return Boolean(element && element.closest && element.closest('.translation'));
+    return Boolean(element?.closest?.('.translation'));
   }
 
   function isUnsupportedElement(element) {
-    if (!element || !element.matches) {
+    if (!element?.matches) {
       return false;
     }
 
@@ -526,7 +526,7 @@
   }
 
   function getElementLinkTextLength(element) {
-    if (!element || !element.querySelectorAll) {
+    if (!element?.querySelectorAll) {
       return 0;
     }
 
@@ -548,12 +548,12 @@
   }
 
   function getDirectBlockChildCount(element) {
-    if (!element || !element.children) {
+    if (!element?.children) {
       return 0;
     }
 
     return Array.from(element.children).filter(
-      (child) => child.matches && child.matches(DIRECT_BLOCK_CHILD_SELECTOR)
+      (child) => child.matches?.(DIRECT_BLOCK_CHILD_SELECTOR)
     ).length;
   }
 
@@ -572,7 +572,7 @@
   }
 
   function scoreTranslationRoot(element) {
-    if (!element || !element.isConnected || isInsideTranslation(element) || isTranslatorOwned(element)) {
+    if (!element?.isConnected || isInsideTranslation(element) || isTranslatorOwned(element)) {
       return Number.NEGATIVE_INFINITY;
     }
 
@@ -643,7 +643,7 @@
     const semanticCount = root ? root.querySelectorAll(SEMANTIC_BLOCK_SELECTOR).length : 0;
 
     console.debug(
-      `[OpenAI Translator] Using ${root && root.tagName ? root.tagName.toLowerCase() : 'body'} root (${mode})`
+      `[OpenAI Translator] Using ${root?.tagName ? root.tagName.toLowerCase() : 'body'} root (${mode})`
     );
 
     return {
@@ -727,7 +727,7 @@
   }
 
   function extractMathFragment(element) {
-    if (!element || !element.matches) {
+    if (!element?.matches) {
       return null;
     }
 
@@ -745,7 +745,7 @@
 
     const mathChild = !element.matches('math') ? element.querySelector('math') : null;
 
-    if (mathChild && mathChild.outerHTML) {
+    if (mathChild?.outerHTML) {
       return {
         kind: 'math',
         html: mathChild.outerHTML,
@@ -778,7 +778,7 @@
   }
 
   function isVisible(element) {
-    if (!element || !element.isConnected) {
+    if (!element?.isConnected) {
       return false;
     }
 
@@ -876,7 +876,7 @@
   }
 
   function hasNestedReadableBlocks(element) {
-    if (!element || !element.querySelector) {
+    if (!element?.querySelector) {
       return false;
     }
 
@@ -884,7 +884,7 @@
   }
 
   function isReadableTitleLink(element) {
-    return Boolean(element && element.matches && element.matches(READABLE_LINK_SELECTOR));
+    return Boolean(element?.matches?.(READABLE_LINK_SELECTOR));
   }
 
   function isLikelyUiMetaBlock(element, text) {
@@ -964,7 +964,7 @@
 
   function isTranslatorOwned(element) {
     return Boolean(
-      element && element.closest && element.closest(`[${ROOT_ATTR}], .translation`)
+      element?.closest?.(`[${ROOT_ATTR}], .translation`)
     );
   }
 
@@ -1045,7 +1045,7 @@
   }
 
   function markSourceStale(element) {
-    if (!element || !element.getAttribute) {
+    if (!element?.getAttribute) {
       return;
     }
 
@@ -1121,7 +1121,7 @@
         const targetElement =
           mutation.target && mutation.target.nodeType === Node.ELEMENT_NODE
             ? mutation.target
-            : mutation.target && mutation.target.parentElement;
+            : mutation.target?.parentElement;
 
         if (targetElement && (targetElement.closest(`[${ROOT_ATTR}]`) || isInsideTranslation(targetElement))) {
           continue;
@@ -1231,9 +1231,9 @@
     const totalElements = [];
     const selectedElements = [];
     const counterRef = { value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length };
-    const root = profile && profile.root;
+    const root = profile?.root;
     const elements = getCandidateElements(root);
-    const windowed = Boolean(options && options.windowed);
+    const windowed = Boolean(options?.windowed);
     const viewportOptions = windowed ? getViewportWindowOptions() : null;
 
     for (const element of elements) {
@@ -1283,11 +1283,11 @@
     const items = [];
     const windowCandidates = [];
     let totalSegments = 0;
-    const windowed = Boolean(options && options.windowed);
+    const windowed = Boolean(options?.windowed);
     const viewportOptions = windowed ? getViewportWindowOptions() : null;
-    const root = profile && profile.root;
+    const root = profile?.root;
 
-    if (!root || !profile || !profile.allowFallback) {
+    if (!root || !profile?.allowFallback) {
       return {
         items: [],
         totalSegments: 0
@@ -1415,7 +1415,7 @@
           items: extraction.items
         }
       });
-    } catch (error) {
+    } catch (_error) {
       // Ignore runtime messaging failures on teardown or unsupported pages.
     }
   }
@@ -1431,7 +1431,7 @@
   }
 
   function buildNote(sourceElement, id) {
-    const tagName = sourceElement && sourceElement.tagName
+    const tagName = sourceElement?.tagName
       ? sourceElement.tagName.toLowerCase()
       : 'p';
     const note = document.createElement(tagName);
@@ -1448,7 +1448,7 @@
   }
 
   function isSafeNoteInsertionTarget(element) {
-    if (!element || !element.matches || !element.matches(READABLE_BLOCK_SELECTOR)) {
+    if (!element?.matches?.(READABLE_BLOCK_SELECTOR)) {
       return false;
     }
 
@@ -1460,7 +1460,7 @@
   }
 
   function startPageTranslationSession(payload) {
-    ensureStyles(payload && payload.translationAppearance);
+    ensureStyles(payload?.translationAppearance);
     ensureObserver();
     clearPendingTranslations();
     activatePageTranslationSession(payload.sessionId);
@@ -1557,7 +1557,7 @@
   }
 
   function renderPagePlaceholders(payload) {
-    ensureStyles(payload && payload.translationAppearance);
+    ensureStyles(payload?.translationAppearance);
     ensureObserver();
 
     const ids = new Set(payload.ids || []);
@@ -1590,7 +1590,7 @@
     let current = element;
 
     while (current && current !== document.body) {
-      if (current.matches && current.matches(TERMINAL_LIKE_SELECTOR)) {
+      if (current.matches?.(TERMINAL_LIKE_SELECTOR)) {
         return true;
       }
 
@@ -1613,7 +1613,7 @@
   }
 
   function renderPageTranslations(payload) {
-    ensureStyles(payload && payload.translationAppearance);
+    ensureStyles(payload?.translationAppearance);
     ensureObserver();
 
     const translationMap = new Map((payload.translations || []).map((item) => [item.id, item]));
@@ -1622,7 +1622,7 @@
     for (const element of document.querySelectorAll(`[${SOURCE_ATTR}]`)) {
       const id = element.getAttribute(SOURCE_ATTR);
       const translationItem = translationMap.get(id);
-      const translation = translationItem && translationItem.translation;
+      const translation = translationItem?.translation;
 
       if (!translation) {
         continue;
@@ -1760,7 +1760,7 @@
   }
 
   function renderSelectionTranslation(payload) {
-    ensureStyles(payload && payload.translationAppearance);
+    ensureStyles(payload?.translationAppearance);
     ensureObserver();
 
     updateSelectionPanel({
@@ -1773,7 +1773,7 @@
   }
 
   function renderSelectionPlaceholder(payload) {
-    ensureStyles(payload && payload.translationAppearance);
+    ensureStyles(payload?.translationAppearance);
     ensureObserver();
 
     updateSelectionPanel({
@@ -1845,7 +1845,7 @@
     }, timeout || 3200);
   }
 
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || typeof message !== 'object') {
       sendResponse({ ok: false });
       return;

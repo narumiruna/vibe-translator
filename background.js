@@ -19,7 +19,7 @@ function isDomainDisabled(url, settings) {
       .filter(Boolean);
 
     return rules.some((rule) => hostname === rule || hostname.endsWith(`.${rule}`));
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
@@ -92,10 +92,10 @@ async function ensureContentScript(tabId) {
   try {
     const response = await chrome.tabs.sendMessage(tabId, { type: 'ping' });
 
-    if (response && response.ok) {
+    if (response?.ok) {
       return;
     }
-  } catch (error) {
+  } catch (_error) {
     // Fall through and inject.
   }
 
@@ -115,7 +115,7 @@ async function sendToast(tabId, message, level) {
         message
       }
     });
-  } catch (error) {
+  } catch (_error) {
     // Ignore toast failures on unsupported pages.
   }
 }
@@ -297,7 +297,7 @@ async function queuePageTranslationItems(tabId, sessionId, items) {
 }
 
 async function translatePage(tab) {
-  if (!tab || !tab.id || !isSupportedPage(tab.url)) {
+  if (!tab?.id || !isSupportedPage(tab.url)) {
     throw new Error('This page cannot be translated.');
   }
 
@@ -397,7 +397,7 @@ async function translateSelection(tabId, selectionText) {
     concurrency: 1
   });
   const translations = TranslatorApi.mergeRecursiveTranslations(chunkPlan, partialTranslations);
-  const translation = translations[0] && translations[0].translation;
+  const translation = translations[0]?.translation;
 
   if (!translation) {
     throw new Error('The API did not return a translation.');
@@ -410,7 +410,7 @@ async function translateSelection(tabId, selectionText) {
       targetLanguage: settings.targetLanguage,
       ...buildTranslationAppearancePayload(settings),
       translation,
-      protectedFragments: (translations[0] && translations[0].protectedFragments) || []
+      protectedFragments: (translations[0]?.protectedFragments) || []
     }
   });
   await sendToast(tabId, 'Selected text translated.', 'success');
@@ -441,7 +441,7 @@ async function handleRuntimeMessage(message, sender) {
   }
 
   if (message.type === 'queue-page-translation-items') {
-    const tabId = sender && sender.tab && sender.tab.id;
+    const tabId = sender?.tab?.id;
 
     if (!tabId) {
       return { ok: false, queued: 0 };
@@ -449,8 +449,8 @@ async function handleRuntimeMessage(message, sender) {
 
     const result = await queuePageTranslationItems(
       tabId,
-      message.payload && message.payload.sessionId,
-      message.payload && message.payload.items
+      message.payload?.sessionId,
+      message.payload?.items
     );
 
     return {
@@ -478,7 +478,7 @@ chrome.action.onClicked.addListener(async (tab) => {
   try {
     await translatePage(tab);
   } catch (error) {
-    if (tab && tab.id) {
+    if (tab?.id) {
       pageTranslationSessions.delete(tab.id);
       await chrome.tabs.sendMessage(tab.id, {
         type: 'clear-pending-translations'
@@ -500,7 +500,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       await translateSelection(tab.id, info.selectionText);
     }
   } catch (error) {
-    if (tab && tab.id) {
+    if (tab?.id) {
       pageTranslationSessions.delete(tab.id);
       await chrome.tabs.sendMessage(tab.id, {
         type: 'clear-pending-translations'

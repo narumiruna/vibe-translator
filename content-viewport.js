@@ -1,18 +1,18 @@
-(function (root) {
+((root) => {
   const DEFAULT_PREFETCH_VIEWPORTS = 2;
   const DEFAULT_TOP_MARGIN = 96;
 
   function normalizeViewportOptions(options) {
-    const viewportHeight = Math.max(0, Number(options && options.viewportHeight) || 0);
+    const viewportHeight = Math.max(0, Number(options?.viewportHeight) || 0);
     const prefetchViewports = Math.max(
       0,
-      Number(options && options.prefetchViewports) || DEFAULT_PREFETCH_VIEWPORTS
+      Number(options?.prefetchViewports) || DEFAULT_PREFETCH_VIEWPORTS
     );
     const topPrefetchViewports = Math.max(
       0,
-      Number(options && options.topPrefetchViewports) || prefetchViewports
+      Number(options?.topPrefetchViewports) || prefetchViewports
     );
-    const topMargin = Math.max(0, Number(options && options.topMargin) || DEFAULT_TOP_MARGIN);
+    const topMargin = Math.max(0, Number(options?.topMargin) || DEFAULT_TOP_MARGIN);
 
     return {
       viewportHeight,

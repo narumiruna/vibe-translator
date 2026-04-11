@@ -1,4 +1,4 @@
-(function (root) {
+((root) => {
   const form = document.getElementById('settings-form');
   const apiKeyInput = document.getElementById('api-key');
   const baseUrlInput = document.getElementById('base-url');
@@ -83,8 +83,8 @@
       targetLanguage: settings.targetLanguage
     });
 
-    systemPromptPreview.value = input[0] && input[0].content ? input[0].content : '';
-    userPromptPreview.value = input[1] && input[1].content ? input[1].content : '';
+    systemPromptPreview.value = input[0]?.content ? input[0].content : '';
+    userPromptPreview.value = input[1]?.content ? input[1].content : '';
     renderAppearancePreview();
   }
 
@@ -110,7 +110,7 @@
       permissionStatus.textContent = granted
         ? `Granted for ${originPattern}`
         : `Not granted for ${originPattern}`;
-    } catch (error) {
+    } catch (_error) {
       permissionStatus.textContent = 'Base URL is invalid.';
     }
   }
@@ -196,9 +196,9 @@
       payload: validation.settings
     });
 
-    if (!response || !response.ok) {
+    if (!response?.ok) {
       testStatus.textContent = 'Connection test failed.';
-      showBanner((response && response.error) || 'Connection test failed.', true);
+      showBanner((response?.error) || 'Connection test failed.', true);
       return;
     }
 
