@@ -41,6 +41,21 @@
     'td',
     'th'
   ].join(', ');
+  const TITLE_BLOCK_SELECTOR = 'h1, h2, h3, h4, h5, h6';
+  const SUMMARY_BLOCK_SELECTOR = [
+    '#novel_ex',
+    '[itemprop="description"]',
+    '.summary',
+    '.description',
+    '.p-novel__summary'
+  ].join(', ');
+  const READABLE_LINK_SELECTOR = '.p-eplist__subtitle';
+  const READABLE_BLOCK_SELECTOR = [
+    SEMANTIC_BLOCK_SELECTOR,
+    TITLE_BLOCK_SELECTOR,
+    SUMMARY_BLOCK_SELECTOR,
+    READABLE_LINK_SELECTOR
+  ].join(', ');
   const DIRECT_BLOCK_CHILD_SELECTOR = [
     'article',
     'aside',
@@ -858,7 +873,11 @@
       return false;
     }
 
-    return Boolean(element.querySelector(SEMANTIC_BLOCK_SELECTOR));
+    return Boolean(element.querySelector(READABLE_BLOCK_SELECTOR));
+  }
+
+  function isReadableTitleLink(element) {
+    return Boolean(element && element.matches && element.matches(READABLE_LINK_SELECTOR));
   }
 
   function isLikelyUiMetaBlock(element, text) {
@@ -883,11 +902,18 @@
     const linkDensity = getElementLinkDensity(element, textLength);
     const base = Math.min(320, textLength);
     const semanticBonus = element.matches(SEMANTIC_BLOCK_SELECTOR) ? 60 : 0;
+    const headingBonus = element.matches(TITLE_BLOCK_SELECTOR) ? 120 : 0;
+    const summaryBonus = element.matches(SUMMARY_BLOCK_SELECTOR) ? 140 : 0;
+    const readableLinkBonus = isReadableTitleLink(element) ? 320 : 0;
+    const linkPenalty = isReadableTitleLink(element) ? (linkDensity * 60) : (linkDensity * 280);
 
     return (
       base +
       semanticBonus -
-      (linkDensity * 280) -
+      headingBonus +
+      summaryBonus +
+      readableLinkBonus -
+      linkPenalty -
       (linkCount * 10) -
       (interactiveCount * 14) -
       (directBlockChildCount * 20)
@@ -899,7 +925,7 @@
       return [];
     }
 
-    const elements = Array.from(root.querySelectorAll(SEMANTIC_BLOCK_SELECTOR));
+    const elements = Array.from(root.querySelectorAll(READABLE_BLOCK_SELECTOR));
 
     return elements.sort((left, right) => {
       if (left === right) {
@@ -967,7 +993,7 @@
       return false;
     }
 
-    if (!element.matches(SEMANTIC_BLOCK_SELECTOR)) {
+    if (!element.matches(READABLE_BLOCK_SELECTOR)) {
       return false;
     }
 
@@ -987,7 +1013,9 @@
       return false;
     }
 
-    if (scoreCandidateBlock(element, text) < 40) {
+    const minimumScore = isReadableTitleLink(element) ? 20 : 40;
+
+    if (scoreCandidateBlock(element, text) < minimumScore) {
       debugSkip('ui/meta block', element);
       return false;
     }
@@ -1293,7 +1321,7 @@
 
     while (currentNode) {
       const parent = currentNode.parentElement;
-      const anchor = parent.closest(SEMANTIC_BLOCK_SELECTOR);
+      const anchor = parent.closest(READABLE_BLOCK_SELECTOR);
 
       if (anchor && isCandidateElement(anchor) && !seen.has(anchor)) {
         if (hasSelectedRelative(anchor, selectedElements)) {
