@@ -19,6 +19,12 @@ jobs:
         with:
           node-version: 25
 
+      - name: Setup Biome
+        uses: biomejs/setup-biome@v2
+
+      - name: Run Biome lint
+        run: biome lint
+
       - name: Syntax check
         run: |
           node --check background.js
