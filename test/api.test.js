@@ -124,7 +124,12 @@ test('buildChatCompletionRequest uses chat completions shape', () => {
   assert.equal(payload.messages.length, 2);
   assert.match(payload.messages[0].content, /Return only valid JSON/);
   assert.match(payload.messages[0].content, /Preserve placeholders/);
+  assert.match(payload.messages[1].content, /Translate this heading into 繁體中文\./);
+  assert.match(payload.messages[1].content, /"targetLanguage":"繁體中文"/);
+  assert.match(payload.messages[1].content, /"id":"1"/);
   assert.match(payload.messages[1].content, /"kind":"heading"/);
+  assert.match(payload.messages[1].content, /"text":"Hello"/);
+  assert.doesNotMatch(payload.messages[1].content, /"items":\[/);
 });
 
 test('parseTranslationResponse accepts fenced JSON', () => {
@@ -200,7 +205,7 @@ test('requestTranslationsBatched runs chunks in parallel and preserves chunk ord
   };
   const fakeFetch = async (url, options) => {
     const body = JSON.parse(options.body);
-    const item = JSON.parse(body.messages[1].content.split('\n\n').at(-1)).items[0];
+    const item = JSON.parse(body.messages[1].content.split('\n\n').at(-1));
 
     inFlight += 1;
     maxInFlight = Math.max(maxInFlight, inFlight);
@@ -288,7 +293,7 @@ test('requestTranslationsBatchedProgressive emits chunks in completion order', a
   const completionOrder = [];
   const fakeFetch = async (url, options) => {
     const body = JSON.parse(options.body);
-    const item = JSON.parse(body.messages[1].content.split('\n\n').at(-1)).items[0];
+    const item = JSON.parse(body.messages[1].content.split('\n\n').at(-1));
     const delays = { a: 40, b: 5, c: 20 };
 
     await new Promise((resolve) => setTimeout(resolve, delays[item.id]));
@@ -346,9 +351,9 @@ test('requestTranslationsBatchedProgressive sends one item per request for norma
   const requestPayloadIds = [];
   const fakeFetch = async (url, options) => {
     const body = JSON.parse(options.body);
-    const items = JSON.parse(body.messages[1].content.split('\n\n').at(-1)).items;
+    const payload = JSON.parse(body.messages[1].content.split('\n\n').at(-1));
 
-    requestPayloadIds.push(items.map((item) => item.id));
+    requestPayloadIds.push([payload.id]);
 
     return {
       ok: true,
@@ -358,10 +363,12 @@ test('requestTranslationsBatchedProgressive sends one item per request for norma
             {
               message: {
                 content: JSON.stringify(
-                  items.map((item) => ({
-                    id: item.id,
-                    translation: `translated-${item.id}`
-                  }))
+                  [
+                    {
+                      id: payload.id,
+                      translation: `translated-${payload.id}`
+                    }
+                  ]
                 )
               }
             }

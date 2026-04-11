@@ -3,7 +3,7 @@ importScripts('storage.js', 'api.js');
 const MENU_TRANSLATE_PAGE = 'translate-page';
 const MENU_TRANSLATE_SELECTION = 'translate-selection';
 const BADGE_COLOR = '#1f7a4f';
-const PAGE_TRANSLATION_CONCURRENCY = 3;
+const PAGE_TRANSLATION_CONCURRENCY = 5;
 const pageTranslationSessions = new Map();
 
 function isSupportedPage(url) {

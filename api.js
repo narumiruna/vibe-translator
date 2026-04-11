@@ -1,6 +1,6 @@
 (function (root) {
   const DEFAULT_MAX_BATCH_CHARS = 5000;
-  const DEFAULT_MAX_CONCURRENCY = 3;
+  const DEFAULT_MAX_CONCURRENCY = 5;
   const SPLIT_BOUNDARIES = [
     { regex: /\n\s*\n+/g, joiner: '\n\n' },
     { regex: /\n+/g, joiner: '\n' },
@@ -242,14 +242,20 @@
     const targetLanguage = options.targetLanguage;
     const instructions = String(options.instructions || '').trim();
     const strictJson = Boolean(options.strictJson);
-    const userPayload = {
-      targetLanguage,
-      items: items.map((item) => ({
-        id: item.id,
-        kind: item.kind || 'paragraph',
-        text: item.text
-      }))
-    };
+    const payloadItems = items.map((item) => ({
+      id: item.id,
+      kind: item.kind || 'paragraph',
+      text: item.text
+    }));
+    const userPayload = payloadItems.length === 1
+      ? {
+          targetLanguage,
+          ...payloadItems[0]
+        }
+      : {
+          targetLanguage,
+          items: payloadItems
+        };
     const systemParts = [
       instructions,
       'You are rendering bilingual technical reading aids.',
@@ -275,7 +281,9 @@
       {
         role: 'user',
         content: [
-          `Translate every item into ${targetLanguage}.`,
+          payloadItems.length === 1
+            ? `Translate this ${payloadItems[0].kind || 'text'} into ${targetLanguage}.`
+            : `Translate every item into ${targetLanguage}.`,
           'Preserve meaning, order, and inline structure.',
           'Keep file paths, commands, URLs, code spans, identifiers, and product names in their original form.',
           'Reply with JSON only.',
