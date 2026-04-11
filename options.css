@@ -88,12 +88,14 @@ h1 {
 }
 
 input,
+select,
 textarea,
 button {
   font: inherit;
 }
 
 input,
+select,
 textarea {
   width: 100%;
   padding: 12px 14px;
@@ -104,6 +106,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   outline: 2px solid rgba(31, 122, 79, 0.18);
   border-color: rgba(31, 122, 79, 0.38);
