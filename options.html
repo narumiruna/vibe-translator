@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Translator Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel">
+        <header class="hero">
+          <p class="eyebrow">OpenAI-Compatible Translator</p>
+          <h1>Extension Settings</h1>
+          <p class="subtitle">
+            Configure the API endpoint, model, prompt, and target language used
+            for page and selection translation.
+          </p>
+        </header>
+
+        <form id="settings-form" class="form">
+          <label class="field">
+            <span>API Key</span>
+            <input id="api-key" name="apiKey" type="password" autocomplete="off" required />
+          </label>
+
+          <label class="field">
+            <span>OpenAI Base URL</span>
+            <input
+              id="base-url"
+              name="baseUrl"
+              type="url"
+              inputmode="url"
+              placeholder="https://api.openai.com/v1"
+              required
+            />
+          </label>
+
+          <label class="field">
+            <span>Model</span>
+            <input id="model" name="model" type="text" placeholder="gpt-4.1-mini" required />
+          </label>
+
+          <label class="field">
+            <span>Target Language</span>
+            <input
+              id="target-language"
+              name="targetLanguage"
+              type="text"
+              placeholder="繁體中文"
+              required
+            />
+          </label>
+
+          <label class="field">
+            <span>Instructions</span>
+            <textarea
+              id="instructions"
+              name="instructions"
+              rows="8"
+              placeholder="Add translation instructions here."
+            ></textarea>
+          </label>
+
+          <div class="status-grid">
+            <article class="status-card">
+              <h2>API Origin Permission</h2>
+              <p id="permission-status" class="status-text">Checking permission…</p>
+            </article>
+            <article class="status-card">
+              <h2>Connection Test</h2>
+              <p id="test-status" class="status-text">Run a test request after saving.</p>
+            </article>
+          </div>
+
+          <div class="actions">
+            <button id="save-button" type="submit">Save Settings</button>
+            <button id="test-button" type="button" class="secondary">Test Connection</button>
+          </div>
+
+          <p id="form-status" class="banner" hidden></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="storage.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

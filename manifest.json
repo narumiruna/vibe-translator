@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "OpenAI Compatible Page Translator",
+  "version": "0.1.0",
+  "description": "Translate web pages with an OpenAI-compatible API while keeping the original text visible.",
+  "permissions": ["activeTab", "contextMenus", "scripting", "storage"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Translate this page"
+  },
+  "options_page": "options.html"
+}
