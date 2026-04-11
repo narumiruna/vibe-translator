@@ -37,6 +37,16 @@ function setBadge(tabId, text) {
 	chrome.action.setBadgeText({ text, tabId }).catch(() => {});
 }
 
+function isTabMessageDisconnectError(error) {
+	const message = String(error?.message || "");
+
+	return (
+		message.includes("Could not establish connection") ||
+		message.includes("Receiving end does not exist") ||
+		message.includes("No tab with id")
+	);
+}
+
 function buildTranslationAppearancePayload(settings) {
 	const appearance = TranslatorStorage.normalizeTranslationAppearance(settings);
 
@@ -272,6 +282,14 @@ async function processSinglePageTranslationItem(tabId, sessionId, item) {
 		if (incompleteSegmentIds.length > 0) {
 			await clearPagePlaceholders(tabId, incompleteSegmentIds);
 		}
+	} catch (error) {
+		if (isTabMessageDisconnectError(error)) {
+			pageTranslationSessions.delete(tabId);
+			setBadge(tabId, "");
+			return;
+		}
+
+		throw error;
 	} finally {
 		const currentSession = getPageTranslationSession(tabId, sessionId);
 
@@ -572,6 +590,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 		pageTranslationSessions.delete(tabId);
 		setBadge(tabId, "");
 	}
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+	pageTranslationSessions.delete(tabId);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
