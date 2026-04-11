@@ -27,9 +27,10 @@
     'p',
     'li',
     'blockquote',
-    'figcaption'
+    'figcaption',
+    'td',
+    'th'
   ].join(', ');
-  const GENERIC_BLOCK_SELECTOR = ['article', 'main', 'section', 'div'].join(', ');
   const SKIP_ANCESTOR_SELECTOR = [
     'script',
     'style',
@@ -77,7 +78,13 @@
     '.meta',
     '.metadata',
     '.byline',
-    '.timestamp'
+    '.timestamp',
+    '.share',
+    '.sharing',
+    '.social-share',
+    '[aria-label*="share" i]',
+    '[class*="share"]',
+    '[data-testid*="share"]'
   ].join(', ');
   const TERMINAL_LIKE_SELECTOR = [
     '[role="log"]',
@@ -439,6 +446,12 @@
     console.debug(`[OpenAI Translator] Skipping ${tagName}: ${reason}`);
   }
 
+  function debugSelect(reason, element) {
+    const tagName = element && element.tagName ? element.tagName.toLowerCase() : 'unknown';
+
+    console.debug(`[OpenAI Translator] Selected ${tagName}: ${reason}`);
+  }
+
   function isInsideTranslation(element) {
     return Boolean(element && element.closest && element.closest('.translation'));
   }
@@ -677,16 +690,21 @@
     };
   }
 
-  function isGenericBlock(element) {
-    return Boolean(element && element.matches && element.matches(GENERIC_BLOCK_SELECTOR));
-  }
-
-  function hasNestedSemanticBlocks(element) {
-    if (!element || !isGenericBlock(element)) {
+  function hasNestedReadableBlocks(element) {
+    if (!element || !element.querySelector) {
       return false;
     }
 
     return Boolean(element.querySelector(SEMANTIC_BLOCK_SELECTOR));
+  }
+
+  function hasSelectedRelative(element, selectedElements) {
+    return selectedElements.some(
+      (selectedElement) =>
+        selectedElement === element ||
+        selectedElement.contains(element) ||
+        element.contains(selectedElement)
+    );
   }
 
   function isTranslatorOwned(element) {
@@ -695,9 +713,7 @@
     );
   }
 
-  function isCandidateElement(element, options) {
-    const relaxed = Boolean(options && options.relaxed);
-
+  function isCandidateElement(element) {
     if (!element) {
       return false;
     }
@@ -729,17 +745,14 @@
       return false;
     }
 
-    if (isGenericBlock(element) && hasNestedSemanticBlocks(element)) {
+    if (hasNestedReadableBlocks(element)) {
+      debugSkip('ancestor block', element);
       return false;
     }
 
     const text = getSegmentContent(element).text;
 
     if (!shouldTranslateText(text)) {
-      return false;
-    }
-
-    if (isGenericBlock(element) && !relaxed && text.length < 32) {
       return false;
     }
 
@@ -945,6 +958,7 @@
     const items = [];
     const windowCandidates = [];
     const totalElements = [];
+    const selectedElements = [];
     const counterRef = { value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length };
     const root = getTranslationRoot();
     const elements = root ? Array.from(root.querySelectorAll(SEMANTIC_BLOCK_SELECTOR)) : [];
@@ -953,6 +967,11 @@
 
     for (const element of elements) {
       if (!isCandidateElement(element)) {
+        continue;
+      }
+
+      if (hasSelectedRelative(element, selectedElements)) {
+        debugSkip('ancestor block', element);
         continue;
       }
 
@@ -966,6 +985,8 @@
       }
 
       const item = buildSegmentItem(element, counterRef);
+      selectedElements.push(element);
+      debugSelect('leaf block', element);
 
       if (windowed) {
         windowCandidates.push(createWindowCandidate(element, item));
@@ -987,6 +1008,7 @@
   function collectFallbackItems(options) {
     const counterRef = { value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length };
     const seen = new Set();
+    const selectedElements = [];
     const items = [];
     const windowCandidates = [];
     let totalSegments = 0;
@@ -1035,9 +1057,15 @@
 
     while (currentNode) {
       const parent = currentNode.parentElement;
-      const anchor = parent.closest(SEMANTIC_BLOCK_SELECTOR) || parent.closest(GENERIC_BLOCK_SELECTOR);
+      const anchor = parent.closest(SEMANTIC_BLOCK_SELECTOR);
 
-      if (anchor && isCandidateElement(anchor, { relaxed: true }) && !seen.has(anchor)) {
+      if (anchor && isCandidateElement(anchor) && !seen.has(anchor)) {
+        if (hasSelectedRelative(anchor, selectedElements)) {
+          debugSkip('ancestor block', anchor);
+          currentNode = walker.nextNode();
+          continue;
+        }
+
         seen.add(anchor);
         totalSegments += 1;
 
@@ -1046,6 +1074,8 @@
 
         if (shouldQueue) {
           const item = buildSegmentItem(anchor, counterRef);
+          selectedElements.push(anchor);
+          debugSelect('leaf block', anchor);
 
           if (windowed) {
             windowCandidates.push(createWindowCandidate(anchor, item));
