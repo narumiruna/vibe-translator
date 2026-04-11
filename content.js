@@ -16,7 +16,17 @@
   const PREFETCH_VIEWPORTS = 2;
   const VISIBLE_TRANSLATION_FLUSH_DELAY_MS = 200;
   const OBSERVER_DEBOUNCE_MS = 200;
-  const MAIN_CONTENT_SELECTOR = 'main, article, [role="main"]';
+  const MAIN_CONTENT_SELECTOR = [
+    'main',
+    'article',
+    '[role="main"]',
+    '#main',
+    '.main',
+    '#content',
+    '.content',
+    '.post',
+    '.entry'
+  ].join(', ');
   const DEFAULT_TRANSLATION_APPEARANCE = Object.freeze({
     underlineColor: '#1f7a4f',
     underlineStyle: 'dashed',
@@ -30,6 +40,27 @@
     'figcaption',
     'td',
     'th'
+  ].join(', ');
+  const GENERIC_READABLE_BLOCK_SELECTOR = 'div, section';
+  const DIRECT_BLOCK_CHILD_SELECTOR = [
+    'article',
+    'aside',
+    'blockquote',
+    'div',
+    'dl',
+    'figure',
+    'footer',
+    'form',
+    'header',
+    'li',
+    'main',
+    'nav',
+    'ol',
+    'p',
+    'pre',
+    'section',
+    'table',
+    'ul'
   ].join(', ');
   const SKIP_ANCESTOR_SELECTOR = [
     'script',
@@ -54,6 +85,7 @@
     '.translation',
     `[${ROOT_ATTR}]`
   ].join(', ');
+  const INTERACTIVE_SELECTOR = 'a, button, [role="button"], input, select, textarea';
   const MATH_SELECTOR = [
     'math',
     '.katex',
@@ -464,8 +496,164 @@
     return Boolean(element.matches(UNSUPPORTED_ELEMENT_SELECTOR) || element.closest(UNSUPPORTED_ELEMENT_SELECTOR));
   }
 
-  function getTranslationRoot() {
-    return document.querySelector(MAIN_CONTENT_SELECTOR) || document.body;
+  function getElementPlainText(element) {
+    if (!element) {
+      return '';
+    }
+
+    return normalizeSegmentText(element.innerText || element.textContent || '');
+  }
+
+  function getElementLinkTextLength(element) {
+    if (!element || !element.querySelectorAll) {
+      return 0;
+    }
+
+    let total = 0;
+
+    for (const link of element.querySelectorAll('a')) {
+      total += normalizeInlineWhitespace(link.textContent || '').length;
+    }
+
+    return total;
+  }
+
+  function getElementLinkDensity(element, textLength) {
+    if (!element || textLength <= 0) {
+      return 0;
+    }
+
+    return Math.min(1, getElementLinkTextLength(element) / textLength);
+  }
+
+  function getDirectBlockChildCount(element) {
+    if (!element || !element.children) {
+      return 0;
+    }
+
+    return Array.from(element.children).filter(
+      (child) => child.matches && child.matches(DIRECT_BLOCK_CHILD_SELECTOR)
+    ).length;
+  }
+
+  function getRootCandidates() {
+    const candidates = new Set();
+
+    for (const element of document.querySelectorAll(MAIN_CONTENT_SELECTOR)) {
+      candidates.add(element);
+    }
+
+    if (document.body) {
+      candidates.add(document.body);
+    }
+
+    return Array.from(candidates);
+  }
+
+  function scoreTranslationRoot(element) {
+    if (!element || !element.isConnected || isInsideTranslation(element) || isTranslatorOwned(element)) {
+      return Number.NEGATIVE_INFINITY;
+    }
+
+    const textLength = getElementPlainText(element).length;
+
+    if (textLength < 80) {
+      return Number.NEGATIVE_INFINITY;
+    }
+
+    const semanticCount = element.querySelectorAll(SEMANTIC_BLOCK_SELECTOR).length;
+    const unsupportedCount = element.querySelectorAll(UNSUPPORTED_ELEMENT_SELECTOR).length;
+    const interactiveCount = element.querySelectorAll(INTERACTIVE_SELECTOR).length;
+    const directBlockChildCount = getDirectBlockChildCount(element);
+    const linkDensity = getElementLinkDensity(element, textLength);
+    const rootBonus = element.matches('main, article, [role="main"]') ? 400 : 0;
+    const bodyPenalty = element === document.body ? 1200 : 0;
+    const nestedRootPenalty = element.querySelectorAll('main, article, [role="main"]').length * 120;
+
+    return (
+      Math.min(600, textLength / 4) +
+      (semanticCount * 45) +
+      rootBonus -
+      (linkDensity * 420) -
+      (unsupportedCount * 24) -
+      (interactiveCount * 4) -
+      directBlockChildCount -
+      bodyPenalty -
+      nestedRootPenalty
+    );
+  }
+
+  function detectContentMode(root) {
+    if (!root) {
+      return 'mixed';
+    }
+
+    const semanticBlocks = Array.from(root.querySelectorAll(SEMANTIC_BLOCK_SELECTOR));
+    const longSemanticCount = semanticBlocks.filter(
+      (element) => getSegmentContent(element).text.length >= 80
+    ).length;
+    const genericBlocks = Array.from(root.querySelectorAll(GENERIC_READABLE_BLOCK_SELECTOR));
+    const linkHeavyBlockCount = genericBlocks.filter((element) => {
+      const textLength = getElementPlainText(element).length;
+
+      return textLength >= 24 && getElementLinkDensity(element, textLength) >= 0.35;
+    }).length;
+    const linkCount = root.querySelectorAll('a').length;
+
+    if (longSemanticCount >= 3) {
+      return 'narrative';
+    }
+
+    if (semanticBlocks.length === 0 && linkCount >= 8) {
+      return 'listing';
+    }
+
+    if (linkHeavyBlockCount >= Math.max(3, semanticBlocks.length)) {
+      return 'listing';
+    }
+
+    return 'mixed';
+  }
+
+  function getTranslationProfile() {
+    const candidates = getRootCandidates();
+    let root = document.body;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    let bestNonBodyRoot = null;
+    let bestNonBodyScore = Number.NEGATIVE_INFINITY;
+
+    for (const candidate of candidates) {
+      const score = scoreTranslationRoot(candidate);
+
+      if (score > bestScore) {
+        bestScore = score;
+        root = candidate;
+      }
+
+      if (candidate !== document.body && score > bestNonBodyScore) {
+        bestNonBodyScore = score;
+        bestNonBodyRoot = candidate;
+      }
+    }
+
+    if (root === document.body && bestNonBodyRoot && bestNonBodyScore > 0) {
+      root = bestNonBodyRoot;
+      bestScore = bestNonBodyScore;
+    }
+
+    const mode = detectContentMode(root);
+    const semanticCount = root ? root.querySelectorAll(SEMANTIC_BLOCK_SELECTOR).length : 0;
+
+    console.debug(
+      `[OpenAI Translator] Using ${root && root.tagName ? root.tagName.toLowerCase() : 'body'} root (${mode})`
+    );
+
+    return {
+      root,
+      mode,
+      allowFallback: mode === 'narrative',
+      allowGenericBlocks: mode !== 'narrative' || semanticCount === 0
+    };
   }
 
   function observePageMutations() {
@@ -698,6 +886,97 @@
     return Boolean(element.querySelector(SEMANTIC_BLOCK_SELECTOR));
   }
 
+  function isGenericReadableBlock(element) {
+    return Boolean(element && element.matches && element.matches(GENERIC_READABLE_BLOCK_SELECTOR));
+  }
+
+  function isGenericReadableLeaf(element, profile) {
+    if (!profile || !profile.allowGenericBlocks || !isGenericReadableBlock(element)) {
+      return false;
+    }
+
+    if (hasNestedReadableBlocks(element)) {
+      return false;
+    }
+
+    if (getDirectBlockChildCount(element) > 0) {
+      return false;
+    }
+
+    const textLength = getElementPlainText(element).length;
+    const linkDensity = getElementLinkDensity(element, textLength);
+    const interactiveCount = element.querySelectorAll(INTERACTIVE_SELECTOR).length;
+
+    return textLength >= 60 && linkDensity <= 0.2 && interactiveCount <= 1;
+  }
+
+  function isLikelyUiMetaBlock(element, text) {
+    const textLength = text.length;
+    const linkCount = element.querySelectorAll('a').length;
+    const interactiveCount = element.querySelectorAll(INTERACTIVE_SELECTOR).length;
+    const directBlockChildCount = getDirectBlockChildCount(element);
+    const linkDensity = getElementLinkDensity(element, textLength);
+
+    return (
+      (linkDensity >= 0.35 && linkCount >= 2) ||
+      (interactiveCount >= 2 && textLength < 160) ||
+      (directBlockChildCount >= 4 && linkCount >= 2)
+    );
+  }
+
+  function scoreCandidateBlock(element, text) {
+    const textLength = text.length;
+    const linkCount = element.querySelectorAll('a').length;
+    const interactiveCount = element.querySelectorAll(INTERACTIVE_SELECTOR).length;
+    const directBlockChildCount = getDirectBlockChildCount(element);
+    const linkDensity = getElementLinkDensity(element, textLength);
+    const base = Math.min(320, textLength);
+    const semanticBonus = element.matches(SEMANTIC_BLOCK_SELECTOR) ? 60 : 0;
+
+    return (
+      base +
+      semanticBonus -
+      (linkDensity * 280) -
+      (linkCount * 10) -
+      (interactiveCount * 14) -
+      (directBlockChildCount * 20)
+    );
+  }
+
+  function getCandidateElements(root, profile) {
+    if (!root) {
+      return [];
+    }
+
+    const elements = Array.from(root.querySelectorAll(SEMANTIC_BLOCK_SELECTOR));
+
+    if (profile && profile.allowGenericBlocks) {
+      for (const element of root.querySelectorAll(GENERIC_READABLE_BLOCK_SELECTOR)) {
+        if (isGenericReadableLeaf(element, profile)) {
+          elements.push(element);
+        }
+      }
+    }
+
+    return elements.sort((left, right) => {
+      if (left === right) {
+        return 0;
+      }
+
+      const position = left.compareDocumentPosition(right);
+
+      if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
+        return -1;
+      }
+
+      if (position & Node.DOCUMENT_POSITION_PRECEDING) {
+        return 1;
+      }
+
+      return 0;
+    });
+  }
+
   function hasSelectedRelative(element, selectedElements) {
     return selectedElements.some(
       (selectedElement) =>
@@ -713,7 +992,7 @@
     );
   }
 
-  function isCandidateElement(element) {
+  function isCandidateElement(element, profile) {
     if (!element) {
       return false;
     }
@@ -745,6 +1024,10 @@
       return false;
     }
 
+    if (!element.matches(SEMANTIC_BLOCK_SELECTOR) && !isGenericReadableLeaf(element, profile)) {
+      return false;
+    }
+
     if (hasNestedReadableBlocks(element)) {
       debugSkip('ancestor block', element);
       return false;
@@ -753,6 +1036,18 @@
     const text = getSegmentContent(element).text;
 
     if (!shouldTranslateText(text)) {
+      return false;
+    }
+
+    if (isLikelyUiMetaBlock(element, text)) {
+      debugSkip('ui/meta block', element);
+      return false;
+    }
+
+    const minimumScore = isGenericReadableBlock(element) ? 80 : 40;
+
+    if (scoreCandidateBlock(element, text) < minimumScore) {
+      debugSkip('ui/meta block', element);
       return false;
     }
 
@@ -954,19 +1249,19 @@
     };
   }
 
-  function collectSemanticItems(options) {
+  function collectSemanticItems(profile, options) {
     const items = [];
     const windowCandidates = [];
     const totalElements = [];
     const selectedElements = [];
     const counterRef = { value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length };
-    const root = getTranslationRoot();
-    const elements = root ? Array.from(root.querySelectorAll(SEMANTIC_BLOCK_SELECTOR)) : [];
+    const root = profile && profile.root;
+    const elements = getCandidateElements(root, profile);
     const windowed = Boolean(options && options.windowed);
     const viewportOptions = windowed ? getViewportWindowOptions() : null;
 
     for (const element of elements) {
-      if (!isCandidateElement(element)) {
+      if (!isCandidateElement(element, profile)) {
         continue;
       }
 
@@ -1005,7 +1300,7 @@
     };
   }
 
-  function collectFallbackItems(options) {
+  function collectFallbackItems(profile, options) {
     const counterRef = { value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length };
     const seen = new Set();
     const selectedElements = [];
@@ -1014,9 +1309,9 @@
     let totalSegments = 0;
     const windowed = Boolean(options && options.windowed);
     const viewportOptions = windowed ? getViewportWindowOptions() : null;
-    const root = getTranslationRoot();
+    const root = profile && profile.root;
 
-    if (!root) {
+    if (!root || !profile || !profile.allowFallback) {
       return {
         items: [],
         totalSegments: 0
@@ -1059,7 +1354,7 @@
       const parent = currentNode.parentElement;
       const anchor = parent.closest(SEMANTIC_BLOCK_SELECTOR);
 
-      if (anchor && isCandidateElement(anchor) && !seen.has(anchor)) {
+      if (anchor && isCandidateElement(anchor, profile) && !seen.has(anchor)) {
         if (hasSelectedRelative(anchor, selectedElements)) {
           debugSkip('ancestor block', anchor);
           currentNode = walker.nextNode();
@@ -1102,7 +1397,9 @@
     ensureStyles();
     ensureObserver();
 
-    const semantic = collectSemanticItems(options);
+    const profile = getTranslationProfile();
+
+    const semantic = collectSemanticItems(profile, options);
 
     if (semantic.totalSegments > 0) {
       return {
@@ -1112,7 +1409,7 @@
       };
     }
 
-    const fallback = collectFallbackItems(options);
+    const fallback = collectFallbackItems(profile, options);
 
     return {
       items: fallback.items,
