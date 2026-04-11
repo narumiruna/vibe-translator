@@ -5,6 +5,7 @@
   const modelInput = document.getElementById('model');
   const targetLanguageInput = document.getElementById('target-language');
   const instructionsInput = document.getElementById('instructions');
+  const disabledDomainsInput = document.getElementById('disabled-domains');
   const permissionStatus = document.getElementById('permission-status');
   const testStatus = document.getElementById('test-status');
   const formStatus = document.getElementById('form-status');
@@ -16,7 +17,8 @@
       baseUrl: baseUrlInput.value,
       model: modelInput.value,
       instructions: instructionsInput.value,
-      targetLanguage: targetLanguageInput.value
+      targetLanguage: targetLanguageInput.value,
+      disabledDomains: disabledDomainsInput.value
     };
   }
 
@@ -69,6 +71,7 @@
     modelInput.value = settings.model;
     targetLanguageInput.value = settings.targetLanguage;
     instructionsInput.value = settings.instructions;
+    disabledDomainsInput.value = settings.disabledDomains || '';
     await updatePermissionStatus(settings.baseUrl);
   }
 

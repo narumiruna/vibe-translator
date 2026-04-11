@@ -3,9 +3,24 @@ importScripts('storage.js', 'api.js');
 const MENU_TRANSLATE_PAGE = 'translate-page';
 const MENU_TRANSLATE_SELECTION = 'translate-selection';
 const BADGE_COLOR = '#1f7a4f';
+const PAGE_TRANSLATION_CONCURRENCY = 3;
 
 function isSupportedPage(url) {
   return /^https?:\/\//i.test(String(url || ''));
+}
+
+function isDomainDisabled(url, settings) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    const rules = String(settings.disabledDomains || '')
+      .split('\n')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+
+    return rules.some((rule) => hostname === rule || hostname.endsWith(`.${rule}`));
+  } catch (error) {
+    return false;
+  }
 }
 
 function setBadge(tabId, text) {
@@ -15,6 +30,33 @@ function setBadge(tabId, text) {
 
   chrome.action.setBadgeBackgroundColor({ color: BADGE_COLOR, tabId }).catch(() => {});
   chrome.action.setBadgeText({ text, tabId }).catch(() => {});
+}
+
+async function renderPageTranslationUpdates(tabId, targetLanguage, translations) {
+  if (!translations || translations.length === 0) {
+    return;
+  }
+
+  await chrome.tabs.sendMessage(tabId, {
+    type: 'render-page-translation-updates',
+    payload: {
+      targetLanguage,
+      translations
+    }
+  });
+}
+
+async function clearPagePlaceholders(tabId, ids) {
+  if (!ids || ids.length === 0) {
+    return;
+  }
+
+  await chrome.tabs.sendMessage(tabId, {
+    type: 'clear-page-placeholders',
+    payload: {
+      ids
+    }
+  }).catch(() => {});
 }
 
 async function setupContextMenus() {
@@ -92,6 +134,11 @@ async function translatePage(tab) {
   }
 
   const settings = await loadSettingsOrOpenOptions();
+
+  if (isDomainDisabled(tab.url, settings)) {
+    throw new Error('Translation is disabled for this domain.');
+  }
+
   const hasPermission = await ensureApiPermission(settings);
 
   if (!hasPermission) {
@@ -103,33 +150,76 @@ async function translatePage(tab) {
     type: 'extract-page-content'
   });
 
-  if (!extraction || !Array.isArray(extraction.items) || extraction.items.length === 0) {
+  if (!extraction || !Array.isArray(extraction.items)) {
     await sendToast(tab.id, 'No translatable text was found on this page.', 'info');
     setBadge(tab.id, '');
     return;
   }
 
-  const chunks = TranslatorApi.chunkTranslationItems(extraction.items);
-  const translations = [];
+  if (extraction.items.length === 0) {
+    const message =
+      extraction.totalSegments > 0
+        ? 'No new or changed text was found on this page.'
+        : 'No translatable text was found on this page.';
 
-  for (const chunk of chunks) {
-    const result = await TranslatorApi.requestTranslations({
-      settings,
-      items: chunk
-    });
-
-    translations.push(...result);
+    await sendToast(tab.id, message, 'info');
+    setBadge(tab.id, '');
+    return;
   }
 
   await chrome.tabs.sendMessage(tab.id, {
-    type: 'render-page-translations',
+    type: 'render-page-placeholders',
     payload: {
-      targetLanguage: settings.targetLanguage,
-      translations
+      ids: extraction.items.map((item) => item.id),
+      targetLanguage: settings.targetLanguage
     }
   });
-  await sendToast(tab.id, `Translated ${translations.length} page blocks.`, 'success');
-  setBadge(tab.id, 'TR');
+
+  const chunkPlan = TranslatorApi.createRecursiveChunkPlan(extraction.items);
+  const mergeState = TranslatorApi.createProgressiveMergeState(chunkPlan);
+  await TranslatorApi.requestTranslationsBatchedProgressive({
+    settings,
+    chunks: chunkPlan.chunks,
+    concurrency: PAGE_TRANSLATION_CONCURRENCY,
+    onChunkResolved: async ({ translations }) => {
+      const completedTranslations = TranslatorApi.consumeProgressiveTranslations(
+        chunkPlan,
+        mergeState,
+        translations
+      );
+
+      if (completedTranslations.length > 0) {
+        await renderPageTranslationUpdates(
+          tab.id,
+          settings.targetLanguage,
+          completedTranslations
+        );
+        setBadge(tab.id, String(mergeState.completedSegmentIds.size));
+      }
+    }
+  });
+  const incompleteSegmentIds = TranslatorApi.getIncompleteSegmentIds(chunkPlan, mergeState);
+
+  await clearPagePlaceholders(tab.id, incompleteSegmentIds);
+
+  const completedCount = mergeState.completedSegmentIds.size;
+  const failedCount = incompleteSegmentIds.length;
+
+  if (failedCount > 0) {
+    await sendToast(
+      tab.id,
+      `Translated ${completedCount} blocks, ${failedCount} failed.`,
+      completedCount > 0 ? 'info' : 'error'
+    );
+  } else {
+    await sendToast(tab.id, `Translated ${completedCount} page blocks.`, 'success');
+  }
+
+  if (completedCount > 0) {
+    setBadge(tab.id, 'TR');
+  } else {
+    setBadge(tab.id, '!');
+  }
 }
 
 async function translateSelection(tabId, selectionText) {
@@ -144,6 +234,12 @@ async function translateSelection(tabId, selectionText) {
   }
 
   const settings = await loadSettingsOrOpenOptions();
+  const tab = await chrome.tabs.get(tabId);
+
+  if (tab && isDomainDisabled(tab.url, settings)) {
+    throw new Error('Translation is disabled for this domain.');
+  }
+
   const hasPermission = await ensureApiPermission(settings);
 
   if (!hasPermission) {
@@ -151,11 +247,22 @@ async function translateSelection(tabId, selectionText) {
   }
 
   await ensureContentScript(tabId);
-
-  const translations = await TranslatorApi.requestTranslations({
-    settings,
-    items: [{ id: 'selection', text }]
+  await chrome.tabs.sendMessage(tabId, {
+    type: 'render-selection-placeholder',
+    payload: {
+      targetLanguage: settings.targetLanguage
+    }
   });
+
+  const chunkPlan = TranslatorApi.createRecursiveChunkPlan([
+    { id: 'selection', kind: 'selection', text }
+  ]);
+  const partialTranslations = await TranslatorApi.requestTranslationsBatched({
+    settings,
+    chunks: chunkPlan.chunks,
+    concurrency: 1
+  });
+  const translations = TranslatorApi.mergeRecursiveTranslations(chunkPlan, partialTranslations);
   const translation = translations[0] && translations[0].translation;
 
   if (!translation) {
@@ -188,7 +295,7 @@ async function handleRuntimeMessage(message) {
 
     const translations = await TranslatorApi.requestTranslations({
       settings: validation.settings,
-      items: [{ id: 'sample', text: 'Hello world.' }]
+      items: [{ id: 'sample', kind: 'paragraph', text: 'Hello world.' }]
     });
 
     return {
@@ -217,6 +324,9 @@ chrome.action.onClicked.addListener(async (tab) => {
     await translatePage(tab);
   } catch (error) {
     if (tab && tab.id) {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'clear-pending-translations'
+      }).catch(() => {});
       await sendToast(tab.id, error.message, 'error');
       setBadge(tab.id, '!');
     }
@@ -235,6 +345,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
   } catch (error) {
     if (tab && tab.id) {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'clear-pending-translations'
+      }).catch(() => {});
       await sendToast(tab.id, error.message, 'error');
       setBadge(tab.id, '!');
     }

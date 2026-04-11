@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   DEFAULT_SETTINGS,
   getApiPermissionPattern,
+  normalizeDisabledDomains,
   normalizeBaseUrl,
   validateSettings
 } = require('../storage.js');
@@ -40,5 +41,12 @@ test('getApiPermissionPattern derives origin wildcard', () => {
   assert.equal(
     getApiPermissionPattern('https://api.openai.com/v1'),
     'https://api.openai.com/*'
+  );
+});
+
+test('normalizeDisabledDomains normalizes separators and casing', () => {
+  assert.equal(
+    normalizeDisabledDomains('Chat.OpenAI.com, example.com\nsub.example.com'),
+    'chat.openai.com\nexample.com\nsub.example.com'
   );
 });

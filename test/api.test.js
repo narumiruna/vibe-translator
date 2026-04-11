@@ -4,8 +4,19 @@ const assert = require('node:assert/strict');
 const {
   buildChatCompletionRequest,
   chunkTranslationItems,
+  consumeProgressiveTranslations,
+  createRecursiveChunkPlan,
+  createProgressiveMergeState,
+  getIncompleteSegmentIds,
+  maskProtectedFragments,
+  mergeRecursiveTranslations,
   parseTranslationResponse,
-  requestTranslations
+  requestTranslations,
+  requestTranslationsBatched,
+  requestTranslationsBatchedProgressive,
+  splitTextRecursively,
+  unmaskProtectedFragments,
+  validateProtectedFragments
 } = require('../api.js');
 
 test('chunkTranslationItems splits by character limit', () => {
@@ -23,6 +34,58 @@ test('chunkTranslationItems splits by character limit', () => {
   assert.deepEqual(chunks[1].map((item) => item.id), ['c']);
 });
 
+test('splitTextRecursively breaks a long text into bounded parts', () => {
+  const parts = splitTextRecursively(
+    'alpha beta gamma delta epsilon zeta eta theta iota kappa lambda',
+    12
+  );
+
+  assert.ok(parts.length > 1);
+  assert.ok(parts.every((part) => part.text.length <= 12));
+});
+
+test('createRecursiveChunkPlan splits oversized items and mergeRecursiveTranslations restores them', () => {
+  const plan = createRecursiveChunkPlan(
+    [
+      {
+        id: 'long',
+        kind: 'paragraph',
+        text: 'First sentence. Second sentence. Third sentence. Fourth sentence.'
+      }
+    ],
+    24
+  );
+
+  assert.ok(plan.expandedItems.length > 1);
+  assert.ok(plan.expandedItems.every((item) => item.text.length <= 24));
+
+  const merged = mergeRecursiveTranslations(plan, plan.expandedItems.map((item) => ({
+    id: item.id,
+    translation: `[${item.text}]`
+  })));
+
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].id, 'long');
+  assert.match(merged[0].translation, /^\[First sentence\./);
+  assert.match(merged[0].translation, /Fourth sentence\.\]$/);
+});
+
+test('maskProtectedFragments preserves code paths urls and tech terms', () => {
+  const masked = maskProtectedFragments(
+    'Run `npm run dev` in src/bot/ and open https://example.com/docs for the GitHub API guide.'
+  );
+
+  assert.notEqual(masked.maskedText.includes('`npm run dev`'), true);
+  assert.ok(masked.tokens.length >= 4);
+
+  const restored = unmaskProtectedFragments(masked.maskedText, masked.tokens);
+
+  assert.equal(
+    restored,
+    'Run `npm run dev` in src/bot/ and open https://example.com/docs for the GitHub API guide.'
+  );
+});
+
 test('buildChatCompletionRequest uses chat completions shape', () => {
   const payload = buildChatCompletionRequest(
     {
@@ -32,7 +95,7 @@ test('buildChatCompletionRequest uses chat completions shape', () => {
       instructions: 'Translate carefully.',
       targetLanguage: '繁體中文'
     },
-    [{ id: '1', text: 'Hello' }],
+    [{ id: '1', kind: 'heading', text: 'Hello' }],
     false
   );
 
@@ -40,6 +103,8 @@ test('buildChatCompletionRequest uses chat completions shape', () => {
   assert.equal(payload.stream, false);
   assert.equal(payload.messages.length, 2);
   assert.match(payload.messages[0].content, /Return only valid JSON/);
+  assert.match(payload.messages[0].content, /Preserve placeholders/);
+  assert.match(payload.messages[1].content, /"kind":"heading"/);
 });
 
 test('parseTranslationResponse accepts fenced JSON', () => {
@@ -88,4 +153,164 @@ test('requestTranslations retries once when first response is invalid JSON', asy
 
   assert.equal(calls, 2);
   assert.deepEqual(result, [{ id: '1', translation: '你好' }]);
+});
+
+test('validateProtectedFragments rejects missing placeholders', () => {
+  assert.throws(() => {
+    validateProtectedFragments(
+      [
+        {
+          id: '1',
+          text: '__OT_TOKEN_1__ hello',
+          protectedFragments: [{ placeholder: '__OT_TOKEN_1__', value: '`npm run dev`' }]
+        }
+      ],
+      [{ id: '1', translation: '你好' }]
+    );
+  }, /Protected placeholder/);
+});
+
+test('requestTranslationsBatched runs chunks in parallel and preserves chunk order', async () => {
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const delays = {
+    a: 50,
+    b: 10,
+    c: 30
+  };
+  const fakeFetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    const item = JSON.parse(body.messages[1].content.split('\n\n').at(-1)).items[0];
+
+    inFlight += 1;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    await new Promise((resolve) => setTimeout(resolve, delays[item.id]));
+    inFlight -= 1;
+
+    return {
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify([
+                  { id: item.id, translation: `translated-${item.id}` }
+                ])
+              }
+            }
+          ]
+        })
+    };
+  };
+
+  const result = await requestTranslationsBatched({
+    settings: {
+      apiKey: 'x',
+      baseUrl: 'https://example.com/v1',
+      model: 'demo',
+      instructions: 'Translate carefully.',
+      targetLanguage: '繁體中文'
+    },
+    chunks: [
+      [{ id: 'a', kind: 'paragraph', text: 'A', protectedFragments: [] }],
+      [{ id: 'b', kind: 'paragraph', text: 'B', protectedFragments: [] }],
+      [{ id: 'c', kind: 'paragraph', text: 'C', protectedFragments: [] }]
+    ],
+    concurrency: 2,
+    fetchImpl: fakeFetch
+  });
+
+  assert.equal(maxInFlight, 2);
+  assert.deepEqual(result, [
+    { id: 'a', translation: 'translated-a' },
+    { id: 'b', translation: 'translated-b' },
+    { id: 'c', translation: 'translated-c' }
+  ]);
+});
+
+test('consumeProgressiveTranslations only emits a split segment after all parts are available', () => {
+  const plan = createRecursiveChunkPlan(
+    [
+      {
+        id: 'long',
+        kind: 'paragraph',
+        text: 'First sentence. Second sentence. Third sentence. Fourth sentence.'
+      }
+    ],
+    24
+  );
+  const state = createProgressiveMergeState(plan);
+  const earlyParts = plan.expandedItems.slice(0, -1);
+  const finalPart = plan.expandedItems.at(-1);
+
+  const partial = consumeProgressiveTranslations(
+    plan,
+    state,
+    earlyParts.map((item, index) => ({
+      id: item.id,
+      translation: `第${index + 1}段。`
+    }))
+  );
+
+  assert.deepEqual(partial, []);
+
+  const completed = consumeProgressiveTranslations(plan, state, [
+    { id: finalPart.id, translation: '最後一段。' }
+  ]);
+
+  assert.equal(completed.length, 1);
+  assert.equal(completed[0].id, 'long');
+  assert.equal(getIncompleteSegmentIds(plan, state).length, 0);
+});
+
+test('requestTranslationsBatchedProgressive emits chunks in completion order', async () => {
+  const completionOrder = [];
+  const fakeFetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    const item = JSON.parse(body.messages[1].content.split('\n\n').at(-1)).items[0];
+    const delays = { a: 40, b: 5, c: 20 };
+
+    await new Promise((resolve) => setTimeout(resolve, delays[item.id]));
+
+    return {
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify([
+                  { id: item.id, translation: `translated-${item.id}` }
+                ])
+              }
+            }
+          ]
+        })
+    };
+  };
+
+  const result = await requestTranslationsBatchedProgressive({
+    settings: {
+      apiKey: 'x',
+      baseUrl: 'https://example.com/v1',
+      model: 'demo',
+      instructions: 'Translate carefully.',
+      targetLanguage: '繁體中文'
+    },
+    chunks: [
+      [{ id: 'a', kind: 'paragraph', text: 'A', protectedFragments: [] }],
+      [{ id: 'b', kind: 'paragraph', text: 'B', protectedFragments: [] }],
+      [{ id: 'c', kind: 'paragraph', text: 'C', protectedFragments: [] }]
+    ],
+    concurrency: 3,
+    fetchImpl: fakeFetch,
+    onChunkResolved: async ({ chunkItems }) => {
+      completionOrder.push(chunkItems[0].id);
+    }
+  });
+
+  assert.deepEqual(completionOrder, ['b', 'c', 'a']);
+  assert.equal(result.failures.length, 0);
+  assert.equal(result.successes.length, 3);
 });

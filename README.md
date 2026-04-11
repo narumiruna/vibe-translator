@@ -7,8 +7,12 @@ A Manifest V3 Chrome extension that translates web pages with an OpenAI-compatib
 - Click the extension icon to translate the current page
 - Right-click on a page and choose **Translate entire page**
 - Select text, right-click, and choose **Translate selected text**
-- Keep original text untouched and insert the translation beside it as a highlighted note
+- Keep original text untouched and inject a bilingual translation block below each source segment
+- Preserve inline code, paths, URLs, and common technical terms through placeholder protection
+- Style translated text with a green dotted underline for quick visual alignment
+- Allow problematic domains to be disabled from the options page
 - Configure `API Key`, `Base URL`, `Model`, `Instructions`, and `Target Language`
+- Split large pages into batches, recursively break oversized blocks, and translate them with bounded parallel requests
 - Works with OpenAI-compatible `/chat/completions` APIs
 
 ## Project Structure

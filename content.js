@@ -7,10 +7,12 @@
 
   const SOURCE_ATTR = 'data-ot-source-id';
   const NOTE_ATTR = 'data-ot-note-id';
+  const STALE_ATTR = 'data-ot-source-stale';
+  const TRANSLATED_ATTR = 'data-ot-translated';
   const ROOT_ATTR = 'data-ot-role';
   const SELECTED_NOTE_ID = 'selection-note';
   const STYLE_ID = 'ot-translator-style';
-  const CANDIDATE_SELECTOR = [
+  const SEMANTIC_BLOCK_SELECTOR = [
     'h1',
     'h2',
     'h3',
@@ -22,23 +24,35 @@
     'blockquote',
     'figcaption',
     'td',
-    'th',
-    'div'
+    'th'
   ].join(', ');
-  const NESTED_BLOCK_SELECTOR = [
-    'h1',
-    'h2',
-    'h3',
-    'h4',
-    'h5',
-    'h6',
-    'p',
-    'blockquote',
-    'figcaption',
-    'table',
-    'ul',
-    'ol'
+  const GENERIC_BLOCK_SELECTOR = ['article', 'main', 'section', 'div'].join(', ');
+  const SKIP_ANCESTOR_SELECTOR = [
+    'script',
+    'style',
+    'noscript',
+    'textarea',
+    'input',
+    'select',
+    'option',
+    'svg',
+    'canvas',
+    '[contenteditable="true"]',
+    `[${ROOT_ATTR}]`
   ].join(', ');
+  const INLINE_CODE_SELECTOR = 'code, kbd, samp';
+  const TERMINAL_LIKE_SELECTOR = [
+    '[role="log"]',
+    '[role="textbox"]',
+    '.terminal',
+    '.console',
+    '.xterm',
+    '.cm-editor',
+    '.monaco-editor'
+  ].join(', ');
+  let observerStarted = false;
+  let staleFlushTimer = null;
+  const pendingStaleSources = new Set();
 
   function ensureStyles() {
     if (document.getElementById(STYLE_ID)) {
@@ -49,41 +63,78 @@
     style.id = STYLE_ID;
     style.textContent = `
       [${ROOT_ATTR}="note"] {
-        margin: 0.45rem 0 0.9rem;
-        padding: 0.55rem 0.8rem 0.7rem;
-        border-top: 1px dashed rgba(31, 122, 79, 0.55);
-        border-radius: 10px;
-        background: rgba(236, 245, 239, 0.96);
-        box-shadow: 0 6px 18px rgba(25, 50, 35, 0.08);
-        color: #173622;
-        font-size: 0.95em;
-        line-height: 1.55;
+        all: initial;
+        display: block;
+        box-sizing: border-box;
+        max-width: 100%;
+        margin: 0.32rem 0 0.72rem;
+        padding: 0.12rem 0 0.34rem;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        color: #25553c;
+        text-align: start;
+        letter-spacing: normal;
+        white-space: normal;
+        background: transparent;
+        border: 0;
+        outline: 0;
+        position: static;
+        transform: none;
+        perspective: none;
+        overflow: visible;
+        z-index: auto;
       }
 
-      [${ROOT_ATTR}="note-header"] {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.35rem;
-        font-size: 0.78em;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        color: #1f7a4f;
+      [${ROOT_ATTR}="note"][data-phase="ready"] {
+        animation: ot-slide-fade 0.35s ease forwards;
       }
 
-      [${ROOT_ATTR}="note-header"]::before {
-        content: "";
-        width: 0.8rem;
-        height: 0.8rem;
-        border-radius: 999px;
-        background: linear-gradient(135deg, #1f7a4f, #74a67a);
-        box-shadow: 0 0 0 3px rgba(31, 122, 79, 0.12);
+      [${ROOT_ATTR}="note"][data-stale="true"] {
+        opacity: 0.65;
       }
 
       [${ROOT_ATTR}="note-body"] {
+        all: initial;
+        display: block;
+        padding-top: 0.06rem;
+        padding-bottom: 0.22rem;
+        border-bottom: 1px dashed rgba(41, 133, 75, 0.75);
+        font-family: inherit;
+        font-size: inherit;
+        line-height: 1.6;
+        color: #25553c;
         white-space: pre-wrap;
         word-break: break-word;
+      }
+
+      [${ROOT_ATTR}="note-body"][data-state="pending"] {
+        min-height: 1.2em;
+        border-bottom-color: rgba(41, 133, 75, 0.32);
+        color: transparent;
+        background:
+          linear-gradient(
+            90deg,
+            rgba(37, 85, 60, 0.08) 0%,
+            rgba(255, 255, 255, 0.68) 50%,
+            rgba(37, 85, 60, 0.08) 100%
+          );
+        background-size: 200% 100%;
+        animation: ot-shimmer 1.2s linear infinite;
+      }
+
+      [${ROOT_ATTR}="note-body"][data-state="ready"] {
+        animation: ot-slide-fade 0.35s ease forwards;
+      }
+
+      [${ROOT_ATTR}="note-body"] code {
+        all: initial;
+        display: inline;
+        padding: 0.08em 0.34em;
+        border-radius: 0.35em;
+        background: rgba(37, 85, 60, 0.09);
+        color: #1d4330;
+        font: 0.92em/1.4 ui-monospace, 'SFMono-Regular', Menlo, monospace;
       }
 
       [${ROOT_ATTR}="toast-layer"] {
@@ -114,23 +165,50 @@
       [${ROOT_ATTR}="toast"][data-level="error"] {
         background: rgba(121, 33, 33, 0.97);
       }
+
+      @keyframes ot-shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      @keyframes ot-slide-fade {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
     `;
     document.documentElement.appendChild(style);
   }
 
-  function normalizeWhitespace(text) {
-    return String(text || '').replace(/\s+/g, ' ').trim();
+  function normalizeInlineWhitespace(text) {
+    return String(text || '').replace(/[ \t\r\f\v]+/g, ' ').trim();
+  }
+
+  function normalizeSegmentText(text) {
+    return String(text || '')
+      .split('\n')
+      .map((line) => normalizeInlineWhitespace(line))
+      .filter((line, index, array) => line || (index > 0 && index < array.length - 1))
+      .join('\n')
+      .trim();
   }
 
   function shouldTranslateText(text) {
-    const normalized = normalizeWhitespace(text);
+    const normalized = normalizeSegmentText(text);
     const meaningfulChars = normalized.replace(/[\s\p{P}\p{S}]/gu, '');
 
     return meaningfulChars.length >= 2;
-  }
-
-  function isOwnNode(element) {
-    return Boolean(element && element.closest && element.closest(`[${ROOT_ATTR}]`));
   }
 
   function isVisible(element) {
@@ -149,82 +227,490 @@
     return rect.width > 0 && rect.height > 0;
   }
 
-  function hasNestedBlocks(element) {
-    if (!element || element.tagName !== 'DIV') {
-      return false;
+  function getSegmentKind(element) {
+    if (!element) {
+      return 'paragraph';
     }
 
-    return Boolean(element.querySelector(NESTED_BLOCK_SELECTOR));
+    const tag = element.tagName;
+
+    if (/^H[1-6]$/.test(tag)) {
+      return 'heading';
+    }
+
+    if (tag === 'LI') {
+      return 'list_item';
+    }
+
+    if (tag === 'TD' || tag === 'TH') {
+      return 'table_cell';
+    }
+
+    if (tag === 'BLOCKQUOTE') {
+      return 'quote';
+    }
+
+    return 'paragraph';
   }
 
-  function isCandidateElement(element) {
-    if (!element || isOwnNode(element) || !isVisible(element)) {
+  function serializeNode(node) {
+    if (!node) {
+      return '';
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent || '';
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return '';
+    }
+
+    const element = node;
+
+    if (element.closest(SKIP_ANCESTOR_SELECTOR) && !element.matches(INLINE_CODE_SELECTOR)) {
+      return '';
+    }
+
+    if (element.matches('br')) {
+      return '\n';
+    }
+
+    if (element.matches(INLINE_CODE_SELECTOR)) {
+      return `\`${normalizeInlineWhitespace(element.textContent || '')}\``;
+    }
+
+    if (element.matches('pre')) {
+      return `\`${normalizeInlineWhitespace(element.textContent || '')}\``;
+    }
+
+    return Array.from(element.childNodes).map((child) => serializeNode(child)).join('');
+  }
+
+  function getSegmentText(element) {
+    return normalizeSegmentText(serializeNode(element));
+  }
+
+  function isGenericBlock(element) {
+    return Boolean(element && element.matches && element.matches(GENERIC_BLOCK_SELECTOR));
+  }
+
+  function hasNestedSemanticBlocks(element) {
+    if (!element || !isGenericBlock(element)) {
       return false;
     }
 
-    const tagName = element.tagName;
+    return Boolean(element.querySelector(SEMANTIC_BLOCK_SELECTOR));
+  }
 
-    if (tagName === 'DIV') {
-      const text = normalizeWhitespace(element.innerText);
+  function isTranslatorOwned(element) {
+    return Boolean(element && element.closest && element.closest(`[${ROOT_ATTR}]`));
+  }
 
-      if (text.length < 80 || hasNestedBlocks(element)) {
-        return false;
+  function isCandidateElement(element, options) {
+    const relaxed = Boolean(options && options.relaxed);
+
+    if (!element || isTranslatorOwned(element) || !isVisible(element)) {
+      return false;
+    }
+
+    if (element.closest(SKIP_ANCESTOR_SELECTOR)) {
+      return false;
+    }
+
+    if (element.closest(TERMINAL_LIKE_SELECTOR)) {
+      return false;
+    }
+
+    if (isGenericBlock(element) && hasNestedSemanticBlocks(element)) {
+      return false;
+    }
+
+    const text = getSegmentText(element);
+
+    if (!shouldTranslateText(text)) {
+      return false;
+    }
+
+    if (isGenericBlock(element) && !relaxed && text.length < 32) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function getExistingNoteForSource(element, id) {
+    if (!element) {
+      return null;
+    }
+
+    if (element.tagName === 'LI') {
+      return element.querySelector(`:scope > [${NOTE_ATTR}="${id}"]`);
+    }
+
+    const next = element.nextElementSibling;
+
+    if (next && next.getAttribute(NOTE_ATTR) === id) {
+      return next;
+    }
+
+    return null;
+  }
+
+  function markSourceStale(element) {
+    if (!element || !element.getAttribute) {
+      return;
+    }
+
+    const id = element.getAttribute(SOURCE_ATTR);
+
+    if (!id) {
+      return;
+    }
+
+    element.setAttribute(STALE_ATTR, 'true');
+    element.setAttribute(TRANSLATED_ATTR, 'stale');
+    const note = getExistingNoteForSource(element, id);
+
+    if (note) {
+      note.setAttribute('data-stale', 'true');
+    }
+  }
+
+  function markRelatedSourcesStale(node) {
+    if (!node) {
+      return;
+    }
+
+    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+
+    if (!element) {
+      return;
+    }
+
+    if (element.closest(`[${ROOT_ATTR}]`)) {
+      return;
+    }
+
+    const directSource = element.closest(`[${SOURCE_ATTR}]`);
+
+    if (directSource) {
+      pendingStaleSources.add(directSource);
+      scheduleStaleFlush();
+    }
+  }
+
+  function flushPendingStaleSources() {
+    staleFlushTimer = null;
+
+    for (const element of pendingStaleSources) {
+      markSourceStale(element);
+    }
+
+    pendingStaleSources.clear();
+  }
+
+  function scheduleStaleFlush() {
+    if (staleFlushTimer) {
+      return;
+    }
+
+    staleFlushTimer = window.setTimeout(flushPendingStaleSources, 120);
+  }
+
+  function ensureObserver() {
+    if (observerStarted || !document.body) {
+      return;
+    }
+
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        const targetElement =
+          mutation.target && mutation.target.nodeType === Node.ELEMENT_NODE
+            ? mutation.target
+            : mutation.target && mutation.target.parentElement;
+
+        if (targetElement && targetElement.closest(`[${ROOT_ATTR}]`)) {
+          continue;
+        }
+
+        if (mutation.type === 'characterData') {
+          markRelatedSourcesStale(mutation.target);
+          continue;
+        }
+
+        if (mutation.type === 'childList') {
+          markRelatedSourcesStale(mutation.target);
+
+          for (const node of mutation.addedNodes) {
+            markRelatedSourcesStale(node);
+          }
+        }
       }
-    }
+    });
 
-    const text = normalizeWhitespace(element.innerText);
-
-    return shouldTranslateText(text);
+    observer.observe(document.body, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+    observerStarted = true;
   }
 
-  function collectPageItems() {
-    ensureStyles();
+  function buildSegmentItem(element, counterRef) {
+    const itemId = element.getAttribute(SOURCE_ATTR) || `ot-${counterRef.value += 1}`;
 
-    const elements = Array.from(document.body.querySelectorAll(CANDIDATE_SELECTOR));
+    element.setAttribute(SOURCE_ATTR, itemId);
+
+    return {
+      id: itemId,
+      kind: getSegmentKind(element),
+      text: getSegmentText(element)
+    };
+  }
+
+  function collectSemanticItems() {
     const items = [];
-    let counter = 0;
+    const totalElements = [];
+    const counterRef = { value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length };
+    const elements = Array.from(document.body.querySelectorAll(SEMANTIC_BLOCK_SELECTOR));
 
     for (const element of elements) {
       if (!isCandidateElement(element)) {
         continue;
       }
 
-      const noteSibling = element.nextElementSibling;
+      totalElements.push(element);
 
-      if (noteSibling && noteSibling.matches(`[${NOTE_ATTR}]`)) {
-        noteSibling.remove();
+      const existingId = element.getAttribute(SOURCE_ATTR);
+      const stale = element.getAttribute(STALE_ATTR) === 'true';
+      const hasNote = existingId ? Boolean(getExistingNoteForSource(element, existingId)) : false;
+      const translated = element.getAttribute(TRANSLATED_ATTR) === 'true';
+
+      if ((hasNote || translated) && !stale) {
+        continue;
       }
 
-      const itemId = element.getAttribute(SOURCE_ATTR) || `ot-${++counter}`;
-      element.setAttribute(SOURCE_ATTR, itemId);
-      items.push({
-        id: itemId,
-        text: normalizeWhitespace(element.innerText)
-      });
+      items.push(buildSegmentItem(element, counterRef));
     }
 
-    return items;
+    return {
+      items,
+      totalSegments: totalElements.length
+    };
   }
 
-  function buildNote(id, translation, targetLanguage, headingText) {
+  function collectFallbackItems() {
+    const counterRef = { value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length };
+    const seen = new Set();
+    const items = [];
+    let totalSegments = 0;
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          const parent = node.parentElement;
+
+          if (!parent || parent.closest(SKIP_ANCESTOR_SELECTOR)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+
+          if (!shouldTranslateText(node.textContent || '')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    let currentNode = walker.nextNode();
+
+    while (currentNode) {
+      const parent = currentNode.parentElement;
+      const anchor = parent.closest(SEMANTIC_BLOCK_SELECTOR) || parent.closest(GENERIC_BLOCK_SELECTOR);
+
+      if (anchor && isCandidateElement(anchor, { relaxed: true }) && !seen.has(anchor)) {
+        seen.add(anchor);
+        totalSegments += 1;
+
+        const existingId = anchor.getAttribute(SOURCE_ATTR);
+        const stale = anchor.getAttribute(STALE_ATTR) === 'true';
+        const hasNote = existingId ? Boolean(getExistingNoteForSource(anchor, existingId)) : false;
+        const translated = anchor.getAttribute(TRANSLATED_ATTR) === 'true';
+
+        if (!hasNote && !translated || stale) {
+          items.push(buildSegmentItem(anchor, counterRef));
+        }
+      }
+
+      currentNode = walker.nextNode();
+    }
+
+    return {
+      items,
+      totalSegments
+    };
+  }
+
+  function collectPageItems() {
+    ensureStyles();
+    ensureObserver();
+
+    const semantic = collectSemanticItems();
+
+    if (semantic.totalSegments > 0) {
+      return {
+        items: semantic.items,
+        totalSegments: semantic.totalSegments,
+        pendingSegments: semantic.items.length
+      };
+    }
+
+    const fallback = collectFallbackItems();
+
+    return {
+      items: fallback.items,
+      totalSegments: fallback.totalSegments,
+      pendingSegments: fallback.items.length
+    };
+  }
+
+  function buildNote(id) {
     const note = document.createElement('div');
-    const header = document.createElement('div');
     const body = document.createElement('div');
 
     note.setAttribute(ROOT_ATTR, 'note');
     note.setAttribute(NOTE_ATTR, id);
-    header.setAttribute(ROOT_ATTR, 'note-header');
     body.setAttribute(ROOT_ATTR, 'note-body');
-    header.textContent = headingText || `Translation · ${targetLanguage}`;
-    body.textContent = translation;
-    note.appendChild(header);
     note.appendChild(body);
 
     return note;
   }
 
+  function setNotePending(note, targetLanguage) {
+    const body = note.querySelector(`[${ROOT_ATTR}="note-body"]`);
+
+    note.setAttribute('data-phase', 'pending');
+    note.setAttribute('data-lang', targetLanguage);
+    body.setAttribute('data-state', 'pending');
+    body.replaceChildren(document.createTextNode(' '));
+  }
+
+  function appendFormattedText(container, text) {
+    const lines = String(text || '').split('\n');
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+      const line = lines[lineIndex];
+      const parts = line.split(/(`[^`\n]+`)/g).filter(Boolean);
+
+      for (const part of parts) {
+        if (/^`[^`\n]+`$/.test(part)) {
+          const code = document.createElement('code');
+
+          code.textContent = part.slice(1, -1);
+          container.appendChild(code);
+        } else {
+          container.appendChild(document.createTextNode(part));
+        }
+      }
+
+      if (lineIndex < lines.length - 1) {
+        container.appendChild(document.createElement('br'));
+      }
+    }
+  }
+
+  function upsertNoteForSource(element, id, translation, targetLanguage) {
+    if (hasUnsafeLayoutContext(element)) {
+      return null;
+    }
+
+    const existingNote = getExistingNoteForSource(element, id);
+    const note = existingNote || buildNote(id);
+    const body = note.querySelector(`[${ROOT_ATTR}="note-body"]`);
+
+    note.setAttribute('data-phase', 'ready');
+    note.setAttribute('data-lang', targetLanguage);
+    body.setAttribute('data-state', 'ready');
+    body.replaceChildren();
+    appendFormattedText(body, translation);
+    note.removeAttribute('data-stale');
+    element.removeAttribute(STALE_ATTR);
+    element.setAttribute(TRANSLATED_ATTR, 'true');
+
+    if (!existingNote) {
+      if (element.tagName === 'LI') {
+        element.appendChild(note);
+      } else {
+        element.insertAdjacentElement('afterend', note);
+      }
+    }
+
+    return note;
+  }
+
+  function renderPagePlaceholders(payload) {
+    ensureStyles();
+    ensureObserver();
+
+    const ids = new Set(payload.ids || []);
+    let rendered = 0;
+
+    for (const element of document.querySelectorAll(`[${SOURCE_ATTR}]`)) {
+      const id = element.getAttribute(SOURCE_ATTR);
+
+      if (!ids.has(id) || hasUnsafeLayoutContext(element)) {
+        continue;
+      }
+
+      const note = getExistingNoteForSource(element, id) || buildNote(id);
+
+      setNotePending(note, payload.targetLanguage);
+
+      if (!note.isConnected) {
+        if (element.tagName === 'LI') {
+          element.appendChild(note);
+        } else {
+          element.insertAdjacentElement('afterend', note);
+        }
+      }
+
+      rendered += 1;
+    }
+
+    return { rendered };
+  }
+
+  function hasUnsafeLayoutContext(element) {
+    let current = element;
+
+    while (current && current !== document.body) {
+      if (current.matches && current.matches(TERMINAL_LIKE_SELECTOR)) {
+        return true;
+      }
+
+      const style = window.getComputedStyle(current);
+
+      if (
+        style.transform !== 'none' ||
+        style.perspective !== 'none' ||
+        style.filter !== 'none' ||
+        style.backdropFilter !== 'none'
+      ) {
+        return true;
+      }
+
+      current = current.parentElement;
+    }
+
+    return false;
+  }
+
   function renderPageTranslations(payload) {
     ensureStyles();
+    ensureObserver();
 
     const translationMap = new Map(
       (payload.translations || []).map((item) => [item.id, item.translation])
@@ -239,24 +725,39 @@
         continue;
       }
 
-      const existingNote = element.nextElementSibling;
-      const note =
-        existingNote && existingNote.getAttribute(NOTE_ATTR) === id
-          ? existingNote
-          : buildNote(id, translation, payload.targetLanguage);
+      const note = upsertNoteForSource(element, id, translation, payload.targetLanguage);
 
-      note.querySelector(`[${ROOT_ATTR}="note-header"]`).textContent =
-        `Translation · ${payload.targetLanguage}`;
-      note.querySelector(`[${ROOT_ATTR}="note-body"]`).textContent = translation;
-
-      if (!existingNote || existingNote !== note) {
-        element.insertAdjacentElement('afterend', note);
+      if (note) {
+        rendered += 1;
       }
-
-      rendered += 1;
     }
 
     return { rendered };
+  }
+
+  function clearPagePlaceholders(payload) {
+    const ids = new Set(payload.ids || []);
+    let cleared = 0;
+
+    for (const note of document.querySelectorAll(`[${ROOT_ATTR}="note"][data-phase="pending"]`)) {
+      const id = note.getAttribute(NOTE_ATTR);
+
+      if (!ids.has(id)) {
+        continue;
+      }
+
+      note.remove();
+      cleared += 1;
+
+      const source = document.querySelector(`[${SOURCE_ATTR}="${id}"]`);
+
+      if (source) {
+        source.removeAttribute(TRANSLATED_ATTR);
+        source.removeAttribute(STALE_ATTR);
+      }
+    }
+
+    return { cleared };
   }
 
   function findSelectionContainer() {
@@ -274,40 +775,63 @@
       return null;
     }
 
-    return element.closest(CANDIDATE_SELECTOR) || element.closest('p, div, li, article, section');
+    return element.closest(SEMANTIC_BLOCK_SELECTOR) || element.closest(GENERIC_BLOCK_SELECTOR);
   }
 
   function renderSelectionTranslation(payload) {
     ensureStyles();
+    ensureObserver();
 
     const container = findSelectionContainer();
 
-    if (!container || isOwnNode(container)) {
+    if (!container || isTranslatorOwned(container)) {
       showToast(payload.translation, 'success', 12000);
       return { rendered: 'toast' };
     }
 
-    const existingNote =
-      container.nextElementSibling &&
-      container.nextElementSibling.getAttribute(NOTE_ATTR) === SELECTED_NOTE_ID
-        ? container.nextElementSibling
-        : null;
-    const note = existingNote || buildNote(
-      SELECTED_NOTE_ID,
-      payload.translation,
-      payload.targetLanguage,
-      `Selected text · ${payload.targetLanguage}`
-    );
+    if (hasUnsafeLayoutContext(container)) {
+      showToast(payload.translation, 'success', 12000);
+      return { rendered: 'toast' };
+    }
 
-    note.querySelector(`[${ROOT_ATTR}="note-header"]`).textContent =
-      `Selected text · ${payload.targetLanguage}`;
-    note.querySelector(`[${ROOT_ATTR}="note-body"]`).textContent = payload.translation;
+    upsertNoteForSource(container, SELECTED_NOTE_ID, payload.translation, payload.targetLanguage);
 
-    if (!existingNote) {
-      container.insertAdjacentElement('afterend', note);
+    return { rendered: 'inline' };
+  }
+
+  function renderSelectionPlaceholder(payload) {
+    ensureStyles();
+    ensureObserver();
+
+    const container = findSelectionContainer();
+
+    if (!container || isTranslatorOwned(container) || hasUnsafeLayoutContext(container)) {
+      return { rendered: 'toast' };
+    }
+
+    const note = getExistingNoteForSource(container, SELECTED_NOTE_ID) || buildNote(SELECTED_NOTE_ID);
+
+    setNotePending(note, payload.targetLanguage);
+
+    if (!note.isConnected) {
+      if (container.tagName === 'LI') {
+        container.appendChild(note);
+      } else {
+        container.insertAdjacentElement('afterend', note);
+      }
     }
 
     return { rendered: 'inline' };
+  }
+
+  function clearPendingTranslations() {
+    const notes = Array.from(document.querySelectorAll(`[${ROOT_ATTR}="note"][data-phase="pending"]`));
+
+    for (const note of notes) {
+      note.remove();
+    }
+
+    return { cleared: notes.length };
   }
 
   function getToastLayer() {
@@ -353,7 +877,10 @@
     }
 
     if (message.type === 'extract-page-content') {
-      sendResponse({ ok: true, items: collectPageItems() });
+      sendResponse({
+        ok: true,
+        ...collectPageItems()
+      });
       return;
     }
 
@@ -365,10 +892,50 @@
       return;
     }
 
+    if (message.type === 'render-page-translation-updates') {
+      sendResponse({
+        ok: true,
+        ...renderPageTranslations(message.payload || {})
+      });
+      return;
+    }
+
+    if (message.type === 'render-page-placeholders') {
+      sendResponse({
+        ok: true,
+        ...renderPagePlaceholders(message.payload || {})
+      });
+      return;
+    }
+
     if (message.type === 'render-selection-translation') {
       sendResponse({
         ok: true,
         ...renderSelectionTranslation(message.payload || {})
+      });
+      return;
+    }
+
+    if (message.type === 'render-selection-placeholder') {
+      sendResponse({
+        ok: true,
+        ...renderSelectionPlaceholder(message.payload || {})
+      });
+      return;
+    }
+
+    if (message.type === 'clear-pending-translations') {
+      sendResponse({
+        ok: true,
+        ...clearPendingTranslations()
+      });
+      return;
+    }
+
+    if (message.type === 'clear-page-placeholders') {
+      sendResponse({
+        ok: true,
+        ...clearPagePlaceholders(message.payload || {})
       });
       return;
     }

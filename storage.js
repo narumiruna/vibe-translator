@@ -6,8 +6,17 @@
     model: '',
     instructions:
       'You are a translation engine. Preserve meaning and tone. Output only the requested translation JSON with no explanations.',
-    targetLanguage: '繁體中文'
+    targetLanguage: '繁體中文',
+    disabledDomains: ''
   });
+
+  function normalizeDisabledDomains(value) {
+    return String(value || '')
+      .split(/[\n,]+/)
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean)
+      .join('\n');
+  }
 
   function normalizeBaseUrl(value) {
     const trimmed = String(value || '').trim();
@@ -29,7 +38,8 @@
       baseUrl: normalizeBaseUrl(merged.baseUrl),
       model: String(merged.model || '').trim(),
       instructions: String(merged.instructions || '').trim() || DEFAULT_SETTINGS.instructions,
-      targetLanguage: String(merged.targetLanguage || '').trim()
+      targetLanguage: String(merged.targetLanguage || '').trim(),
+      disabledDomains: normalizeDisabledDomains(merged.disabledDomains)
     };
     const errors = [];
 
@@ -111,6 +121,7 @@
     getSettings,
     hasCompleteSettings,
     normalizeBaseUrl,
+    normalizeDisabledDomains,
     saveSettings,
     validateSettings
   };
