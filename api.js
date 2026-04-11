@@ -182,14 +182,26 @@
     };
   }
 
+  function shouldPreservePlaceholder(token) {
+    return Boolean(token && token.preservePlaceholder);
+  }
+
   function unmaskProtectedFragments(text, tokens) {
     let restored = String(text || '');
 
     for (const token of tokens || []) {
+      if (shouldPreservePlaceholder(token)) {
+        continue;
+      }
+
       restored = restored.split(token.placeholder).join(token.value);
     }
 
     return restored;
+  }
+
+  function collectPreservedFragments(tokens) {
+    return (tokens || []).filter((token) => shouldPreservePlaceholder(token));
   }
 
   function extractTokensForText(text, tokens) {
@@ -752,7 +764,8 @@
       completed.push({
         id: sourceId,
         kind: sourceItem ? sourceItem.kind || 'paragraph' : 'paragraph',
-        translation: unmaskProtectedFragments(mergedText.trim(), group.protectedFragments)
+        translation: unmaskProtectedFragments(mergedText.trim(), group.protectedFragments),
+        protectedFragments: collectPreservedFragments(group.protectedFragments)
       });
       state.completedSegmentIds.add(sourceId);
     }
@@ -798,7 +811,8 @@
       merged.push({
         id: item.id,
         kind: item.kind || 'paragraph',
-        translation: unmaskProtectedFragments(translation.trim(), group.protectedFragments)
+        translation: unmaskProtectedFragments(translation.trim(), group.protectedFragments),
+        protectedFragments: collectPreservedFragments(group.protectedFragments)
       });
     }
 

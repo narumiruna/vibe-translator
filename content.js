@@ -428,8 +428,8 @@
     return meaningfulChars.length >= 2;
   }
 
-  function createProtectedPlaceholder(context, value) {
-    if (!context || !value) {
+  function createProtectedPlaceholder(context, fragment) {
+    if (!context || !fragment) {
       return '';
     }
 
@@ -439,48 +439,62 @@
 
     context.tokens.push({
       placeholder,
-      value
+      preservePlaceholder: true,
+      ...fragment
     });
 
     return placeholder;
   }
 
-  function extractMathSource(element) {
+  function extractMathFragment(element) {
     if (!element || !element.matches) {
-      return '';
+      return null;
     }
 
-    const annotation = element.querySelector(
-      'annotation[encoding*="tex" i], annotation[encoding*="latex" i], annotation'
-    );
+    const html = typeof element.outerHTML === 'string' ? element.outerHTML.trim() : '';
+    const text = normalizeSegmentText(element.textContent || '');
 
-    if (annotation) {
-      const annotationText = normalizeSegmentText(annotation.textContent || '');
-
-      if (annotationText) {
-        return annotationText;
-      }
+    if (html) {
+      return {
+        kind: 'math',
+        html,
+        text,
+        value: text
+      };
     }
 
     const mathChild = !element.matches('math') ? element.querySelector('math') : null;
 
     if (mathChild && mathChild.outerHTML) {
-      return mathChild.outerHTML;
+      return {
+        kind: 'math',
+        html: mathChild.outerHTML,
+        text,
+        value: text
+      };
     }
 
     for (const attributeName of ['data-tex', 'data-latex', 'alttext', 'aria-label']) {
       const attributeValue = normalizeSegmentText(element.getAttribute(attributeName) || '');
 
       if (attributeValue) {
-        return attributeValue;
+        return {
+          kind: 'math',
+          text: attributeValue,
+          value: attributeValue
+        };
       }
     }
 
-    if (element.matches('math') && element.outerHTML) {
-      return element.outerHTML;
+    if (text) {
+      return {
+        kind: 'math',
+        text,
+        value: text
+      };
     }
 
-    return normalizeSegmentText(element.textContent || '');
+    return null;
   }
 
   function isVisible(element) {
@@ -545,12 +559,9 @@
     }
 
     if (element.matches(MATH_SELECTOR)) {
-      const mathSource = extractMathSource(element);
+      const mathFragment = extractMathFragment(element);
 
-      return createProtectedPlaceholder(
-        context,
-        mathSource || normalizeSegmentText(element.textContent || '')
-      );
+      return createProtectedPlaceholder(context, mathFragment);
     }
 
     if (element.closest(SKIP_ANCESTOR_SELECTOR) && !element.matches(INLINE_CODE_SELECTOR)) {
@@ -1012,15 +1023,41 @@
     body.replaceChildren(document.createTextNode(' '));
   }
 
-  function appendFormattedText(container, text) {
+  function appendProtectedFragment(container, fragment) {
+    if (!fragment) {
+      return;
+    }
+
+    if (fragment.kind === 'math' && fragment.html) {
+      const template = document.createElement('template');
+
+      template.innerHTML = fragment.html;
+
+      if (template.content.childNodes.length > 0) {
+        container.appendChild(template.content.cloneNode(true));
+        return;
+      }
+    }
+
+    container.appendChild(document.createTextNode(fragment.text || fragment.value || ''));
+  }
+
+  function appendFormattedText(container, text, protectedFragments) {
+    const fragmentByPlaceholder = new Map(
+      (protectedFragments || []).map((fragment) => [fragment.placeholder, fragment])
+    );
     const lines = String(text || '').split('\n');
 
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
       const line = lines[lineIndex];
-      const parts = line.split(/(`[^`\n]+`)/g).filter(Boolean);
+      const parts = line.split(/(__OT_(?:TOKEN|MATH)_\d+__|`[^`\n]+`)/g).filter(Boolean);
 
       for (const part of parts) {
-        if (/^`[^`\n]+`$/.test(part)) {
+        const protectedFragment = fragmentByPlaceholder.get(part);
+
+        if (protectedFragment) {
+          appendProtectedFragment(container, protectedFragment);
+        } else if (/^`[^`\n]+`$/.test(part)) {
           const code = document.createElement('code');
 
           code.textContent = part.slice(1, -1);
@@ -1036,7 +1073,7 @@
     }
   }
 
-  function upsertNoteForSource(element, id, translation, targetLanguage) {
+  function upsertNoteForSource(element, id, translation, targetLanguage, protectedFragments) {
     if (hasUnsafeLayoutContext(element)) {
       return null;
     }
@@ -1049,7 +1086,7 @@
     note.setAttribute('data-lang', targetLanguage);
     body.setAttribute('data-state', 'ready');
     body.replaceChildren();
-    appendFormattedText(body, translation);
+    appendFormattedText(body, translation, protectedFragments);
     note.removeAttribute('data-stale');
     element.removeAttribute(STALE_ATTR);
     element.setAttribute(TRANSLATED_ATTR, 'true');
@@ -1119,20 +1156,25 @@
     ensureStyles(payload && payload.translationAppearance);
     ensureObserver();
 
-    const translationMap = new Map(
-      (payload.translations || []).map((item) => [item.id, item.translation])
-    );
+    const translationMap = new Map((payload.translations || []).map((item) => [item.id, item]));
     let rendered = 0;
 
     for (const element of document.querySelectorAll(`[${SOURCE_ATTR}]`)) {
       const id = element.getAttribute(SOURCE_ATTR);
-      const translation = translationMap.get(id);
+      const translationItem = translationMap.get(id);
+      const translation = translationItem && translationItem.translation;
 
       if (!translation) {
         continue;
       }
 
-      const note = upsertNoteForSource(element, id, translation, payload.targetLanguage);
+      const note = upsertNoteForSource(
+        element,
+        id,
+        translation,
+        payload.targetLanguage,
+        translationItem.protectedFragments
+      );
 
       if (note) {
         rendered += 1;
@@ -1243,7 +1285,7 @@
       return panel;
     }
 
-    appendFormattedText(body, payload.translation || '');
+    appendFormattedText(body, payload.translation || '', payload.protectedFragments);
     return panel;
   }
 

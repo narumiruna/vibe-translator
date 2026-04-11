@@ -409,7 +409,8 @@ async function translateSelection(tabId, selectionText) {
       sourceText: text,
       targetLanguage: settings.targetLanguage,
       ...buildTranslationAppearancePayload(settings),
-      translation
+      translation,
+      protectedFragments: (translations[0] && translations[0].protectedFragments) || []
     }
   });
   await sendToast(tabId, 'Selected text translated.', 'success');

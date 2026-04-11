@@ -104,7 +104,7 @@ test('createRecursiveChunkPlan splits oversized items and mergeRecursiveTranslat
   assert.match(merged[0].translation, /Fourth sentence\.\]$/);
 });
 
-test('createRecursiveChunkPlan preserves pre-extracted math placeholders', () => {
+test('createRecursiveChunkPlan preserves pre-extracted math placeholders for DOM recomposition', () => {
   const plan = createRecursiveChunkPlan(
     [
       {
@@ -112,8 +112,20 @@ test('createRecursiveChunkPlan preserves pre-extracted math placeholders', () =>
         kind: 'paragraph',
         text: 'The goal is __OT_MATH_1__ and the posterior is __OT_MATH_2__.',
         protectedFragments: [
-          { placeholder: '__OT_MATH_1__', value: '$p^*(x)$' },
-          { placeholder: '__OT_MATH_2__', value: '\\(q_\\theta(x)\\)' }
+          {
+            placeholder: '__OT_MATH_1__',
+            value: '$p^*(x)$',
+            text: 'p*(x)',
+            html: '<span class="katex">p*(x)</span>',
+            preservePlaceholder: true
+          },
+          {
+            placeholder: '__OT_MATH_2__',
+            value: '\\(q_\\theta(x)\\)',
+            text: 'q_theta(x)',
+            html: '<span class="katex">q_theta(x)</span>',
+            preservePlaceholder: true
+          }
         ]
       }
     ],
@@ -126,7 +138,27 @@ test('createRecursiveChunkPlan preserves pre-extracted math placeholders', () =>
   })));
 
   assert.equal(merged.length, 1);
-  assert.equal(merged[0].translation, 'The goal is $p^*(x)$ and the posterior is \\(q_\\theta(x)\\).');
+  assert.equal(
+    merged[0].translation,
+    'The goal is __OT_MATH_1__ and the posterior is __OT_MATH_2__.'
+  );
+  assert.deepEqual(
+    merged[0].protectedFragments,
+    plan.items[0].protectedFragments
+  );
+});
+
+test('unmaskProtectedFragments keeps preserved placeholders in translated text', () => {
+  assert.equal(
+    unmaskProtectedFragments('Before __OT_MATH_1__ after', [
+      {
+        placeholder: '__OT_MATH_1__',
+        value: '$x$',
+        preservePlaceholder: true
+      }
+    ]),
+    'Before __OT_MATH_1__ after'
+  );
 });
 
 test('maskProtectedFragments preserves code paths urls and tech terms', () => {
