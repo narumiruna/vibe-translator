@@ -33,3 +33,9 @@ Match the current history: short imperative subjects such as `Add OpenAI-compati
 ## Security & Configuration Tips
 
 Never hardcode API keys or commit real credentials. Keep API access constrained to the configured base URL origin, and preserve the current behavior of skipping unsupported or risky pages rather than forcing translation.
+
+## MEMORY.md
+
+- `MEMORY.md` is not auto-loaded. Check it before non-trivial debugging or design work when prior project context may matter.
+- Keep entries short and reusable. Use `GOTCHA` for recurring pitfalls and `TASTE` for stable preferences.
+- After a non-trivial error or discovery, adding one concise entry if it will help future work.
