@@ -6,9 +6,17 @@ default:
 help:
     @echo "Available recipes:"
     @echo "  just check  - Run JavaScript syntax checks and unit tests"
+    @echo "  just format - Run Biome formatter with writes enabled"
+    @echo "  just lint   - Run Biome lint with safe fixes"
     @echo "  just test   - Run unit tests"
     @echo "  just zip    - Create a zip for Chrome Web Store upload"
     @echo "  just clean  - Remove generated zip files"
+
+format:
+    @biome format --write --files-ignore-unknown=true .
+
+lint:
+    @biome lint --write --files-ignore-unknown=true .
 
 check:
     @node --check background.js
