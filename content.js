@@ -41,7 +41,6 @@
     'td',
     'th'
   ].join(', ');
-  const GENERIC_READABLE_BLOCK_SELECTOR = 'div, section';
   const DIRECT_BLOCK_CHILD_SELECTOR = [
     'article',
     'aside',
@@ -585,34 +584,11 @@
 
   function detectContentMode(root) {
     if (!root) {
-      return 'mixed';
+      return 'leaf';
     }
 
     const semanticBlocks = Array.from(root.querySelectorAll(SEMANTIC_BLOCK_SELECTOR));
-    const longSemanticCount = semanticBlocks.filter(
-      (element) => getSegmentContent(element).text.length >= 80
-    ).length;
-    const genericBlocks = Array.from(root.querySelectorAll(GENERIC_READABLE_BLOCK_SELECTOR));
-    const linkHeavyBlockCount = genericBlocks.filter((element) => {
-      const textLength = getElementPlainText(element).length;
-
-      return textLength >= 24 && getElementLinkDensity(element, textLength) >= 0.35;
-    }).length;
-    const linkCount = root.querySelectorAll('a').length;
-
-    if (longSemanticCount >= 3) {
-      return 'narrative';
-    }
-
-    if (semanticBlocks.length === 0 && linkCount >= 8) {
-      return 'listing';
-    }
-
-    if (linkHeavyBlockCount >= Math.max(3, semanticBlocks.length)) {
-      return 'listing';
-    }
-
-    return 'mixed';
+    return semanticBlocks.length > 0 ? 'leaf' : 'empty';
   }
 
   function getTranslationProfile() {
@@ -651,8 +627,7 @@
     return {
       root,
       mode,
-      allowFallback: mode === 'narrative',
-      allowGenericBlocks: mode !== 'narrative' || semanticCount === 0
+      allowFallback: semanticCount > 0
     };
   }
 
@@ -886,30 +861,6 @@
     return Boolean(element.querySelector(SEMANTIC_BLOCK_SELECTOR));
   }
 
-  function isGenericReadableBlock(element) {
-    return Boolean(element && element.matches && element.matches(GENERIC_READABLE_BLOCK_SELECTOR));
-  }
-
-  function isGenericReadableLeaf(element, profile) {
-    if (!profile || !profile.allowGenericBlocks || !isGenericReadableBlock(element)) {
-      return false;
-    }
-
-    if (hasNestedReadableBlocks(element)) {
-      return false;
-    }
-
-    if (getDirectBlockChildCount(element) > 0) {
-      return false;
-    }
-
-    const textLength = getElementPlainText(element).length;
-    const linkDensity = getElementLinkDensity(element, textLength);
-    const interactiveCount = element.querySelectorAll(INTERACTIVE_SELECTOR).length;
-
-    return textLength >= 60 && linkDensity <= 0.2 && interactiveCount <= 1;
-  }
-
   function isLikelyUiMetaBlock(element, text) {
     const textLength = text.length;
     const linkCount = element.querySelectorAll('a').length;
@@ -943,20 +894,12 @@
     );
   }
 
-  function getCandidateElements(root, profile) {
+  function getCandidateElements(root) {
     if (!root) {
       return [];
     }
 
     const elements = Array.from(root.querySelectorAll(SEMANTIC_BLOCK_SELECTOR));
-
-    if (profile && profile.allowGenericBlocks) {
-      for (const element of root.querySelectorAll(GENERIC_READABLE_BLOCK_SELECTOR)) {
-        if (isGenericReadableLeaf(element, profile)) {
-          elements.push(element);
-        }
-      }
-    }
 
     return elements.sort((left, right) => {
       if (left === right) {
@@ -992,7 +935,7 @@
     );
   }
 
-  function isCandidateElement(element, profile) {
+  function isCandidateElement(element) {
     if (!element) {
       return false;
     }
@@ -1024,7 +967,7 @@
       return false;
     }
 
-    if (!element.matches(SEMANTIC_BLOCK_SELECTOR) && !isGenericReadableLeaf(element, profile)) {
+    if (!element.matches(SEMANTIC_BLOCK_SELECTOR)) {
       return false;
     }
 
@@ -1044,9 +987,7 @@
       return false;
     }
 
-    const minimumScore = isGenericReadableBlock(element) ? 80 : 40;
-
-    if (scoreCandidateBlock(element, text) < minimumScore) {
+    if (scoreCandidateBlock(element, text) < 40) {
       debugSkip('ui/meta block', element);
       return false;
     }
@@ -1256,12 +1197,12 @@
     const selectedElements = [];
     const counterRef = { value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length };
     const root = profile && profile.root;
-    const elements = getCandidateElements(root, profile);
+    const elements = getCandidateElements(root);
     const windowed = Boolean(options && options.windowed);
     const viewportOptions = windowed ? getViewportWindowOptions() : null;
 
     for (const element of elements) {
-      if (!isCandidateElement(element, profile)) {
+      if (!isCandidateElement(element)) {
         continue;
       }
 
@@ -1354,7 +1295,7 @@
       const parent = currentNode.parentElement;
       const anchor = parent.closest(SEMANTIC_BLOCK_SELECTOR);
 
-      if (anchor && isCandidateElement(anchor, profile) && !seen.has(anchor)) {
+      if (anchor && isCandidateElement(anchor) && !seen.has(anchor)) {
         if (hasSelectedRelative(anchor, selectedElements)) {
           debugSkip('ancestor block', anchor);
           currentNode = walker.nextNode();
