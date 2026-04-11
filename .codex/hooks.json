@@ -1,16 +1,22 @@
 {
-	"hooks": {
-		"Stop": [
-			{
-				"hooks": [
-					{
-						"type": "command",
-						"command": "uv run codhc biome lint",
-						"statusMessage": "Running biome lint",
-						"timeout": 30
-					}
-				]
-			}
-		]
-	}
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uvx codhc biome format --fix",
+            "statusMessage": "Running biome format --fix",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "uvx codhc biome lint --fix",
+            "statusMessage": "Running biome lint --fix",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
 }
