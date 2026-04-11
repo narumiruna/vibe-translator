@@ -79,7 +79,7 @@ test('validateSettings requires sourcePayload in user prompt template', () => {
 test('migrateLegacyPromptSettings folds instructions into system prompt template', () => {
   const result = migrateLegacyPromptSettings({
     instructions: 'Translate carefully.',
-    targetLanguage: '繁體中文'
+    targetLanguage: '台灣正體中文'
   });
 
   assert.match(result.systemPromptTemplate, /^Translate carefully\./);
