@@ -11,7 +11,6 @@
   const TRANSLATED_ATTR = 'data-ot-translated';
   const QUEUED_ATTR = 'data-ot-queued';
   const ROOT_ATTR = 'data-ot-role';
-  const SELECTED_NOTE_ID = 'selection-note';
   const STYLE_ID = 'ot-translator-style';
   const PREFETCH_VIEWPORTS = 2;
   const VISIBLE_TRANSLATION_FLUSH_DELAY_MS = 80;
@@ -248,6 +247,105 @@
 
       [${ROOT_ATTR}="toast"][data-level="error"] {
         background: rgba(121, 33, 33, 0.97);
+      }
+
+      [${ROOT_ATTR}="selection-panel"] {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        z-index: 2147483647;
+        width: min(420px, calc(100vw - 24px));
+        padding: 14px 14px 16px;
+        border: 1px solid rgba(41, 66, 52, 0.16);
+        border-radius: 18px;
+        background: rgba(255, 252, 248, 0.98);
+        box-shadow: 0 20px 48px rgba(32, 39, 36, 0.18);
+        backdrop-filter: blur(10px);
+        color: #2f352f;
+        font: 500 14px/1.55 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      [${ROOT_ATTR}="selection-panel-header"] {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      [${ROOT_ATTR}="selection-panel-title"] {
+        margin: 0;
+        color: #45614c;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      [${ROOT_ATTR}="selection-panel-close"] {
+        border: 0;
+        background: transparent;
+        color: #6a726c;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 999px;
+        font: 700 18px/1 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      [${ROOT_ATTR}="selection-panel-close"]:hover {
+        background: rgba(69, 97, 76, 0.1);
+        color: #2c4734;
+      }
+
+      [${ROOT_ATTR}="selection-panel-body"] {
+        display: block;
+        max-height: min(44vh, 24rem);
+        overflow: auto;
+        padding-right: 4px;
+        color: #4d564f;
+        white-space: pre-wrap;
+        word-break: break-word;
+        text-decoration-line: underline;
+        text-decoration-color: ${resolvedAppearance.underlineColor};
+        text-decoration-style: ${resolvedAppearance.underlineStyle};
+        text-decoration-thickness: ${resolvedAppearance.underlineThickness}px;
+        text-underline-offset: ${resolvedAppearance.underlineOffset}px;
+      }
+
+      [${ROOT_ATTR}="selection-panel-body"][data-state="pending"] {
+        min-height: 3.4em;
+        color: transparent;
+        border-radius: 0.75rem;
+        text-decoration-color: transparent;
+        background:
+          linear-gradient(
+            90deg,
+            rgba(132, 138, 150, 0.12) 0%,
+            rgba(255, 255, 255, 0.74) 50%,
+            rgba(132, 138, 150, 0.12) 100%
+          );
+        background-size: 200% 100%;
+        animation: ot-shimmer 1.2s linear infinite;
+      }
+
+      [${ROOT_ATTR}="selection-panel-body"] code {
+        display: inline;
+        padding: 0.08em 0.34em;
+        border-radius: 0.35em;
+        background: rgba(111, 118, 129, 0.12);
+        color: #39414d;
+        text-decoration: none;
+        font: 0.92em/1.4 ui-monospace, 'SFMono-Regular', Menlo, monospace;
+      }
+
+      @media (max-width: 640px) {
+        [${ROOT_ATTR}="selection-panel"] {
+          right: 12px;
+          left: 12px;
+          bottom: 12px;
+          width: auto;
+          max-width: none;
+        }
       }
 
       @keyframes ot-shimmer {
@@ -971,71 +1069,108 @@
     return { cleared };
   }
 
-  function findSelectionContainer() {
-    const selection = window.getSelection();
+  function closeSelectionPanel() {
+    const panel = document.querySelector(`[${ROOT_ATTR}="selection-panel"]`);
 
-    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-      return null;
+    if (panel) {
+      panel.remove();
+    }
+  }
+
+  function getSelectionPanel() {
+    ensureStyles();
+    let panel = document.querySelector(`[${ROOT_ATTR}="selection-panel"]`);
+
+    if (panel) {
+      return panel;
     }
 
-    const range = selection.getRangeAt(0);
-    const node = range.commonAncestorContainer;
-    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    panel = document.createElement('aside');
+    const header = document.createElement('div');
+    const title = document.createElement('p');
+    const closeButton = document.createElement('button');
+    const body = document.createElement('div');
 
-    if (!element) {
-      return null;
+    panel.setAttribute(ROOT_ATTR, 'selection-panel');
+    panel.setAttribute('aria-live', 'polite');
+    panel.setAttribute('aria-label', 'Selected text translation');
+    header.setAttribute(ROOT_ATTR, 'selection-panel-header');
+    title.setAttribute(ROOT_ATTR, 'selection-panel-title');
+    closeButton.setAttribute(ROOT_ATTR, 'selection-panel-close');
+    closeButton.setAttribute('type', 'button');
+    closeButton.setAttribute('aria-label', 'Close translation');
+    closeButton.textContent = '×';
+    closeButton.addEventListener('click', () => {
+      closeSelectionPanel();
+    });
+    body.setAttribute(ROOT_ATTR, 'selection-panel-body');
+    body.setAttribute('data-state', 'ready');
+    title.textContent = 'Selected Text Translation';
+
+    header.appendChild(title);
+    header.appendChild(closeButton);
+    panel.appendChild(header);
+    panel.appendChild(body);
+
+    if (document.body) {
+      document.body.appendChild(panel);
+    } else {
+      document.documentElement.appendChild(panel);
     }
 
-    return element.closest(SEMANTIC_BLOCK_SELECTOR) || element.closest(GENERIC_BLOCK_SELECTOR);
+    return panel;
+  }
+
+  function updateSelectionPanel(payload) {
+    const panel = getSelectionPanel();
+    const title = panel.querySelector(`[${ROOT_ATTR}="selection-panel-title"]`);
+    const body = panel.querySelector(`[${ROOT_ATTR}="selection-panel-body"]`);
+
+    if (title) {
+      title.textContent = payload.targetLanguage
+        ? `Selected Text Translation · ${payload.targetLanguage}`
+        : 'Selected Text Translation';
+    }
+
+    if (!body) {
+      return panel;
+    }
+
+    body.setAttribute('data-state', payload.pending ? 'pending' : 'ready');
+    body.replaceChildren();
+
+    if (payload.pending) {
+      body.appendChild(document.createTextNode(' '));
+      return panel;
+    }
+
+    appendFormattedText(body, payload.translation || '');
+    return panel;
   }
 
   function renderSelectionTranslation(payload) {
     ensureStyles(payload && payload.translationAppearance);
     ensureObserver();
 
-    const container = findSelectionContainer();
+    updateSelectionPanel({
+      pending: false,
+      targetLanguage: payload.targetLanguage,
+      translation: payload.translation
+    });
 
-    if (!container || isTranslatorOwned(container)) {
-      showToast(payload.translation, 'success', 12000);
-      return { rendered: 'toast' };
-    }
-
-    if (hasUnsafeLayoutContext(container)) {
-      showToast(payload.translation, 'success', 12000);
-      return { rendered: 'toast' };
-    }
-
-    upsertNoteForSource(
-      container,
-      SELECTED_NOTE_ID,
-      payload.translation,
-      payload.targetLanguage
-    );
-
-    return { rendered: 'inline' };
+    return { rendered: 'floating' };
   }
 
   function renderSelectionPlaceholder(payload) {
     ensureStyles(payload && payload.translationAppearance);
     ensureObserver();
 
-    const container = findSelectionContainer();
+    updateSelectionPanel({
+      pending: true,
+      targetLanguage: payload.targetLanguage
+    });
 
-    if (!container || isTranslatorOwned(container) || hasUnsafeLayoutContext(container)) {
-      return { rendered: 'toast' };
-    }
-
-    const note =
-      getExistingNoteForSource(container, SELECTED_NOTE_ID) ||
-      buildNote(container, SELECTED_NOTE_ID);
-
-    setNotePending(note, payload.targetLanguage);
-
-    if (!note.isConnected) {
-      container.insertAdjacentElement('afterend', note);
-    }
-
-    return { rendered: 'inline' };
+    return { rendered: 'floating' };
   }
 
   function clearPendingTranslations() {
