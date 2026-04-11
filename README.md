@@ -1,4 +1,4 @@
-# Responses API Page Translator
+# Vibe Translator
 
 A Manifest V3 Chrome extension that translates web pages with the OpenAI `Responses API` while keeping the original text visible and the translation shown inline.
 

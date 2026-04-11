@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "OpenAI Compatible Page Translator",
+  "name": "Vibe Translator",
   "version": "0.1.0",
   "description": "Translate web pages with an OpenAI-compatible API while keeping the original text visible.",
   "permissions": ["activeTab", "contextMenus", "scripting", "storage"],
