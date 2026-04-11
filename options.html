@@ -107,6 +107,58 @@
             </label>
           </section>
 
+          <section class="appearance-panel" aria-labelledby="appearance-title">
+            <div class="appearance-panel-header">
+              <h2 id="appearance-title">Translation Appearance</h2>
+              <p class="field-note">Controls the underline shown beneath translated text on the page.</p>
+            </div>
+
+            <div class="appearance-grid">
+              <label class="field">
+                <span>Underline Color</span>
+                <input id="translation-underline-color" name="translationUnderlineColor" type="color" />
+              </label>
+
+              <label class="field">
+                <span>Underline Style</span>
+                <select id="translation-underline-style" name="translationUnderlineStyle">
+                  <option value="solid">Solid</option>
+                  <option value="dashed">Dashed</option>
+                  <option value="dotted">Dotted</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Underline Thickness</span>
+                <input
+                  id="translation-underline-thickness"
+                  name="translationUnderlineThickness"
+                  type="number"
+                  min="1"
+                  max="6"
+                  step="1"
+                />
+              </label>
+
+              <label class="field">
+                <span>Underline Offset</span>
+                <input
+                  id="translation-underline-offset"
+                  name="translationUnderlineOffset"
+                  type="number"
+                  min="0"
+                  max="12"
+                  step="1"
+                />
+              </label>
+            </div>
+
+            <div class="appearance-sample" aria-live="polite">
+              <span class="appearance-sample-label">Live sample</span>
+              <span id="translation-appearance-preview" class="appearance-sample-text">Translated text preview</span>
+            </div>
+          </section>
+
           <label class="field">
             <span>Disabled Domains</span>
             <textarea

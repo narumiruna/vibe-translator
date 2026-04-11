@@ -15,6 +15,12 @@
   const STYLE_ID = 'ot-translator-style';
   const PREFETCH_VIEWPORTS = 2;
   const VISIBLE_TRANSLATION_FLUSH_DELAY_MS = 80;
+  const DEFAULT_TRANSLATION_APPEARANCE = Object.freeze({
+    underlineColor: '#1f7a4f',
+    underlineStyle: 'solid',
+    underlineThickness: 2,
+    underlineOffset: 3
+  });
   const SEMANTIC_BLOCK_SELECTOR = [
     'h1',
     'h2',
@@ -115,16 +121,43 @@
     pageTranslation: {
       active: false,
       sessionId: ''
-    }
+    },
+    translationAppearance: { ...DEFAULT_TRANSLATION_APPEARANCE }
   };
 
-  function ensureStyles() {
-    if (document.getElementById(STYLE_ID)) {
-      return;
+  function normalizeTranslationAppearance(appearance) {
+    const source = appearance || {};
+    const color = /^#[0-9a-f]{6}$/i.test(String(source.underlineColor || '').trim())
+      ? String(source.underlineColor).trim().toLowerCase()
+      : DEFAULT_TRANSLATION_APPEARANCE.underlineColor;
+    const style = ['solid', 'dashed', 'dotted'].includes(String(source.underlineStyle || '').trim().toLowerCase())
+      ? String(source.underlineStyle).trim().toLowerCase()
+      : DEFAULT_TRANSLATION_APPEARANCE.underlineStyle;
+    const thickness = Math.min(6, Math.max(1, Number(source.underlineThickness) || DEFAULT_TRANSLATION_APPEARANCE.underlineThickness));
+    const offset = Math.min(12, Math.max(0, Number(source.underlineOffset) || DEFAULT_TRANSLATION_APPEARANCE.underlineOffset));
+
+    return {
+      underlineColor: color,
+      underlineStyle: style,
+      underlineThickness: thickness,
+      underlineOffset: offset
+    };
+  }
+
+  function ensureStyles(appearance) {
+    if (appearance) {
+      pageState.translationAppearance = normalizeTranslationAppearance(appearance);
     }
 
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
+    const resolvedAppearance = pageState.translationAppearance;
+    let style = document.getElementById(STYLE_ID);
+
+    if (!style) {
+      style = document.createElement('style');
+      style.id = STYLE_ID;
+      document.documentElement.appendChild(style);
+    }
+
     style.textContent = `
       [${ROOT_ATTR}="note"] {
         display: block;
@@ -158,6 +191,11 @@
         font-size: inherit;
         line-height: 1.6;
         color: inherit;
+        text-decoration-line: underline;
+        text-decoration-color: ${resolvedAppearance.underlineColor};
+        text-decoration-style: ${resolvedAppearance.underlineStyle};
+        text-decoration-thickness: ${resolvedAppearance.underlineThickness}px;
+        text-underline-offset: ${resolvedAppearance.underlineOffset}px;
         white-space: pre-wrap;
         word-break: break-word;
       }
@@ -166,6 +204,7 @@
         min-height: 1.2em;
         color: transparent;
         border-radius: 0.55rem;
+        text-decoration-color: transparent;
         background:
           linear-gradient(
             90deg,
@@ -183,6 +222,7 @@
         border-radius: 0.35em;
         background: rgba(111, 118, 129, 0.12);
         color: #39414d;
+        text-decoration: none;
         font: 0.92em/1.4 ui-monospace, 'SFMono-Regular', Menlo, monospace;
       }
 
@@ -230,7 +270,6 @@
         }
       }
     `;
-    document.documentElement.appendChild(style);
   }
 
   function setSourceQueued(element, queued) {
@@ -759,7 +798,7 @@
   }
 
   function startPageTranslationSession(payload) {
-    ensureStyles();
+    ensureStyles(payload && payload.translationAppearance);
     ensureObserver();
     clearPendingTranslations();
     activatePageTranslationSession(payload.sessionId);
@@ -827,7 +866,7 @@
   }
 
   function renderPagePlaceholders(payload) {
-    ensureStyles();
+    ensureStyles(payload && payload.translationAppearance);
     ensureObserver();
 
     const ids = new Set(payload.ids || []);
@@ -880,7 +919,7 @@
   }
 
   function renderPageTranslations(payload) {
-    ensureStyles();
+    ensureStyles(payload && payload.translationAppearance);
     ensureObserver();
 
     const translationMap = new Map(
@@ -951,7 +990,7 @@
   }
 
   function renderSelectionTranslation(payload) {
-    ensureStyles();
+    ensureStyles(payload && payload.translationAppearance);
     ensureObserver();
 
     const container = findSelectionContainer();
@@ -977,7 +1016,7 @@
   }
 
   function renderSelectionPlaceholder(payload) {
-    ensureStyles();
+    ensureStyles(payload && payload.translationAppearance);
     ensureObserver();
 
     const container = findSelectionContainer();

@@ -21,6 +21,41 @@
     '',
     '{{sourcePayload}}'
   ].join('\n');
+  const TRANSLATION_UNDERLINE_STYLES = Object.freeze(['solid', 'dashed', 'dotted']);
+  const HEX_COLOR_REGEX = /^#[0-9a-f]{6}$/i;
+
+  function clampNumber(value, min, max, fallback) {
+    const numeric = Number(value);
+
+    if (!Number.isFinite(numeric)) {
+      return fallback;
+    }
+
+    return Math.min(max, Math.max(min, numeric));
+  }
+
+  function normalizeUnderlineColor(value) {
+    const trimmed = String(value || '').trim();
+
+    return HEX_COLOR_REGEX.test(trimmed) ? trimmed.toLowerCase() : '#1f7a4f';
+  }
+
+  function normalizeUnderlineStyle(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+
+    return TRANSLATION_UNDERLINE_STYLES.includes(normalized) ? normalized : 'solid';
+  }
+
+  function normalizeTranslationAppearance(input) {
+    const source = input || {};
+
+    return {
+      translationUnderlineColor: normalizeUnderlineColor(source.translationUnderlineColor),
+      translationUnderlineStyle: normalizeUnderlineStyle(source.translationUnderlineStyle),
+      translationUnderlineThickness: clampNumber(source.translationUnderlineThickness, 1, 6, 2),
+      translationUnderlineOffset: clampNumber(source.translationUnderlineOffset, 0, 12, 3)
+    };
+  }
 
   const DEFAULT_SETTINGS = Object.freeze({
     apiKey: '',
@@ -28,6 +63,10 @@
     model: '',
     systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_TEMPLATE,
     userPromptTemplate: DEFAULT_USER_PROMPT_TEMPLATE,
+    translationUnderlineColor: '#1f7a4f',
+    translationUnderlineStyle: 'solid',
+    translationUnderlineThickness: 2,
+    translationUnderlineOffset: 3,
     targetLanguage: '繁體中文',
     disabledDomains: ''
   });
@@ -74,6 +113,7 @@
       model: String(merged.model || '').trim(),
       systemPromptTemplate: String(merged.systemPromptTemplate || '').trim() || DEFAULT_SETTINGS.systemPromptTemplate,
       userPromptTemplate: String(merged.userPromptTemplate || '').trim() || DEFAULT_SETTINGS.userPromptTemplate,
+      ...normalizeTranslationAppearance(merged),
       targetLanguage: String(merged.targetLanguage || '').trim(),
       disabledDomains: normalizeDisabledDomains(merged.disabledDomains)
     };
@@ -163,6 +203,7 @@
   const api = {
     DEFAULT_SETTINGS,
     DEFAULT_SYSTEM_PROMPT_TEMPLATE,
+    TRANSLATION_UNDERLINE_STYLES,
     DEFAULT_USER_PROMPT_TEMPLATE,
     LEGACY_DEFAULT_INSTRUCTIONS,
     STORAGE_KEY,
@@ -173,6 +214,7 @@
     migrateLegacyPromptSettings,
     normalizeBaseUrl,
     normalizeDisabledDomains,
+    normalizeTranslationAppearance,
     saveSettings,
     validateSettings
   };

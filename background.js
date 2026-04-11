@@ -33,7 +33,20 @@ function setBadge(tabId, text) {
   chrome.action.setBadgeText({ text, tabId }).catch(() => {});
 }
 
-async function renderPageTranslationUpdates(tabId, targetLanguage, translations) {
+function buildTranslationAppearancePayload(settings) {
+  const appearance = TranslatorStorage.normalizeTranslationAppearance(settings);
+
+  return {
+    translationAppearance: {
+      underlineColor: appearance.translationUnderlineColor,
+      underlineStyle: appearance.translationUnderlineStyle,
+      underlineThickness: appearance.translationUnderlineThickness,
+      underlineOffset: appearance.translationUnderlineOffset
+    }
+  };
+}
+
+async function renderPageTranslationUpdates(tabId, targetLanguage, translations, settings) {
   if (!translations || translations.length === 0) {
     return;
   }
@@ -42,7 +55,8 @@ async function renderPageTranslationUpdates(tabId, targetLanguage, translations)
     type: 'render-page-translation-updates',
     payload: {
       targetLanguage,
-      translations
+      translations,
+      ...buildTranslationAppearancePayload(settings)
     }
   });
 }
@@ -193,7 +207,8 @@ async function processSinglePageTranslationItem(tabId, sessionId, item) {
       type: 'render-page-placeholders',
       payload: {
         ids: [itemId],
-        targetLanguage: session.settings.targetLanguage
+        targetLanguage: session.settings.targetLanguage,
+        ...buildTranslationAppearancePayload(session.settings)
       }
     });
 
@@ -224,7 +239,8 @@ async function processSinglePageTranslationItem(tabId, sessionId, item) {
           await renderPageTranslationUpdates(
             tabId,
             currentSession.settings.targetLanguage,
-            completedTranslations
+            completedTranslations,
+            currentSession.settings
           );
           setBadge(tabId, String(currentSession.translatedIds.size));
         }
@@ -306,7 +322,8 @@ async function translatePage(tab) {
     type: 'start-page-translation-session',
     payload: {
       sessionId: session.sessionId,
-      targetLanguage: settings.targetLanguage
+      targetLanguage: settings.targetLanguage,
+      ...buildTranslationAppearancePayload(settings)
     }
   });
 
@@ -366,7 +383,8 @@ async function translateSelection(tabId, selectionText) {
   await chrome.tabs.sendMessage(tabId, {
     type: 'render-selection-placeholder',
     payload: {
-      targetLanguage: settings.targetLanguage
+      targetLanguage: settings.targetLanguage,
+      ...buildTranslationAppearancePayload(settings)
     }
   });
 
@@ -390,6 +408,7 @@ async function translateSelection(tabId, selectionText) {
     payload: {
       sourceText: text,
       targetLanguage: settings.targetLanguage,
+      ...buildTranslationAppearancePayload(settings),
       translation
     }
   });

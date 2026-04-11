@@ -151,6 +151,44 @@ textarea[readonly] {
   box-shadow: none;
 }
 
+.appearance-panel {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px dashed rgba(88, 67, 47, 0.18);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.appearance-panel-header h2 {
+  margin-bottom: 6px;
+}
+
+.appearance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.appearance-sample {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(247, 242, 233, 0.88);
+}
+
+.appearance-sample-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.appearance-sample-text {
+  text-decoration-line: underline;
+}
+
 .status-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -238,5 +276,9 @@ button.secondary {
 
   .prompt-preview-actions button {
     width: 100%;
+  }
+
+  .appearance-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -6,6 +6,11 @@
   const targetLanguageInput = document.getElementById('target-language');
   const systemPromptTemplateInput = document.getElementById('system-prompt-template');
   const userPromptTemplateInput = document.getElementById('user-prompt-template');
+  const translationUnderlineColorInput = document.getElementById('translation-underline-color');
+  const translationUnderlineStyleInput = document.getElementById('translation-underline-style');
+  const translationUnderlineThicknessInput = document.getElementById('translation-underline-thickness');
+  const translationUnderlineOffsetInput = document.getElementById('translation-underline-offset');
+  const translationAppearancePreview = document.getElementById('translation-appearance-preview');
   const disabledDomainsInput = document.getElementById('disabled-domains');
   const systemPromptPreview = document.getElementById('system-prompt-preview');
   const userPromptPreview = document.getElementById('user-prompt-preview');
@@ -23,9 +28,22 @@
       model: modelInput.value,
       systemPromptTemplate: systemPromptTemplateInput.value,
       userPromptTemplate: userPromptTemplateInput.value,
+      translationUnderlineColor: translationUnderlineColorInput.value,
+      translationUnderlineStyle: translationUnderlineStyleInput.value,
+      translationUnderlineThickness: translationUnderlineThicknessInput.value,
+      translationUnderlineOffset: translationUnderlineOffsetInput.value,
       targetLanguage: targetLanguageInput.value,
       disabledDomains: disabledDomainsInput.value
     };
+  }
+
+  function renderAppearancePreview() {
+    const appearance = TranslatorStorage.normalizeTranslationAppearance(getFormSettings());
+
+    translationAppearancePreview.style.textDecorationColor = appearance.translationUnderlineColor;
+    translationAppearancePreview.style.textDecorationStyle = appearance.translationUnderlineStyle;
+    translationAppearancePreview.style.textDecorationThickness = `${appearance.translationUnderlineThickness}px`;
+    translationAppearancePreview.style.textUnderlineOffset = `${appearance.translationUnderlineOffset}px`;
   }
 
   function showBanner(message, isError) {
@@ -67,6 +85,7 @@
 
     systemPromptPreview.value = input[0] && input[0].content ? input[0].content : '';
     userPromptPreview.value = input[1] && input[1].content ? input[1].content : '';
+    renderAppearancePreview();
   }
 
   function resetSystemPrompt() {
@@ -119,6 +138,10 @@
     targetLanguageInput.value = settings.targetLanguage;
     systemPromptTemplateInput.value = settings.systemPromptTemplate;
     userPromptTemplateInput.value = settings.userPromptTemplate;
+    translationUnderlineColorInput.value = settings.translationUnderlineColor;
+    translationUnderlineStyleInput.value = settings.translationUnderlineStyle;
+    translationUnderlineThicknessInput.value = String(settings.translationUnderlineThickness);
+    translationUnderlineOffsetInput.value = String(settings.translationUnderlineOffset);
     disabledDomainsInput.value = settings.disabledDomains || '';
     renderPromptPreview();
     await updatePermissionStatus(settings.baseUrl);
@@ -203,6 +226,10 @@
   targetLanguageInput.addEventListener('input', renderPromptPreview);
   systemPromptTemplateInput.addEventListener('input', renderPromptPreview);
   userPromptTemplateInput.addEventListener('input', renderPromptPreview);
+  translationUnderlineColorInput.addEventListener('input', renderAppearancePreview);
+  translationUnderlineStyleInput.addEventListener('input', renderAppearancePreview);
+  translationUnderlineThicknessInput.addEventListener('input', renderAppearancePreview);
+  translationUnderlineOffsetInput.addEventListener('input', renderAppearancePreview);
   resetSystemPromptButton.addEventListener('click', resetSystemPrompt);
   resetUserPromptButton.addEventListener('click', resetUserPrompt);
 

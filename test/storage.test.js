@@ -9,6 +9,7 @@ const {
   migrateLegacyPromptSettings,
   normalizeDisabledDomains,
   normalizeBaseUrl,
+  normalizeTranslationAppearance,
   validateSettings
 } = require('../storage.js');
 
@@ -39,8 +40,26 @@ test('validateSettings merges prompt template defaults', () => {
   assert.equal(result.isValid, true);
   assert.equal(result.settings.systemPromptTemplate, DEFAULT_SYSTEM_PROMPT_TEMPLATE);
   assert.equal(result.settings.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+  assert.equal(result.settings.translationUnderlineColor, DEFAULT_SETTINGS.translationUnderlineColor);
+  assert.equal(result.settings.translationUnderlineStyle, DEFAULT_SETTINGS.translationUnderlineStyle);
+  assert.equal(result.settings.translationUnderlineThickness, DEFAULT_SETTINGS.translationUnderlineThickness);
+  assert.equal(result.settings.translationUnderlineOffset, DEFAULT_SETTINGS.translationUnderlineOffset);
   assert.equal(DEFAULT_SETTINGS.systemPromptTemplate, DEFAULT_SYSTEM_PROMPT_TEMPLATE);
   assert.equal(DEFAULT_SETTINGS.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+});
+
+test('normalizeTranslationAppearance clamps and sanitizes underline settings', () => {
+  assert.deepEqual(normalizeTranslationAppearance({
+    translationUnderlineColor: 'not-a-color',
+    translationUnderlineStyle: 'wavy',
+    translationUnderlineThickness: 99,
+    translationUnderlineOffset: -4
+  }), {
+    translationUnderlineColor: '#1f7a4f',
+    translationUnderlineStyle: 'solid',
+    translationUnderlineThickness: 6,
+    translationUnderlineOffset: 0
+  });
 });
 
 test('validateSettings requires sourcePayload in user prompt template', () => {
