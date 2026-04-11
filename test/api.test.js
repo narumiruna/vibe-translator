@@ -104,6 +104,31 @@ test('createRecursiveChunkPlan splits oversized items and mergeRecursiveTranslat
   assert.match(merged[0].translation, /Fourth sentence\.\]$/);
 });
 
+test('createRecursiveChunkPlan preserves pre-extracted math placeholders', () => {
+  const plan = createRecursiveChunkPlan(
+    [
+      {
+        id: 'math',
+        kind: 'paragraph',
+        text: 'The goal is __OT_MATH_1__ and the posterior is __OT_MATH_2__.',
+        protectedFragments: [
+          { placeholder: '__OT_MATH_1__', value: '$p^*(x)$' },
+          { placeholder: '__OT_MATH_2__', value: '\\(q_\\theta(x)\\)' }
+        ]
+      }
+    ],
+    24
+  );
+
+  const merged = mergeRecursiveTranslations(plan, plan.expandedItems.map((item) => ({
+    id: item.id,
+    translation: item.text
+  })));
+
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].translation, 'The goal is $p^*(x)$ and the posterior is \\(q_\\theta(x)\\).');
+});
+
 test('maskProtectedFragments preserves code paths urls and tech terms', () => {
   const masked = maskProtectedFragments(
     'Run `npm run dev` in src/bot/ and open https://example.com/docs for the GitHub API guide.'
@@ -117,6 +142,19 @@ test('maskProtectedFragments preserves code paths urls and tech terms', () => {
   assert.equal(
     restored,
     'Run `npm run dev` in src/bot/ and open https://example.com/docs for the GitHub API guide.'
+  );
+});
+
+test('maskProtectedFragments preserves latex math expressions', () => {
+  const masked = maskProtectedFragments(
+    'The goal is $p^*(x)$ while \\(q_\\theta(x)\\) approximates the posterior.'
+  );
+
+  assert.ok(masked.tokens.some((token) => token.value === '$p^*(x)$'));
+  assert.ok(masked.tokens.some((token) => token.value === '\\(q_\\theta(x)\\)'));
+  assert.equal(
+    unmaskProtectedFragments(masked.maskedText, masked.tokens),
+    'The goal is $p^*(x)$ while \\(q_\\theta(x)\\) approximates the posterior.'
   );
 });
 

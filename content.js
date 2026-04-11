@@ -43,9 +43,30 @@
     'option',
     'svg',
     'canvas',
+    'math',
+    '.katex',
+    '.katex-mathml',
+    '.MathJax',
+    '.mathjax',
+    '.mjx-container',
+    'mjx-assistive-mml',
+    '[role="math"]',
+    '[aria-hidden="true"]',
     '[contenteditable="true"]',
     `[${ROOT_ATTR}]`
   ].join(', ');
+  const MATH_SELECTOR = [
+    'math',
+    '.katex',
+    '.katex-display',
+    '.katex-mathml',
+    '.MathJax',
+    '.mathjax',
+    '.mjx-container',
+    'mjx-assistive-mml',
+    '[role="math"]'
+  ].join(', ');
+  const PROTECTED_PLACEHOLDER_REGEX = /__OT_(?:TOKEN|MATH)_\d+__/g;
   const INLINE_CODE_SELECTOR = 'code, kbd, samp';
   const TERMINAL_LIKE_SELECTOR = [
     '[role="log"]',
@@ -401,10 +422,65 @@
   }
 
   function shouldTranslateText(text) {
-    const normalized = normalizeSegmentText(text);
+    const normalized = normalizeSegmentText(text).replace(PROTECTED_PLACEHOLDER_REGEX, ' ');
     const meaningfulChars = normalized.replace(/[\s\p{P}\p{S}]/gu, '');
 
     return meaningfulChars.length >= 2;
+  }
+
+  function createProtectedPlaceholder(context, value) {
+    if (!context || !value) {
+      return '';
+    }
+
+    context.counter += 1;
+
+    const placeholder = `__OT_MATH_${context.counter}__`;
+
+    context.tokens.push({
+      placeholder,
+      value
+    });
+
+    return placeholder;
+  }
+
+  function extractMathSource(element) {
+    if (!element || !element.matches) {
+      return '';
+    }
+
+    const annotation = element.querySelector(
+      'annotation[encoding*="tex" i], annotation[encoding*="latex" i], annotation'
+    );
+
+    if (annotation) {
+      const annotationText = normalizeSegmentText(annotation.textContent || '');
+
+      if (annotationText) {
+        return annotationText;
+      }
+    }
+
+    const mathChild = !element.matches('math') ? element.querySelector('math') : null;
+
+    if (mathChild && mathChild.outerHTML) {
+      return mathChild.outerHTML;
+    }
+
+    for (const attributeName of ['data-tex', 'data-latex', 'alttext', 'aria-label']) {
+      const attributeValue = normalizeSegmentText(element.getAttribute(attributeName) || '');
+
+      if (attributeValue) {
+        return attributeValue;
+      }
+    }
+
+    if (element.matches('math') && element.outerHTML) {
+      return element.outerHTML;
+    }
+
+    return normalizeSegmentText(element.textContent || '');
   }
 
   function isVisible(element) {
@@ -449,7 +525,7 @@
     return 'paragraph';
   }
 
-  function serializeNode(node) {
+  function serializeNode(node, context) {
     if (!node) {
       return '';
     }
@@ -463,6 +539,19 @@
     }
 
     const element = node;
+
+    if (element.getAttribute && element.getAttribute('aria-hidden') === 'true') {
+      return '';
+    }
+
+    if (element.matches(MATH_SELECTOR)) {
+      const mathSource = extractMathSource(element);
+
+      return createProtectedPlaceholder(
+        context,
+        mathSource || normalizeSegmentText(element.textContent || '')
+      );
+    }
 
     if (element.closest(SKIP_ANCESTOR_SELECTOR) && !element.matches(INLINE_CODE_SELECTOR)) {
       return '';
@@ -480,11 +569,19 @@
       return `\`${normalizeInlineWhitespace(element.textContent || '')}\``;
     }
 
-    return Array.from(element.childNodes).map((child) => serializeNode(child)).join('');
+    return Array.from(element.childNodes).map((child) => serializeNode(child, context)).join('');
   }
 
-  function getSegmentText(element) {
-    return normalizeSegmentText(serializeNode(element));
+  function getSegmentContent(element) {
+    const context = {
+      counter: 0,
+      tokens: []
+    };
+
+    return {
+      text: normalizeSegmentText(serializeNode(element, context)),
+      protectedFragments: context.tokens
+    };
   }
 
   function isGenericBlock(element) {
@@ -522,7 +619,7 @@
       return false;
     }
 
-    const text = getSegmentText(element);
+    const text = getSegmentContent(element).text;
 
     if (!shouldTranslateText(text)) {
       return false;
@@ -666,6 +763,7 @@
   }
 
   function buildSegmentItem(element, counterRef) {
+    const content = getSegmentContent(element);
     let itemId = element.getAttribute(SOURCE_ATTR);
 
     if (!itemId) {
@@ -681,7 +779,8 @@
     return {
       id: itemId,
       kind: getSegmentKind(element),
-      text: getSegmentText(element)
+      text: content.text,
+      protectedFragments: content.protectedFragments
     };
   }
 

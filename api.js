@@ -38,6 +38,10 @@
   const FILE_PATH_REGEX = /\b(?:\.{0,2}\/)?(?:[\w.-]+\/)+[\w./-]*[\w.-]\b|\b[\w.-]+\.(?:md|txt|json|ya?ml|toml|js|jsx|ts|tsx|css|html|py|sh|rb|go|rs|java|kt|swift)\b/g;
   const URL_REGEX = /\bhttps?:\/\/[^\s<>"']+/g;
   const INLINE_CODE_REGEX = /`[^`\n]+`/g;
+  const DISPLAY_LATEX_REGEX = /\$\$[\s\S]+?\$\$/g;
+  const INLINE_DOLLAR_MATH_REGEX = /\$[^$\n]+\$/g;
+  const INLINE_PAREN_MATH_REGEX = /\\\([\s\S]+?\\\)/g;
+  const BLOCK_BRACKET_MATH_REGEX = /\\\[[\s\S]+?\\\]/g;
   const translationCache = new Map();
 
   function buildTranslationCacheKey(settings, item) {
@@ -141,10 +145,14 @@
     return String(text || '').trim();
   }
 
-  function maskProtectedFragments(text) {
-    const tokens = [];
+  function maskProtectedFragments(text, existingTokens) {
+    const tokens = [...(existingTokens || [])];
     let maskedText = String(text || '');
-    let counter = 0;
+    let counter = tokens.reduce((max, token) => {
+      const match = /^__OT_TOKEN_(\d+)__$/.exec(String(token && token.placeholder));
+
+      return match ? Math.max(max, Number(match[1]) || 0) : max;
+    }, 0);
 
     function replaceWithToken(regex) {
       maskedText = maskedText.replace(regex, (match) => {
@@ -159,6 +167,10 @@
       });
     }
 
+    replaceWithToken(DISPLAY_LATEX_REGEX);
+    replaceWithToken(BLOCK_BRACKET_MATH_REGEX);
+    replaceWithToken(INLINE_PAREN_MATH_REGEX);
+    replaceWithToken(INLINE_DOLLAR_MATH_REGEX);
     replaceWithToken(INLINE_CODE_REGEX);
     replaceWithToken(URL_REGEX);
     replaceWithToken(FILE_PATH_REGEX);
@@ -299,7 +311,7 @@
     const mergePlan = new Map();
 
     for (const item of items || []) {
-      const protectedFragments = maskProtectedFragments(item.text);
+      const protectedFragments = maskProtectedFragments(item.text, item.protectedFragments);
       const normalizedItem = {
         ...item,
         maskedText: protectedFragments.maskedText,
