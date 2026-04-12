@@ -207,7 +207,16 @@ test("maskProtectedFragments preserves latex math expressions", () => {
 test("buildTranslationInput renders prompt templates with source payload", () => {
 	const input = buildTranslationInput({
 		...buildSettings(),
-		items: [{ id: "1", kind: "heading", text: "Hello" }],
+		items: [
+			{
+				id: "1",
+				kind: "heading",
+				text: "Hello",
+				isUI: false,
+				isMetadata: false,
+				containsMath: false,
+			},
+		],
 	});
 
 	assert.equal(input.length, 2);
@@ -219,6 +228,9 @@ test("buildTranslationInput renders prompt templates with source payload", () =>
 	assert.match(input[1].content, /"targetLanguage":"台灣正體中文"/);
 	assert.match(input[1].content, /"id":"1"/);
 	assert.match(input[1].content, /"kind":"heading"/);
+	assert.match(input[1].content, /"isUI":false/);
+	assert.match(input[1].content, /"isMetadata":false/);
+	assert.match(input[1].content, /"containsMath":false/);
 	assert.match(input[1].content, /"text":"Hello"/);
 	assert.doesNotMatch(input[1].content, /"items":\[/);
 });
@@ -234,9 +246,23 @@ test("buildResponsesRequest uses responses api shape", () => {
 	assert.equal(payload.text.format.name, "translation_result");
 	assert.equal(payload.text.format.strict, true);
 	assert.deepEqual(payload.text.format.schema.required, ["translations"]);
+	assert.deepEqual(
+		payload.text.format.schema.properties.translations.items.required,
+		["id", "translatedText"],
+	);
 });
 
-test("parseTranslationResponse reads output_parsed translations", () => {
+test("parseTranslationResponse reads output_parsed translatedText", () => {
+	const parsed = parseTranslationResponse({
+		output_parsed: {
+			translations: [{ id: "1", translatedText: "你好" }],
+		},
+	});
+
+	assert.deepEqual(parsed, [{ id: "1", translation: "你好" }]);
+});
+
+test("parseTranslationResponse still accepts legacy translation field", () => {
 	const parsed = parseTranslationResponse({
 		output_parsed: {
 			translations: [{ id: "1", translation: "你好" }],

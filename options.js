@@ -22,12 +22,17 @@
 	const translationUnderlineOffsetInput = document.getElementById(
 		"translation-underline-offset",
 	);
+	const showTranslationDebugInfoInput = document.getElementById(
+		"show-translation-debug-info",
+	);
 	const translationAppearancePreview = document.getElementById(
 		"translation-appearance-preview",
 	);
 	const disabledDomainsInput = document.getElementById("disabled-domains");
 	const systemPromptPreview = document.getElementById("system-prompt-preview");
 	const userPromptPreview = document.getElementById("user-prompt-preview");
+	const promptPreviewStats = document.getElementById("prompt-preview-stats");
+	const promptLintStatus = document.getElementById("prompt-lint-status");
 	const resetSystemPromptButton = document.getElementById(
 		"reset-system-prompt-button",
 	);
@@ -36,6 +41,7 @@
 	);
 	const permissionStatus = document.getElementById("permission-status");
 	const testStatus = document.getElementById("test-status");
+	const testDetails = document.getElementById("test-details");
 	const formStatus = document.getElementById("form-status");
 	const testButton = document.getElementById("test-button");
 
@@ -50,6 +56,7 @@
 			translationUnderlineStyle: translationUnderlineStyleInput.value,
 			translationUnderlineThickness: translationUnderlineThicknessInput.value,
 			translationUnderlineOffset: translationUnderlineOffsetInput.value,
+			showTranslationDebugInfo: showTranslationDebugInfoInput.checked,
 			targetLanguage: targetLanguageInput.value,
 			disabledDomains: disabledDomainsInput.value,
 		};
@@ -118,6 +125,17 @@
 
 		systemPromptPreview.value = input[0]?.content ? input[0].content : "";
 		userPromptPreview.value = input[1]?.content ? input[1].content : "";
+		const promptWarnings = TranslatorStorage.lintPromptTemplates(getFormSettings());
+		const systemTokens = root.TranslatorApi.estimateTokenCount(
+			systemPromptPreview.value,
+		);
+		const userTokens = root.TranslatorApi.estimateTokenCount(
+			userPromptPreview.value,
+		);
+
+		promptPreviewStats.textContent = `Estimated prompt size: ~${systemTokens + userTokens} tokens (system ${systemTokens} + user ${userTokens}).`;
+		promptLintStatus.hidden = promptWarnings.length === 0;
+		promptLintStatus.textContent = promptWarnings.join(" ");
 		renderAppearancePreview();
 	}
 
@@ -181,6 +199,8 @@
 		translationUnderlineOffsetInput.value = String(
 			settings.translationUnderlineOffset,
 		);
+		showTranslationDebugInfoInput.checked =
+			Boolean(settings.showTranslationDebugInfo);
 		disabledDomainsInput.value = settings.disabledDomains || "";
 		renderPromptPreview();
 		await updatePermissionStatus(settings.baseUrl);
@@ -214,11 +234,13 @@
 	async function handleTestConnection() {
 		clearBanner();
 		testStatus.textContent = "Testing connection…";
+		testDetails.textContent = "Checking translation request and /models availability…";
 
 		const validation = TranslatorStorage.validateSettings(getFormSettings());
 
 		if (!validation.isValid) {
 			testStatus.textContent = "Validation failed.";
+			testDetails.textContent = "Fix the settings errors and try again.";
 			showBanner(validation.errors.join(" "), true);
 			return;
 		}
@@ -230,6 +252,7 @@
 
 		if (!permissionGranted) {
 			testStatus.textContent = "Permission denied.";
+			testDetails.textContent = "Grant the API origin permission to continue.";
 			showBanner(
 				"API origin permission is required to test the connection.",
 				true,
@@ -244,11 +267,17 @@
 
 		if (!response?.ok) {
 			testStatus.textContent = "Connection test failed.";
+			testDetails.textContent = "The extension could not complete the test request.";
 			showBanner(response?.error || "Connection test failed.", true);
 			return;
 		}
 
 		testStatus.textContent = `Sample translation: ${response.translation || "(empty)"}`;
+		testDetails.textContent = `Translation latency: ${response.latencyMs || 0} ms · /models: ${
+			response.modelsAvailable
+				? `${response.modelCount || 0} models in ${response.modelsLatencyMs || 0} ms`
+				: response.modelsError || "unavailable"
+		}.`;
 		showBanner("Connection test succeeded.", false);
 	}
 
@@ -272,6 +301,7 @@
 	targetLanguageInput.addEventListener("input", renderPromptPreview);
 	systemPromptTemplateInput.addEventListener("input", renderPromptPreview);
 	userPromptTemplateInput.addEventListener("input", renderPromptPreview);
+	showTranslationDebugInfoInput.addEventListener("input", renderPromptPreview);
 	translationUnderlineColorInput.addEventListener(
 		"input",
 		renderAppearancePreview,

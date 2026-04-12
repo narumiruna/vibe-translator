@@ -15,9 +15,9 @@
 						type: "object",
 						properties: {
 							id: { type: "string" },
-							translation: { type: "string" },
+							translatedText: { type: "string" },
 						},
-						required: ["id", "translation"],
+						required: ["id", "translatedText"],
 						additionalProperties: false,
 					},
 				},
@@ -55,6 +55,9 @@
 			userPromptTemplate: String(settings?.userPromptTemplate || "").trim(),
 			targetLanguage: String(settings?.targetLanguage || "").trim(),
 			kind: String(item?.kind || "paragraph"),
+			isUI: Boolean(item?.isUI),
+			isMetadata: Boolean(item?.isMetadata),
+			containsMath: Boolean(item?.containsMath),
 			text: String(item?.text || ""),
 		});
 	}
@@ -415,12 +418,25 @@
 		});
 	}
 
+	function estimateTokenCount(value) {
+		const text = String(value || "").trim();
+
+		if (!text) {
+			return 0;
+		}
+
+		return Math.max(1, Math.ceil(text.length / 4));
+	}
+
 	function buildTranslationInput(options) {
 		const items = options.items || [];
 		const targetLanguage = options.targetLanguage;
 		const payloadItems = items.map((item) => ({
 			id: item.id,
 			kind: item.kind || "paragraph",
+			isUI: Boolean(item.isUI),
+			isMetadata: Boolean(item.isMetadata),
+			containsMath: Boolean(item.containsMath),
 			text: item.text,
 		}));
 		const userPayload =
@@ -535,14 +551,20 @@
 			if (
 				!item ||
 				typeof item.id !== "string" ||
-				typeof item.translation !== "string"
+				(typeof item.translatedText !== "string" &&
+					typeof item.translation !== "string")
 			) {
-				throw new Error("Response item is missing id or translation.");
+				throw new Error(
+					"Response item is missing id or translatedText/translation.",
+				);
 			}
 
 			return {
 				id: item.id,
-				translation: item.translation,
+				translation:
+					typeof item.translatedText === "string"
+						? item.translatedText
+						: item.translation,
 			};
 		});
 	}
@@ -912,6 +934,7 @@
 		extractOutputText,
 		maskProtectedFragments,
 		mergeRecursiveTranslations,
+		estimateTokenCount,
 		parseTranslationResponse,
 		consumeProgressiveTranslations,
 		createProgressiveMergeState,

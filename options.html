@@ -96,6 +96,9 @@
               </div>
             </div>
 
+            <p id="prompt-preview-stats" class="field-note">Estimating prompt size…</p>
+            <p id="prompt-lint-status" class="banner banner-warning" hidden></p>
+
             <label class="field">
               <span>System Prompt</span>
               <textarea id="system-prompt-preview" rows="8" readonly></textarea>
@@ -106,6 +109,20 @@
               <textarea id="user-prompt-preview" rows="8" readonly></textarea>
             </label>
           </section>
+
+          <label class="field checkbox-field">
+            <span class="checkbox-control">
+              <input
+                id="show-translation-debug-info"
+                name="showTranslationDebugInfo"
+                type="checkbox"
+              />
+              <span>Show translation debug info on translated pages</span>
+            </span>
+            <small class="field-note">
+              Shows queued item ids, estimated token counts, and skipped extraction reasons in a page overlay.
+            </small>
+          </label>
 
           <section class="appearance-panel" aria-labelledby="appearance-title">
             <div class="appearance-panel-header">
@@ -177,6 +194,7 @@
             <article class="status-card">
               <h2>Connection Test</h2>
               <p id="test-status" class="status-text">Run a test request after saving.</p>
+              <p id="test-details" class="field-note">Checks both translation and the /models endpoint.</p>
             </article>
           </div>
 

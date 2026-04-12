@@ -215,7 +215,97 @@
 			sessionId: "",
 		},
 		translationAppearance: { ...DEFAULT_TRANSLATION_APPEARANCE },
+		debug: {
+			enabled: false,
+		},
 	};
+
+	function isDebugInfoEnabled() {
+		return Boolean(pageState.debug.enabled);
+	}
+
+	function estimateTextTokens(text) {
+		if (
+			root.TranslatorApi &&
+			typeof root.TranslatorApi.estimateTokenCount === "function"
+		) {
+			return root.TranslatorApi.estimateTokenCount(text);
+		}
+
+		const normalized = String(text || "").trim();
+
+		return normalized ? Math.max(1, Math.ceil(normalized.length / 4)) : 0;
+	}
+
+	function getDebugNodeLabel(element) {
+		if (!element?.tagName) {
+			return "unknown";
+		}
+
+		const tagName = element.tagName.toLowerCase();
+		const id = element.id ? `#${element.id}` : "";
+		const classNames = Array.from(element.classList || [])
+			.slice(0, 2)
+			.map((name) => `.${name}`)
+			.join("");
+
+		return `${tagName}${id}${classNames}`;
+	}
+
+	function createExtractionDebugState() {
+		return {
+			selectedItems: [],
+			skippedByReason: new Map(),
+			skippedSamples: [],
+		};
+	}
+
+	function recordExtractionDebugSkip(debugState, reason, element) {
+		if (!debugState || !reason) {
+			return;
+		}
+
+		debugState.skippedByReason.set(
+			reason,
+			(debugState.skippedByReason.get(reason) || 0) + 1,
+		);
+
+		if (debugState.skippedSamples.length >= 6) {
+			return;
+		}
+
+		debugState.skippedSamples.push({
+			reason,
+			node: getDebugNodeLabel(element),
+		});
+	}
+
+	function recordExtractionDebugSelect(debugState, item) {
+		if (!debugState || !item) {
+			return;
+		}
+
+		debugState.selectedItems.push({
+			id: item.id,
+			kind: item.kind,
+			tokenCount: estimateTextTokens(item.text),
+			containsMath: Boolean(item.containsMath),
+		});
+	}
+
+	function finalizeExtractionDebug(debugState) {
+		if (!debugState) {
+			return null;
+		}
+
+		return {
+			selectedItems: debugState.selectedItems,
+			skippedByReason: Array.from(debugState.skippedByReason.entries())
+				.sort((left, right) => right[1] - left[1])
+				.map(([reason, count]) => ({ reason, count })),
+			skippedSamples: debugState.skippedSamples,
+		};
+	}
 
 	function normalizeTranslationAppearance(appearance) {
 		const source = appearance || {};
@@ -459,8 +549,59 @@
         font: 0.92em/1.4 ui-monospace, 'SFMono-Regular', Menlo, monospace;
       }
 
+      .translation[${ROOT_ATTR}="debug-panel"] {
+        position: fixed;
+        left: 18px;
+        bottom: 18px;
+        z-index: 2147483647;
+        width: min(420px, calc(100vw - 24px));
+        max-height: min(44vh, 28rem);
+        overflow: auto;
+        padding: 14px 14px 16px;
+        border: 1px solid rgba(52, 72, 60, 0.14);
+        border-radius: 18px;
+        background: rgba(248, 247, 243, 0.98);
+        box-shadow: 0 20px 48px rgba(32, 39, 36, 0.18);
+        color: #334038;
+        font: 500 13px/1.5 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      .translation [${ROOT_ATTR}="debug-title"] {
+        display: block;
+        margin: 0 0 10px;
+        color: #45614c;
+        font: 700 12px/1.4 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .translation [${ROOT_ATTR}="debug-section-title"] {
+        display: block;
+        margin: 12px 0 6px;
+        color: #5c675f;
+        font-weight: 700;
+      }
+
+      .translation [${ROOT_ATTR}="debug-list"] {
+        display: block;
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .translation [${ROOT_ATTR}="debug-list"] li {
+        margin: 0 0 4px;
+      }
+
       @media (max-width: 640px) {
         .translation[${ROOT_ATTR}="selection-panel"] {
+          right: 12px;
+          left: 12px;
+          bottom: 12px;
+          width: auto;
+          max-width: none;
+        }
+
+        .translation[${ROOT_ATTR}="debug-panel"] {
           right: 12px;
           left: 12px;
           bottom: 12px;
@@ -515,6 +656,10 @@
 	}
 
 	function debugSkip(reason, element) {
+		if (!isDebugInfoEnabled()) {
+			return;
+		}
+
 		const tagName = element?.tagName
 			? element.tagName.toLowerCase()
 			: element && element.nodeType === Node.TEXT_NODE
@@ -525,6 +670,10 @@
 	}
 
 	function debugSelect(reason, element) {
+		if (!isDebugInfoEnabled()) {
+			return;
+		}
+
 		const tagName = element?.tagName
 			? element.tagName.toLowerCase()
 			: "unknown";
@@ -1042,14 +1191,39 @@
 		return Boolean(element?.closest?.(`[${ROOT_ATTR}], .translation`));
 	}
 
-	function isCandidateElement(element) {
+	function classifySegment(element, content) {
+		const text = content?.text || "";
+		const protectedFragments = content?.protectedFragments || [];
+		const isMetadata = Boolean(
+			element?.matches?.(
+				"time, .meta, .metadata, .byline, .timestamp, [itemprop*='date' i]",
+			) ||
+				element?.closest?.(
+					"time, .meta, .metadata, .byline, .timestamp, [itemprop*='date' i]",
+				),
+		);
+		const isUI = Boolean(isLikelyUiMetaBlock(element, text));
+		const containsMath = protectedFragments.some(
+			(fragment) =>
+				fragment?.kind === "math" ||
+				String(fragment?.placeholder || "").startsWith("__OT_MATH_"),
+		);
+
+		return {
+			isUI,
+			isMetadata,
+			containsMath,
+		};
+	}
+
+	function classifyCandidateElement(element) {
 		if (!element) {
-			return false;
+			return { ok: false, reason: "missing element" };
 		}
 
 		if (isInsideTranslation(element) || isTranslatorOwned(element)) {
 			debugSkip("inside translation", element);
-			return false;
+			return { ok: false, reason: "inside translation" };
 		}
 
 		if (
@@ -1057,54 +1231,84 @@
 			element.getAttribute(STALE_ATTR) !== "true"
 		) {
 			debugSkip("already translated", element);
-			return false;
+			return { ok: false, reason: "already translated" };
 		}
 
 		if (isUnsupportedElement(element)) {
 			debugSkip("unsupported element", element);
-			return false;
+			return { ok: false, reason: "unsupported element" };
 		}
 
 		if (!isVisible(element)) {
-			return false;
+			return { ok: false, reason: "not visible" };
 		}
 
 		if (element.closest(SKIP_ANCESTOR_SELECTOR)) {
-			return false;
+			return { ok: false, reason: "skipped ancestor" };
 		}
 
 		if (element.closest(TERMINAL_LIKE_SELECTOR)) {
-			return false;
+			return { ok: false, reason: "terminal-like block" };
 		}
 
 		if (!element.matches(READABLE_BLOCK_SELECTOR)) {
-			return false;
+			return { ok: false, reason: "non-readable block" };
 		}
 
 		if (hasNestedReadableBlocks(element)) {
 			debugSkip("ancestor block", element);
-			return false;
+			return { ok: false, reason: "ancestor block" };
 		}
 
-		const text = getSegmentContent(element).text;
+		const content = getSegmentContent(element);
+		const classification = classifySegment(element, content);
 
-		if (!shouldTranslateText(text)) {
-			return false;
+		if (!shouldTranslateText(content.text)) {
+			return {
+				ok: false,
+				reason: "insufficient content",
+				content,
+				classification,
+			};
 		}
 
-		if (isLikelyUiMetaBlock(element, text)) {
+		if (classification.isMetadata) {
+			debugSkip("metadata block", element);
+			return {
+				ok: false,
+				reason: "metadata block",
+				content,
+				classification,
+			};
+		}
+
+		if (classification.isUI) {
 			debugSkip("ui/meta block", element);
-			return false;
+			return {
+				ok: false,
+				reason: "ui/meta block",
+				content,
+				classification,
+			};
 		}
 
 		const minimumScore = isReadableTitleLink(element) ? 20 : 40;
 
-		if (scoreCandidateBlock(element, text) < minimumScore) {
+		if (scoreCandidateBlock(element, content.text) < minimumScore) {
 			debugSkip("ui/meta block", element);
-			return false;
+			return {
+				ok: false,
+				reason: "ui/meta block",
+				content,
+				classification,
+			};
 		}
 
-		return true;
+		return {
+			ok: true,
+			content,
+			classification,
+		};
 	}
 
 	function getExistingNoteForSource(element, id) {
@@ -1266,8 +1470,10 @@
 		observerStarted = true;
 	}
 
-	function buildSegmentItem(element, counterRef) {
-		const content = getSegmentContent(element);
+	function buildSegmentItem(element, counterRef, analysis) {
+		const content = analysis?.content || getSegmentContent(element);
+		const classification =
+			analysis?.classification || classifySegment(element, content);
 		let itemId = element.getAttribute(SOURCE_ATTR);
 
 		if (!itemId) {
@@ -1285,6 +1491,9 @@
 			kind: getSegmentKind(element),
 			text: content.text,
 			protectedFragments: content.protectedFragments,
+			isUI: classification.isUI,
+			isMetadata: classification.isMetadata,
+			containsMath: classification.containsMath,
 		};
 	}
 
@@ -1319,7 +1528,7 @@
 		};
 	}
 
-	function collectSemanticItems(profile, options) {
+	function collectSemanticItems(profile, options, debugState) {
 		const items = [];
 		const windowCandidates = [];
 		const totalElements = [];
@@ -1333,12 +1542,16 @@
 		const viewportOptions = windowed ? getViewportWindowOptions() : null;
 
 		for (const element of elements) {
-			if (!isCandidateElement(element)) {
+			const analysis = classifyCandidateElement(element);
+
+			if (!analysis.ok) {
+				recordExtractionDebugSkip(debugState, analysis.reason, element);
 				continue;
 			}
 
 			if (hasSelectedRelative(element, selectedElements)) {
 				debugSkip("ancestor block", element);
+				recordExtractionDebugSkip(debugState, "ancestor block", element);
 				continue;
 			}
 
@@ -1351,9 +1564,10 @@
 				continue;
 			}
 
-			const item = buildSegmentItem(element, counterRef);
+			const item = buildSegmentItem(element, counterRef, analysis);
 			selectedElements.push(element);
 			debugSelect("leaf block", element);
+			recordExtractionDebugSelect(debugState, item);
 
 			if (windowed) {
 				windowCandidates.push(createWindowCandidate(element, item));
@@ -1373,7 +1587,7 @@
 		};
 	}
 
-	function collectFallbackItems(profile, options) {
+	function collectFallbackItems(profile, options, debugState) {
 		const counterRef = {
 			value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length,
 		};
@@ -1385,6 +1599,7 @@
 		const windowed = Boolean(options?.windowed);
 		const viewportOptions = windowed ? getViewportWindowOptions() : null;
 		const root = profile?.root;
+		const classificationCache = new Map();
 
 		if (!root || !profile?.allowFallback) {
 			return {
@@ -1428,10 +1643,18 @@
 		while (currentNode) {
 			const parent = currentNode.parentElement;
 			const anchor = parent.closest(READABLE_BLOCK_SELECTOR);
+			const analysis = anchor
+				? classificationCache.get(anchor) || classifyCandidateElement(anchor)
+				: null;
 
-			if (anchor && isCandidateElement(anchor) && !seen.has(anchor)) {
+			if (anchor && analysis && !classificationCache.has(anchor)) {
+				classificationCache.set(anchor, analysis);
+			}
+
+			if (anchor && analysis?.ok && !seen.has(anchor)) {
 				if (hasSelectedRelative(anchor, selectedElements)) {
 					debugSkip("ancestor block", anchor);
+					recordExtractionDebugSkip(debugState, "ancestor block", anchor);
 					currentNode = walker.nextNode();
 					continue;
 				}
@@ -1446,9 +1669,10 @@
 				);
 
 				if (shouldQueue) {
-					const item = buildSegmentItem(anchor, counterRef);
+					const item = buildSegmentItem(anchor, counterRef, analysis);
 					selectedElements.push(anchor);
 					debugSelect("leaf block", anchor);
+					recordExtractionDebugSelect(debugState, item);
 
 					if (windowed) {
 						windowCandidates.push(createWindowCandidate(anchor, item));
@@ -1456,6 +1680,9 @@
 						items.push(item);
 					}
 				}
+			} else if (anchor && analysis && !analysis.ok && !seen.has(anchor)) {
+				recordExtractionDebugSkip(debugState, analysis.reason, anchor);
+				seen.add(anchor);
 			}
 
 			currentNode = walker.nextNode();
@@ -1477,23 +1704,26 @@
 		ensureObserver();
 
 		const profile = getTranslationProfile();
+		const debugState = isDebugInfoEnabled() ? createExtractionDebugState() : null;
 
-		const semantic = collectSemanticItems(profile, options);
+		const semantic = collectSemanticItems(profile, options, debugState);
 
 		if (semantic.totalSegments > 0) {
 			return {
 				items: semantic.items,
 				totalSegments: semantic.totalSegments,
 				pendingSegments: semantic.items.length,
+				debug: finalizeExtractionDebug(debugState),
 			};
 		}
 
-		const fallback = collectFallbackItems(profile, options);
+		const fallback = collectFallbackItems(profile, options, debugState);
 
 		return {
 			items: fallback.items,
 			totalSegments: fallback.totalSegments,
 			pendingSegments: fallback.items.length,
+			debug: finalizeExtractionDebug(debugState),
 		};
 	}
 
@@ -1505,6 +1735,8 @@
 		}
 
 		const extraction = collectPageItems({ windowed: true });
+
+		renderExtractionDebugPanel(extraction.debug);
 
 		if (!extraction.items || extraction.items.length === 0) {
 			return;
@@ -1550,6 +1782,111 @@
 		return note;
 	}
 
+	function getDebugPanel() {
+		let panel = document.querySelector(`[${ROOT_ATTR}="debug-panel"]`);
+
+		if (panel) {
+			return panel;
+		}
+
+		panel = document.createElement("aside");
+		panel.classList.add("translation");
+		panel.setAttribute(ROOT_ATTR, "debug-panel");
+		panel.setAttribute("aria-live", "polite");
+		panel.setAttribute("aria-label", "Translation debug info");
+
+		withObserverPaused(() => {
+			if (document.body) {
+				document.body.appendChild(panel);
+			}
+		});
+
+		return panel;
+	}
+
+	function clearDebugPanel() {
+		const panel = document.querySelector(`[${ROOT_ATTR}="debug-panel"]`);
+
+		if (!panel) {
+			return;
+		}
+
+		withObserverPaused(() => {
+			panel.remove();
+		});
+	}
+
+	function renderExtractionDebugPanel(debugInfo) {
+		if (!isDebugInfoEnabled() || !debugInfo) {
+			clearDebugPanel();
+			return;
+		}
+
+		const panel = getDebugPanel();
+		const title = document.createElement("strong");
+		const selectedTitle = document.createElement("span");
+		const selectedList = document.createElement("ul");
+		const skippedTitle = document.createElement("span");
+		const skippedList = document.createElement("ul");
+		const sampleTitle = document.createElement("span");
+		const sampleList = document.createElement("ul");
+
+		title.setAttribute(ROOT_ATTR, "debug-title");
+		title.textContent = "Translation Debug Info";
+		selectedTitle.setAttribute(ROOT_ATTR, "debug-section-title");
+		selectedTitle.textContent = `Queued items (${debugInfo.selectedItems.length})`;
+		selectedList.setAttribute(ROOT_ATTR, "debug-list");
+
+		for (const item of debugInfo.selectedItems) {
+			const entry = document.createElement("li");
+
+			entry.textContent = `${item.id} · ${item.kind} · ~${item.tokenCount} tokens${item.containsMath ? " · math" : ""}`;
+			selectedList.appendChild(entry);
+		}
+
+		skippedTitle.setAttribute(ROOT_ATTR, "debug-section-title");
+		skippedTitle.textContent = "Skipped reasons";
+		skippedList.setAttribute(ROOT_ATTR, "debug-list");
+
+		for (const item of debugInfo.skippedByReason || []) {
+			const entry = document.createElement("li");
+
+			entry.textContent = `${item.reason}: ${item.count}`;
+			skippedList.appendChild(entry);
+		}
+
+		sampleTitle.setAttribute(ROOT_ATTR, "debug-section-title");
+		sampleTitle.textContent = "Skipped node samples";
+		sampleList.setAttribute(ROOT_ATTR, "debug-list");
+
+		for (const item of debugInfo.skippedSamples || []) {
+			const entry = document.createElement("li");
+
+			entry.textContent = `${item.reason} · ${item.node}`;
+			sampleList.appendChild(entry);
+		}
+
+		withObserverPaused(() => {
+			panel.replaceChildren();
+			panel.appendChild(title);
+
+			if (selectedList.childNodes.length > 0) {
+				panel.appendChild(selectedTitle);
+				panel.appendChild(selectedList);
+			}
+
+			if (skippedList.childNodes.length > 0) {
+				panel.appendChild(skippedTitle);
+				panel.appendChild(skippedList);
+			}
+
+			if (sampleList.childNodes.length > 0) {
+				panel.appendChild(sampleTitle);
+				panel.appendChild(sampleList);
+			}
+		});
+	}
+
 	function isSafeNoteInsertionTarget(element) {
 		if (!element?.matches?.(READABLE_BLOCK_SELECTOR)) {
 			return false;
@@ -1566,9 +1903,17 @@
 		ensureStyles(payload?.translationAppearance);
 		ensureObserver();
 		clearPendingTranslations();
+		pageState.debug.enabled = Boolean(payload?.debug?.enabled);
+		if (!pageState.debug.enabled) {
+			clearDebugPanel();
+		}
 		activatePageTranslationSession(payload.sessionId);
 
-		return collectPageItems({ windowed: true });
+		const extraction = collectPageItems({ windowed: true });
+
+		renderExtractionDebugPanel(extraction.debug);
+
+		return extraction;
 	}
 
 	function setNotePending(note, targetLanguage) {
