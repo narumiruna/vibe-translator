@@ -1840,7 +1840,7 @@
 		for (const item of debugInfo.selectedItems) {
 			const entry = document.createElement("li");
 
-			entry.textContent = `${item.id} · ${item.kind} · ~${item.tokenCount} tok${item.containsMath ? " · math" : ""}`;
+			entry.textContent = `${item.id} · ${item.kind} · ~${item.tokenCount} tokens${item.containsMath ? " · math" : ""}`;
 			selectedList.appendChild(entry);
 		}
 

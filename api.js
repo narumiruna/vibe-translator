@@ -554,7 +554,9 @@
 				(typeof item.translatedText !== "string" &&
 					typeof item.translation !== "string")
 			) {
-				throw new Error("Response item is missing id or translatedText.");
+				throw new Error(
+					"Response item is missing id or translatedText/translation.",
+				);
 			}
 
 			return {
