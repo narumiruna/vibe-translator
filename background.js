@@ -60,6 +60,58 @@ function buildTranslationAppearancePayload(settings) {
 	};
 }
 
+function buildDebugPayload(settings) {
+	return {
+		debug: {
+			enabled: Boolean(settings?.showTranslationDebugInfo),
+		},
+	};
+}
+
+async function fetchModelsDiagnostics(settings) {
+	const startedAt = Date.now();
+
+	try {
+		const response = await fetch(`${settings.baseUrl}/models`, {
+			headers: {
+				Authorization: `Bearer ${settings.apiKey}`,
+			},
+		});
+		const latencyMs = Date.now() - startedAt;
+		const rawText =
+			typeof response.text === "function" ? await response.text() : "";
+		let payload = {};
+
+		try {
+			payload = rawText ? JSON.parse(rawText) : {};
+		} catch (_error) {
+			payload = {};
+		}
+
+		if (!response.ok) {
+			return {
+				ok: false,
+				latencyMs,
+				error:
+					payload?.error?.message ||
+					`Model listing failed with status ${response.status}.`,
+			};
+		}
+
+		return {
+			ok: true,
+			latencyMs,
+			count: Array.isArray(payload?.data) ? payload.data.length : 0,
+		};
+	} catch (error) {
+		return {
+			ok: false,
+			latencyMs: Date.now() - startedAt,
+			error: error.message,
+		};
+	}
+}
+
 async function renderPageTranslationUpdates(
 	tabId,
 	targetLanguage,
@@ -376,6 +428,7 @@ async function translatePage(tab) {
 			sessionId: session.sessionId,
 			targetLanguage: settings.targetLanguage,
 			...buildTranslationAppearancePayload(settings),
+			...buildDebugPayload(settings),
 		},
 	});
 
@@ -499,14 +552,21 @@ async function handleRuntimeMessage(message, sender) {
 			throw new Error(validation.errors.join(" "));
 		}
 
+		const translationStartedAt = Date.now();
 		const translations = await TranslatorApi.requestTranslations({
 			settings: validation.settings,
 			items: [{ id: "sample", kind: "paragraph", text: "Hello world." }],
 		});
+		const modelDiagnostics = await fetchModelsDiagnostics(validation.settings);
 
 		return {
 			ok: true,
 			translation: translations[0] ? translations[0].translation : "",
+			latencyMs: Date.now() - translationStartedAt,
+			modelsAvailable: modelDiagnostics.ok,
+			modelCount: modelDiagnostics.count || 0,
+			modelsLatencyMs: modelDiagnostics.latencyMs || 0,
+			modelsError: modelDiagnostics.error || "",
 		};
 	}
 

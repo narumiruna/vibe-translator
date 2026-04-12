@@ -88,6 +88,20 @@ h1 {
 	gap: 8px;
 }
 
+.checkbox-field {
+	gap: 10px;
+}
+
+.checkbox-control {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+.checkbox-control input[type="checkbox"] {
+	width: auto;
+}
+
 .field-note {
 	color: var(--muted);
 	font-size: 0.9rem;
@@ -262,6 +276,11 @@ button.secondary {
 .banner.is-error {
 	background: rgba(143, 47, 47, 0.12);
 	color: var(--danger);
+}
+
+.banner-warning {
+	background: rgba(141, 102, 25, 0.12);
+	color: #7a5a10;
 }
 
 @media (max-width: 640px) {

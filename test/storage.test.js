@@ -6,9 +6,11 @@ const {
 	DEFAULT_SYSTEM_PROMPT_TEMPLATE,
 	DEFAULT_USER_PROMPT_TEMPLATE,
 	getApiPermissionPattern,
+	lintPromptTemplates,
 	migrateLegacyPromptSettings,
 	normalizeDisabledDomains,
 	normalizeBaseUrl,
+	normalizeShowTranslationDebugInfo,
 	normalizeTranslationAppearance,
 	validateSettings,
 } = require("../storage.js");
@@ -106,6 +108,20 @@ test("validateSettings requires sourcePayload in user prompt template", () => {
 	assert.match(result.errors.join(" "), /sourcePayload/);
 });
 
+test("validateSettings requires /v1 in base url", () => {
+	const result = validateSettings({
+		apiKey: "sk-demo",
+		baseUrl: "https://example.com/openai",
+		model: "gpt-demo",
+		systemPromptTemplate: "System",
+		userPromptTemplate: "Translate {{targetLanguage}}.\n\n{{sourcePayload}}",
+		targetLanguage: "日本語",
+	});
+
+	assert.equal(result.isValid, false);
+	assert.match(result.errors.join(" "), /\/v1/);
+});
+
 test("migrateLegacyPromptSettings folds instructions into system prompt template", () => {
 	const result = migrateLegacyPromptSettings({
 		instructions: "Translate carefully.",
@@ -128,4 +144,21 @@ test("normalizeDisabledDomains normalizes separators and casing", () => {
 		normalizeDisabledDomains("Chat.OpenAI.com, example.com\nsub.example.com"),
 		"chat.openai.com\nexample.com\nsub.example.com",
 	);
+});
+
+test("lintPromptTemplates warns when target language or output format hints are missing", () => {
+	const warnings = lintPromptTemplates({
+		systemPromptTemplate: "Translate carefully.",
+		userPromptTemplate: "{{sourcePayload}}",
+	});
+
+	assert.ok(warnings.some((warning) => warning.includes("{{targetLanguage}}")));
+	assert.ok(
+		warnings.some((warning) => warning.includes("JSON translations output")),
+	);
+});
+
+test("normalizeShowTranslationDebugInfo coerces to boolean", () => {
+	assert.equal(normalizeShowTranslationDebugInfo(""), false);
+	assert.equal(normalizeShowTranslationDebugInfo(1), true);
 });

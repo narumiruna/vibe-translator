@@ -8,8 +8,12 @@
 			String(leadInstruction || LEGACY_DEFAULT_INSTRUCTIONS).trim(),
 			"You are rendering bilingual technical reading aids.",
 			"Translate only natural-language prose into the target language.",
+			"Each output must strictly correspond 1:1 with each input item.",
+			"Do not merge, split, reorder, or add extra content.",
+			"Do not translate UI labels, metadata, timestamps, or navigation text.",
 			"Preserve placeholders like __OT_TOKEN_1__ exactly and do not translate, remove, or reorder them unnecessarily.",
 			"Keep structure by item kind. Headings stay headings, list items stay list items, table cells stay table cells.",
+			"If an item is marked isUI=true or isMetadata=true, return an empty translatedText for that item.",
 		].join("\n");
 	}
 
@@ -17,8 +21,11 @@
 	const DEFAULT_USER_PROMPT_TEMPLATE = [
 		"Translate the provided source items into {{targetLanguage}}.",
 		"Preserve meaning, order, and inline structure.",
+		"Return a JSON object with a \"translations\" array in the same order as the input.",
+		'Each translation item must use this shape: {"id":"...","translatedText":"..."}',
+		"Return one translation item for every source item.",
 		"Keep file paths, commands, URLs, code spans, identifiers, and product names in their original form.",
-		"Return translations for every source item.",
+		"If isUI=true or isMetadata=true, return an empty translatedText.",
 		"",
 		"{{sourcePayload}}",
 	].join("\n");
@@ -80,6 +87,45 @@
 		};
 	}
 
+	function normalizeShowTranslationDebugInfo(value) {
+		return Boolean(value);
+	}
+
+	function lintPromptTemplates(input) {
+		const settings = input || {};
+		const systemPromptTemplate = String(
+			settings.systemPromptTemplate || "",
+		).trim();
+		const userPromptTemplate = String(settings.userPromptTemplate || "").trim();
+		const warnings = [];
+
+		if (!userPromptTemplate.includes("{{sourcePayload}}")) {
+			warnings.push(
+				"User prompt template should include {{sourcePayload}} so source items are sent to the model.",
+			);
+		}
+
+		if (
+			!systemPromptTemplate.includes("{{targetLanguage}}") &&
+			!userPromptTemplate.includes("{{targetLanguage}}")
+		) {
+			warnings.push(
+				"Prompt templates should include {{targetLanguage}} so the requested language is explicit.",
+			);
+		}
+
+		if (
+			!/translatedText|translations|json/i.test(systemPromptTemplate) &&
+			!/translatedText|translations|json/i.test(userPromptTemplate)
+		) {
+			warnings.push(
+				"Prompt templates should explicitly require a JSON translations output format.",
+			);
+		}
+
+		return warnings;
+	}
+
 	const DEFAULT_SETTINGS = Object.freeze({
 		apiKey: "",
 		baseUrl: "https://api.openai.com/v1",
@@ -90,6 +136,7 @@
 		translationUnderlineStyle: "dashed",
 		translationUnderlineThickness: 2,
 		translationUnderlineOffset: 3,
+		showTranslationDebugInfo: false,
 		targetLanguage: "台灣正體中文",
 		disabledDomains: "",
 	});
@@ -145,6 +192,9 @@
 				String(merged.userPromptTemplate || "").trim() ||
 				DEFAULT_SETTINGS.userPromptTemplate,
 			...normalizeTranslationAppearance(merged),
+			showTranslationDebugInfo: normalizeShowTranslationDebugInfo(
+				merged.showTranslationDebugInfo,
+			),
 			targetLanguage: String(merged.targetLanguage || "").trim(),
 			disabledDomains: normalizeDisabledDomains(merged.disabledDomains),
 		};
@@ -177,6 +227,10 @@
 
 			if (!/^https?:$/.test(parsed.protocol)) {
 				errors.push("Base URL must use HTTP or HTTPS.");
+			}
+
+			if (!/\/v1(?:\/|$)/.test(parsed.pathname)) {
+				errors.push("Base URL must include /v1.");
 			}
 		} catch (_error) {
 			errors.push("Base URL must be a valid URL.");
@@ -245,7 +299,9 @@
 		migrateLegacyPromptSettings,
 		normalizeBaseUrl,
 		normalizeDisabledDomains,
+		normalizeShowTranslationDebugInfo,
 		normalizeTranslationAppearance,
+		lintPromptTemplates,
 		saveSettings,
 		validateSettings,
 	};
