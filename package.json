@@ -2,7 +2,8 @@
 	"name": "vibe-translator",
 	"private": true,
 	"scripts": {
-		"e2e:smoke": "node e2e/extension-smoke.js"
+		"e2e:smoke": "node e2e/extension-smoke.js",
+		"e2e:syosetu": "node e2e/syosetu-directory.js"
 	},
 	"devDependencies": {
 		"playwright": "1.57.0"

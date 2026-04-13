@@ -1,8 +1,8 @@
-# Playwright E2E Smoke Test
+# Playwright E2E Tests
 
-This repository now includes a minimal Playwright smoke suite that loads the unpacked Chrome extension and exercises the real MV3 runtime.
+This repository now includes Playwright E2E scripts that load the unpacked Chrome extension and exercise the real MV3 runtime.
 
-## What It Covers
+## Smoke Coverage
 
 1. Opens the extension options page
 2. Saves API settings from environment variables or `.env`
@@ -12,6 +12,16 @@ This repository now includes a minimal Playwright smoke suite that loads the unp
 6. Triggers full-page translation from the background service worker
 7. Triggers selected-text translation from the background service worker
 8. Saves screenshots in `e2e-artifacts/`
+
+## Syosetu Regression Coverage
+
+The repository also includes a dedicated regression script for Syosetu directory pages:
+
+1. Opens `https://ncode.syosetu.com/n6093en/`
+2. Triggers full-page translation from the background service worker
+3. Scrolls through the directory page so long episode lists can settle
+4. Verifies that the summary, chapter titles, and episode titles are translated
+5. Verifies that episode metadata, pager UI, and recommendation blocks stay untranslated
 
 ## Why It Uses the Background Service Worker
 
@@ -64,14 +74,19 @@ npm install
 npm run e2e:smoke
 ```
 
+```bash
+npm run e2e:syosetu
+```
+
 Or, using the project command wrapper:
 
 ```bash
 just e2e
+just e2e-syosetu
 ```
 
 ## Notes
 
-1. The suite is designed as a smoke test, not a full regression matrix.
-2. The current `test/fixture-page.html` is short, so this suite does not fully validate scroll-driven queuing.
+1. The smoke suite is intentionally minimal and uses `test/fixture-page.html`.
+2. `npm run e2e:syosetu` is a live-site regression test and depends on the current Syosetu page structure.
 3. The harness seeds host permission in the test profile, so it does not rely on manually clicking Chrome's permission prompt.
