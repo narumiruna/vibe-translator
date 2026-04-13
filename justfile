@@ -6,6 +6,7 @@ default:
 help:
     @echo "Available recipes:"
     @echo "  just check  - Run JavaScript syntax checks and unit tests"
+    @echo "  just e2e    - Run Playwright extension smoke tests"
     @echo "  just format - Run Biome formatter with writes enabled"
     @echo "  just lint   - Run Biome lint with safe fixes"
     @echo "  just test   - Run unit tests"
@@ -28,6 +29,9 @@ check:
 
 test:
     @node --test test/*.test.js
+
+e2e:
+    @node e2e/extension-smoke.js
 
 zip:
     @version="$$(grep -o '"version": "[^"]*"' manifest.json | cut -d'"' -f4)"; \

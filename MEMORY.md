@@ -8,6 +8,7 @@
 - Chrome context menu click handlers do not expose page click coordinates, so selection-adjacent UI should anchor to the current DOM selection range instead.
 - For fixed overlays that switch from corner anchoring to explicit `top`/`left` positioning, also clear the opposite edges with `right: auto` and `bottom: auto`; otherwise the box can stretch to the viewport edge.
 - When a message payload adds new UI state like selection anchors or display mode, verify those fields are forwarded through every render wrapper, not just the background-to-content send.
+- Reusing a Playwright Chromium persistent profile after a crashed run can leave `Singleton*` lock files behind; clear them before the next `launchPersistentContext` or Chromium may exit immediately.
 
 ## TASTE
 - Selection translation UI should default to a compact tooltip-sized card; long content can expand, but the default should prefer density over empty space.

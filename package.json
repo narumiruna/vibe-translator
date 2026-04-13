@@ -1,0 +1,10 @@
+{
+	"name": "vibe-translator",
+	"private": true,
+	"scripts": {
+		"e2e:smoke": "node e2e/extension-smoke.js"
+	},
+	"devDependencies": {
+		"playwright": "1.57.0"
+	}
+}

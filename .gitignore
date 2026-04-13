@@ -1,2 +1,5 @@
 .playwright-mcp/
 .env
+node_modules/
+e2e-artifacts/
+.e2e-user-data/
