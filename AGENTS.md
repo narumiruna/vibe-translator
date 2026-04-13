@@ -10,6 +10,7 @@ This repository is a plain Manifest V3 Chrome extension with a small file set at
 - `just test`: runs `node --test test/*.test.js`.
 - `just zip`: creates a versioned Chrome Web Store zip from the extension files.
 - `just clean`: removes generated `chrome-translator-*.zip` archives.
+- When code changes are made, run `biome format --write && biome lint --write`.
 
 Load the extension through `chrome://extensions/` with **Developer mode** enabled, then use **Load unpacked** on this directory.
 
