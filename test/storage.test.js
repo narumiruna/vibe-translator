@@ -11,6 +11,7 @@ const {
 	normalizeDisabledDomains,
 	normalizeBaseUrl,
 	normalizeShowTranslationDebugInfo,
+	normalizeSelectionPanelPositionMode,
 	normalizeTranslationAppearance,
 	validateSettings,
 } = require("../storage.js");
@@ -66,6 +67,10 @@ test("validateSettings merges prompt template defaults", () => {
 	assert.equal(
 		result.settings.translationUnderlineOffset,
 		DEFAULT_SETTINGS.translationUnderlineOffset,
+	);
+	assert.equal(
+		result.settings.selectionPanelPositionMode,
+		DEFAULT_SETTINGS.selectionPanelPositionMode,
 	);
 	assert.equal(
 		DEFAULT_SETTINGS.systemPromptTemplate,
@@ -161,4 +166,9 @@ test("lintPromptTemplates warns when target language or output format hints are 
 test("normalizeShowTranslationDebugInfo coerces to boolean", () => {
 	assert.equal(normalizeShowTranslationDebugInfo(""), false);
 	assert.equal(normalizeShowTranslationDebugInfo(1), true);
+});
+
+test("normalizeSelectionPanelPositionMode falls back to near-selection", () => {
+	assert.equal(normalizeSelectionPanelPositionMode("bottom-right"), "bottom-right");
+	assert.equal(normalizeSelectionPanelPositionMode("somewhere"), "near-selection");
 });

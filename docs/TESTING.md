@@ -19,7 +19,9 @@
 8. Click **Reset System Template** and confirm the template and preview return to the default value
 9. Click **Reset User Template** and confirm the template and preview return to the default value
 10. Change the underline color, style, thickness, and offset and confirm the live sample updates immediately
-11. Save disabled domains using mixed case and comma or newline separators, reload the page, and confirm they are normalized to lowercase hostnames with one hostname per line
+11. Change **Selection Translation Panel** to **Near selected text**, save, reload the options page, and confirm the selection is preserved
+12. Change **Selection Translation Panel** to **Bottom-right corner**, save, reload the options page, and confirm the selection is preserved
+13. Save disabled domains using mixed case and comma or newline separators, reload the page, and confirm they are normalized to lowercase hostnames with one hostname per line
 
 ## Entire page translation
 
@@ -41,7 +43,7 @@
 1. Select a sentence on any supported page
 2. Right-click the selected text
 3. Choose **Translate selected text**
-4. Confirm a floating selection translation panel appears near the bottom-right of the page
+4. With **Selection Translation Panel** set to **Near selected text**, confirm a floating selection translation panel appears near the selected text and stays within the viewport
 5. Confirm the panel first shows a pending shimmer state and then the translated text
 6. Confirm the original page content stays unchanged
 7. Confirm the panel title includes the current target language
@@ -49,6 +51,7 @@
 9. Click the panel close button and confirm the panel is removed
 10. Run selection translation again and confirm the panel can be reopened normally
 11. Confirm the action badge shows `TR` after a successful selection translation
+12. Switch **Selection Translation Panel** to **Bottom-right corner** and confirm the panel opens near the bottom-right instead
 
 ## Protected fragments
 

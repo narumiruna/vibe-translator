@@ -33,6 +33,18 @@
 		underlineThickness: 2,
 		underlineOffset: 3,
 	});
+	const SELECTION_PANEL_POSITION_MODES = Object.freeze([
+		"near-selection",
+		"bottom-right",
+	]);
+	const SELECTION_PANEL_MARGIN = 12;
+	const SELECTION_PANEL_GAP = 12;
+	const SELECTION_PANEL_COMPACT_WIDTH = 280;
+	const SELECTION_PANEL_EXPANDED_WIDTH = 420;
+	const SELECTION_PANEL_MAX_WIDTH = 420;
+	const SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT = 132;
+	const SELECTION_PANEL_EXPANDED_MAX_BODY_HEIGHT = 320;
+	const SELECTION_PANEL_MOBILE_BREAKPOINT = 640;
 	const SEMANTIC_BLOCK_SELECTOR = [
 		"p",
 		"li",
@@ -214,6 +226,11 @@
 			active: false,
 			sessionId: "",
 		},
+		selectionTranslation: {
+			positionMode: "near-selection",
+			anchorRect: null,
+			expanded: false,
+		},
 		translationAppearance: { ...DEFAULT_TRANSLATION_APPEARANCE },
 		debug: {
 			enabled: false,
@@ -235,6 +252,238 @@
 		const normalized = String(text || "").trim();
 
 		return normalized ? Math.max(1, Math.ceil(normalized.length / 4)) : 0;
+	}
+
+	function normalizeSelectionPanelPositionMode(value) {
+		const normalized = String(value || "")
+			.trim()
+			.toLowerCase();
+
+		return SELECTION_PANEL_POSITION_MODES.includes(normalized)
+			? normalized
+			: "near-selection";
+	}
+
+	function normalizeSelectionAnchorRect(rect) {
+		if (!rect || typeof rect !== "object") {
+			return null;
+		}
+
+		const top = Number(rect.top);
+		const right = Number(rect.right);
+		const bottom = Number(rect.bottom);
+		const left = Number(rect.left);
+		const width = Number(rect.width);
+		const height = Number(rect.height);
+
+		if (
+			![top, right, bottom, left, width, height].every((value) =>
+				Number.isFinite(value),
+			)
+		) {
+			return null;
+		}
+
+		return {
+			top,
+			right,
+			bottom,
+			left,
+			width,
+			height,
+		};
+	}
+
+	function serializeDomRect(rect) {
+		if (!rect) {
+			return null;
+		}
+
+		return normalizeSelectionAnchorRect({
+			top: rect.top,
+			right: rect.right,
+			bottom: rect.bottom,
+			left: rect.left,
+			width: rect.width,
+			height: rect.height,
+		});
+	}
+
+	function getSelectionAnchorRect() {
+		const selection =
+			typeof window.getSelection === "function" ? window.getSelection() : null;
+
+		if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+			return null;
+		}
+
+		const range = selection.getRangeAt(0).cloneRange();
+		const rangeRect = serializeDomRect(range.getBoundingClientRect());
+
+		if (rangeRect && (rangeRect.width > 0 || rangeRect.height > 0)) {
+			return rangeRect;
+		}
+
+		const clientRects = Array.from(range.getClientRects())
+			.map((rect) => serializeDomRect(rect))
+			.filter((rect) => rect && (rect.width > 0 || rect.height > 0));
+
+		if (clientRects.length > 0) {
+			const top = Math.min(...clientRects.map((rect) => rect.top));
+			const right = Math.max(...clientRects.map((rect) => rect.right));
+			const bottom = Math.max(...clientRects.map((rect) => rect.bottom));
+			const left = Math.min(...clientRects.map((rect) => rect.left));
+
+			return {
+				top,
+				right,
+				bottom,
+				left,
+				width: Math.max(0, right - left),
+				height: Math.max(0, bottom - top),
+			};
+		}
+
+		const anchorElement =
+			selection.anchorNode instanceof Element
+				? selection.anchorNode
+				: selection.anchorNode?.parentElement || null;
+
+		return serializeDomRect(anchorElement?.getBoundingClientRect?.());
+	}
+
+	function clampSelectionPanelValue(value, min, max) {
+		return Math.min(max, Math.max(min, value));
+	}
+
+	function isSelectionPanelExpanded() {
+		return Boolean(pageState.selectionTranslation.expanded);
+	}
+
+	function getSelectionPanelWidth(viewportWidth) {
+		const preferredWidth = isSelectionPanelExpanded()
+			? SELECTION_PANEL_EXPANDED_WIDTH
+			: SELECTION_PANEL_COMPACT_WIDTH;
+
+		return Math.min(
+			preferredWidth,
+			Math.max(0, viewportWidth - SELECTION_PANEL_MARGIN * 2),
+		);
+	}
+
+	function updateSelectionPanelLayoutState(panel, body, expandButton, pending) {
+		if (!panel || !body || !expandButton) {
+			return;
+		}
+
+		const normalizedText = String(body.textContent || "").replace(/\s+/g, " ").trim();
+		const lineBreakCount = body.querySelectorAll("br").length;
+
+		const canExpand =
+			!pending &&
+			(normalizedText.length > 140 ||
+				lineBreakCount >= 3 ||
+				body.scrollHeight > body.clientHeight + 1 ||
+				body.scrollWidth > body.clientWidth + 1);
+
+		if (!canExpand && isSelectionPanelExpanded()) {
+			pageState.selectionTranslation.expanded = false;
+		}
+
+		panel.setAttribute(
+			"data-expanded",
+			isSelectionPanelExpanded() ? "true" : "false",
+		);
+		expandButton.hidden = !canExpand;
+		expandButton.textContent = isSelectionPanelExpanded() ? "Collapse" : "Expand";
+		expandButton.setAttribute(
+			"aria-label",
+			isSelectionPanelExpanded() ? "Collapse translation" : "Expand translation",
+		);
+		expandButton.setAttribute(
+			"aria-expanded",
+			isSelectionPanelExpanded() ? "true" : "false",
+		);
+	}
+
+	function applySelectionPanelPosition(panel) {
+		if (!panel) {
+			return;
+		}
+
+		const viewportWidth = Math.max(
+			window.innerWidth || 0,
+			document.documentElement?.clientWidth || 0,
+		);
+		const viewportHeight = Math.max(
+			window.innerHeight || 0,
+			document.documentElement?.clientHeight || 0,
+		);
+		const positionMode = pageState.selectionTranslation.positionMode;
+		const anchorRect = pageState.selectionTranslation.anchorRect;
+
+		panel.style.left = "";
+		panel.style.right = "";
+		panel.style.top = "";
+		panel.style.bottom = "";
+		panel.style.width = "";
+		panel.style.maxWidth = "";
+
+		if (viewportWidth > SELECTION_PANEL_MOBILE_BREAKPOINT) {
+			const targetWidth = getSelectionPanelWidth(viewportWidth);
+
+			panel.style.width = `${targetWidth}px`;
+			panel.style.maxWidth = `${targetWidth}px`;
+		}
+
+		if (
+			viewportWidth <= SELECTION_PANEL_MOBILE_BREAKPOINT ||
+			positionMode !== "near-selection" ||
+			!anchorRect
+		) {
+			return;
+		}
+
+		const maxPanelWidth = Math.max(
+			0,
+			viewportWidth - SELECTION_PANEL_MARGIN * 2,
+		);
+		const measuredWidth = panel.offsetWidth || SELECTION_PANEL_MAX_WIDTH;
+		const measuredHeight = panel.offsetHeight || 0;
+		const panelWidth = Math.min(
+			SELECTION_PANEL_MAX_WIDTH,
+			maxPanelWidth,
+			measuredWidth,
+		);
+		const minLeft = SELECTION_PANEL_MARGIN;
+		const maxLeft = Math.max(minLeft, viewportWidth - panelWidth - minLeft);
+		const preferredLeft = Math.min(anchorRect.left, anchorRect.right - panelWidth);
+		const left = clampSelectionPanelValue(preferredLeft, minLeft, maxLeft);
+		const belowTop = anchorRect.bottom + SELECTION_PANEL_GAP;
+		const aboveTop = anchorRect.top - measuredHeight - SELECTION_PANEL_GAP;
+		const fitsBelow = belowTop + measuredHeight <= viewportHeight - SELECTION_PANEL_MARGIN;
+		const fitsAbove = aboveTop >= SELECTION_PANEL_MARGIN;
+		let top = belowTop;
+
+		if (!fitsBelow && fitsAbove) {
+			top = aboveTop;
+		}
+
+		top = clampSelectionPanelValue(
+			top,
+			SELECTION_PANEL_MARGIN,
+			Math.max(
+				SELECTION_PANEL_MARGIN,
+				viewportHeight - measuredHeight - SELECTION_PANEL_MARGIN,
+			),
+		);
+
+		panel.style.right = "auto";
+		panel.style.bottom = "auto";
+		panel.style.left = `${left}px`;
+		panel.style.top = `${top}px`;
+		panel.style.width = `${panelWidth}px`;
+		panel.style.maxWidth = `${panelWidth}px`;
 	}
 
 	function getDebugNodeLabel(element) {
@@ -466,31 +715,61 @@
         right: 18px;
         bottom: 18px;
         z-index: 2147483647;
-        width: min(420px, calc(100vw - 24px));
-        padding: 14px 14px 16px;
+        width: min(${SELECTION_PANEL_COMPACT_WIDTH}px, calc(100vw - 24px));
+        max-width: min(420px, calc(100vw - 24px));
+        padding: 10px 12px 12px;
         border: 1px solid rgba(41, 66, 52, 0.16);
         border-radius: 18px;
         background: rgba(255, 252, 248, 0.98);
         box-shadow: 0 20px 48px rgba(32, 39, 36, 0.18);
         color: #2f352f;
-        font: 500 14px/1.55 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        font: 500 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       }
 
       .translation [${ROOT_ATTR}="selection-panel-header"] {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 10px;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-actions"] {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex: 0 0 auto;
       }
 
       .translation [${ROOT_ATTR}="selection-panel-title"] {
         margin: 0;
+        flex: 1 1 auto;
+        min-width: 0;
         color: #45614c;
         font-size: 12px;
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-expand"] {
+        border: 0;
+        background: rgba(69, 97, 76, 0.08);
+        color: #45614c;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font: 700 11px/1 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-expand"]:hover {
+        background: rgba(69, 97, 76, 0.14);
+        color: #2c4734;
       }
 
       .translation [${ROOT_ATTR}="selection-panel-close"] {
@@ -498,7 +777,7 @@
         background: transparent;
         color: #6a726c;
         cursor: pointer;
-        padding: 4px;
+        padding: 2px;
         border-radius: 999px;
         font: 700 18px/1 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       }
@@ -510,9 +789,9 @@
 
       .translation [${ROOT_ATTR}="selection-panel-body"] {
         display: block;
-        max-height: min(44vh, 24rem);
+        max-height: ${SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT}px;
         overflow: auto;
-        padding-right: 4px;
+        padding-right: 0;
         color: #4d564f;
         white-space: pre-wrap;
         word-break: break-word;
@@ -523,8 +802,12 @@
         text-underline-offset: ${resolvedAppearance.underlineOffset}px;
       }
 
+      .translation[${ROOT_ATTR}="selection-panel"][data-expanded="true"] [${ROOT_ATTR}="selection-panel-body"] {
+        max-height: min(${SELECTION_PANEL_EXPANDED_MAX_BODY_HEIGHT}px, calc(100vh - 48px));
+      }
+
       .translation [${ROOT_ATTR}="selection-panel-body"][data-state="pending"] {
-        min-height: 3.4em;
+        min-height: 2.4em;
         color: transparent;
         border-radius: 0.75rem;
         text-decoration-color: transparent;
@@ -2159,15 +2442,31 @@
 		panel = document.createElement("aside");
 		const header = document.createElement("div");
 		const title = document.createElement("p");
+		const actions = document.createElement("div");
+		const expandButton = document.createElement("button");
 		const closeButton = document.createElement("button");
 		const body = document.createElement("div");
 
 		panel.classList.add("translation");
 		panel.setAttribute(ROOT_ATTR, "selection-panel");
+		panel.setAttribute("data-expanded", "false");
 		panel.setAttribute("aria-live", "polite");
 		panel.setAttribute("aria-label", "Selected text translation");
 		header.setAttribute(ROOT_ATTR, "selection-panel-header");
 		title.setAttribute(ROOT_ATTR, "selection-panel-title");
+		actions.setAttribute(ROOT_ATTR, "selection-panel-actions");
+		expandButton.setAttribute(ROOT_ATTR, "selection-panel-expand");
+		expandButton.setAttribute("type", "button");
+		expandButton.setAttribute("aria-label", "Expand translation");
+		expandButton.setAttribute("aria-expanded", "false");
+		expandButton.hidden = true;
+		expandButton.textContent = "Expand";
+		expandButton.addEventListener("click", () => {
+			pageState.selectionTranslation.expanded =
+				!pageState.selectionTranslation.expanded;
+			updateSelectionPanelLayoutState(panel, body, expandButton, false);
+			applySelectionPanelPosition(panel);
+		});
 		closeButton.setAttribute(ROOT_ATTR, "selection-panel-close");
 		closeButton.setAttribute("type", "button");
 		closeButton.setAttribute("aria-label", "Close translation");
@@ -2180,7 +2479,9 @@
 		title.textContent = "Selected Text Translation";
 
 		header.appendChild(title);
-		header.appendChild(closeButton);
+		actions.appendChild(expandButton);
+		actions.appendChild(closeButton);
+		header.appendChild(actions);
 		panel.appendChild(header);
 		panel.appendChild(body);
 
@@ -2196,9 +2497,19 @@
 	}
 
 	function updateSelectionPanel(payload) {
+		pageState.selectionTranslation.positionMode =
+			normalizeSelectionPanelPositionMode(payload.selectionPanelPositionMode);
+		pageState.selectionTranslation.anchorRect = normalizeSelectionAnchorRect(
+			payload.selectionAnchor,
+		);
 		const panel = getSelectionPanel();
 		const title = panel.querySelector(`[${ROOT_ATTR}="selection-panel-title"]`);
 		const body = panel.querySelector(`[${ROOT_ATTR}="selection-panel-body"]`);
+		const expandButton = panel.querySelector(
+			`[${ROOT_ATTR}="selection-panel-expand"]`,
+		);
+
+		pageState.selectionTranslation.expanded = false;
 
 		if (title) {
 			title.textContent = payload.targetLanguage
@@ -2226,6 +2537,15 @@
 			);
 		});
 
+		updateSelectionPanelLayoutState(
+			panel,
+			body,
+			expandButton,
+			Boolean(payload.pending),
+		);
+
+		applySelectionPanelPosition(panel);
+
 		return panel;
 	}
 
@@ -2236,6 +2556,8 @@
 		updateSelectionPanel({
 			pending: false,
 			targetLanguage: payload.targetLanguage,
+			selectionPanelPositionMode: payload.selectionPanelPositionMode,
+			selectionAnchor: payload.selectionAnchor,
 			translation: payload.translation,
 		});
 
@@ -2249,6 +2571,8 @@
 		updateSelectionPanel({
 			pending: true,
 			targetLanguage: payload.targetLanguage,
+			selectionPanelPositionMode: payload.selectionPanelPositionMode,
+			selectionAnchor: payload.selectionAnchor,
 		});
 
 		return { rendered: "floating" };
@@ -2332,6 +2656,14 @@
 			sendResponse({
 				ok: true,
 				...collectPageItems(),
+			});
+			return;
+		}
+
+		if (message.type === "get-selection-anchor") {
+			sendResponse({
+				ok: true,
+				anchorRect: getSelectionAnchorRect(),
 			});
 			return;
 		}

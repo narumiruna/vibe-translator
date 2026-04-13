@@ -34,6 +34,10 @@
 		"dashed",
 		"dotted",
 	]);
+	const SELECTION_PANEL_POSITION_MODES = Object.freeze([
+		"near-selection",
+		"bottom-right",
+	]);
 	const HEX_COLOR_REGEX = /^#[0-9a-f]{6}$/i;
 
 	function clampNumber(value, min, max, fallback) {
@@ -91,6 +95,16 @@
 		return Boolean(value);
 	}
 
+	function normalizeSelectionPanelPositionMode(value) {
+		const normalized = String(value || "")
+			.trim()
+			.toLowerCase();
+
+		return SELECTION_PANEL_POSITION_MODES.includes(normalized)
+			? normalized
+			: "near-selection";
+	}
+
 	function lintPromptTemplates(input) {
 		const settings = input || {};
 		const systemPromptTemplate = String(
@@ -137,6 +151,7 @@
 		translationUnderlineThickness: 2,
 		translationUnderlineOffset: 3,
 		showTranslationDebugInfo: false,
+		selectionPanelPositionMode: "near-selection",
 		targetLanguage: "台灣正體中文",
 		disabledDomains: "",
 	});
@@ -194,6 +209,9 @@
 			...normalizeTranslationAppearance(merged),
 			showTranslationDebugInfo: normalizeShowTranslationDebugInfo(
 				merged.showTranslationDebugInfo,
+			),
+			selectionPanelPositionMode: normalizeSelectionPanelPositionMode(
+				merged.selectionPanelPositionMode,
 			),
 			targetLanguage: String(merged.targetLanguage || "").trim(),
 			disabledDomains: normalizeDisabledDomains(merged.disabledDomains),
@@ -288,6 +306,7 @@
 	const api = {
 		DEFAULT_SETTINGS,
 		DEFAULT_SYSTEM_PROMPT_TEMPLATE,
+		SELECTION_PANEL_POSITION_MODES,
 		TRANSLATION_UNDERLINE_STYLES,
 		DEFAULT_USER_PROMPT_TEMPLATE,
 		LEGACY_DEFAULT_INSTRUCTIONS,
@@ -299,6 +318,7 @@
 		migrateLegacyPromptSettings,
 		normalizeBaseUrl,
 		normalizeDisabledDomains,
+		normalizeSelectionPanelPositionMode,
 		normalizeShowTranslationDebugInfo,
 		normalizeTranslationAppearance,
 		lintPromptTemplates,

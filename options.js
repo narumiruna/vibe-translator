@@ -25,6 +25,9 @@
 	const showTranslationDebugInfoInput = document.getElementById(
 		"show-translation-debug-info",
 	);
+	const selectionPanelPositionModeInput = document.getElementById(
+		"selection-panel-position-mode",
+	);
 	const translationAppearancePreview = document.getElementById(
 		"translation-appearance-preview",
 	);
@@ -57,6 +60,7 @@
 			translationUnderlineThickness: translationUnderlineThicknessInput.value,
 			translationUnderlineOffset: translationUnderlineOffsetInput.value,
 			showTranslationDebugInfo: showTranslationDebugInfoInput.checked,
+			selectionPanelPositionMode: selectionPanelPositionModeInput.value,
 			targetLanguage: targetLanguageInput.value,
 			disabledDomains: disabledDomainsInput.value,
 		};
@@ -201,6 +205,10 @@
 		);
 		showTranslationDebugInfoInput.checked =
 			Boolean(settings.showTranslationDebugInfo);
+		selectionPanelPositionModeInput.value =
+			TranslatorStorage.normalizeSelectionPanelPositionMode(
+				settings.selectionPanelPositionMode,
+			);
 		disabledDomainsInput.value = settings.disabledDomains || "";
 		renderPromptPreview();
 		await updatePermissionStatus(settings.baseUrl);
