@@ -4,6 +4,7 @@ const MENU_TRANSLATE_PAGE = "translate-page";
 const MENU_TRANSLATE_SELECTION = "translate-selection";
 const BADGE_COLOR = "#1f7a4f";
 const PAGE_TRANSLATION_CONCURRENCY = 5;
+const PAGE_TRANSLATION_BATCH_SIZE = 8;
 const pageTranslationSessions = new Map();
 
 function isSupportedPage(url) {
@@ -542,39 +543,43 @@ async function processQueuedPageTranslationItems(tabId, sessionId) {
 		session.pendingItems.length > 0 &&
 		session.inFlightCount < PAGE_TRANSLATION_CONCURRENCY
 	) {
-		const item = session.pendingItems.shift();
+		const items = session.pendingItems.splice(0, PAGE_TRANSLATION_BATCH_SIZE);
 
-		if (!item) {
+		if (items.length === 0) {
 			break;
 		}
 
 		session.inFlightCount += 1;
-		processSinglePageTranslationItem(tabId, sessionId, item).catch((error) => {
+		processPageTranslationItemBatch(tabId, sessionId, items).catch((error) => {
 			console.error("Failed to process page translation item:", error);
 		});
 	}
 }
 
-async function processSinglePageTranslationItem(tabId, sessionId, item) {
+async function processPageTranslationItemBatch(tabId, sessionId, items) {
 	const session = getPageTranslationSession(tabId, sessionId);
 
-	if (!session || !item || typeof item.id !== "string") {
+	const batchItems = (items || []).filter(
+		(item) => item && typeof item.id === "string",
+	);
+
+	if (!session || batchItems.length === 0) {
 		return;
 	}
 
-	const itemId = item.id;
+	const itemIds = batchItems.map((item) => item.id);
 
 	try {
 		await chrome.tabs.sendMessage(tabId, {
 			type: "render-page-placeholders",
 			payload: {
-				ids: [itemId],
+				ids: itemIds,
 				targetLanguage: session.settings.targetLanguage,
 				...buildTranslationAppearancePayload(session.settings),
 			},
 		});
 
-		const chunkPlan = TranslatorApi.createRecursiveChunkPlan([item]);
+		const chunkPlan = TranslatorApi.createRecursiveChunkPlan(batchItems);
 		const mergeState = TranslatorApi.createProgressiveMergeState(chunkPlan);
 		await TranslatorApi.requestTranslationsBatchedProgressive({
 			settings: session.settings,
@@ -633,7 +638,9 @@ async function processSinglePageTranslationItem(tabId, sessionId, item) {
 		const currentSession = getPageTranslationSession(tabId, sessionId);
 
 		if (currentSession) {
-			currentSession.pendingIds.delete(itemId);
+			for (const itemId of itemIds) {
+				currentSession.pendingIds.delete(itemId);
+			}
 			currentSession.inFlightCount = Math.max(
 				0,
 				currentSession.inFlightCount - 1,

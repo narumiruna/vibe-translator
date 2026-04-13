@@ -71,12 +71,18 @@ const TranslatorContentModule = (() => {
 		".description",
 		".p-novel__summary",
 	].join(", ");
+	const DIRECTORY_SECTION_TITLE_SELECTOR = ".p-eplist__chapter-title";
 	const READABLE_LINK_SELECTOR = ".p-eplist__subtitle";
 	const READABLE_BLOCK_SELECTOR = [
 		SEMANTIC_BLOCK_SELECTOR,
 		HEADING_SELECTOR,
 		SUMMARY_BLOCK_SELECTOR,
+		DIRECTORY_SECTION_TITLE_SELECTOR,
 		READABLE_LINK_SELECTOR,
+	].join(", ");
+	const DIRECT_NOTE_TARGET_SELECTOR = [
+		SUMMARY_BLOCK_SELECTOR,
+		DIRECTORY_SECTION_TITLE_SELECTOR,
 	].join(", ");
 	const DIRECT_BLOCK_CHILD_SELECTOR = [
 		"article",
@@ -1109,6 +1115,13 @@ const TranslatorContentModule = (() => {
 			return "leaf";
 		}
 
+		if (
+			root.querySelector?.(".p-eplist") &&
+			(root.querySelectorAll?.(READABLE_LINK_SELECTOR).length || 0) >= 12
+		) {
+			return "directory";
+		}
+
 		const semanticBlocks = Array.from(
 			root.querySelectorAll(SEMANTIC_BLOCK_SELECTOR),
 		);
@@ -1154,6 +1167,7 @@ const TranslatorContentModule = (() => {
 			root,
 			mode,
 			allowFallback: semanticCount > 0,
+			windowed: mode !== "directory",
 		};
 	}
 
@@ -1346,7 +1360,10 @@ const TranslatorContentModule = (() => {
 	}
 
 	function isHeadingLikeElement(element) {
-		return Boolean(element?.matches?.(HEADING_SELECTOR));
+		return Boolean(
+			element?.matches?.(HEADING_SELECTOR) ||
+				element?.matches?.(DIRECTORY_SECTION_TITLE_SELECTOR),
+		);
 	}
 
 	function serializeNode(node, context) {
@@ -1871,7 +1888,7 @@ const TranslatorContentModule = (() => {
 		};
 		const root = profile?.root;
 		const elements = getCandidateElements(root);
-		const windowed = Boolean(options?.windowed);
+		const windowed = Boolean(options?.windowed) && profile?.windowed !== false;
 		const viewportOptions = windowed ? getViewportWindowOptions() : null;
 
 		for (const element of elements) {
@@ -1929,7 +1946,7 @@ const TranslatorContentModule = (() => {
 		const items = [];
 		const windowCandidates = [];
 		let totalSegments = 0;
-		const windowed = Boolean(options?.windowed);
+		const windowed = Boolean(options?.windowed) && profile?.windowed !== false;
 		const viewportOptions = windowed ? getViewportWindowOptions() : null;
 		const root = profile?.root;
 		const classificationCache = new Map();
@@ -2241,7 +2258,8 @@ const TranslatorContentModule = (() => {
 		while (current && current !== document.body) {
 			if (
 				current.matches?.(READABLE_BLOCK_SELECTOR) &&
-				!current.matches("article, main, section, div, body") &&
+				(!current.matches("article, main, section, div, body") ||
+					current.matches(DIRECT_NOTE_TARGET_SELECTOR)) &&
 				!hasUnsafeLayoutContext(current)
 			) {
 				return current;
@@ -2253,7 +2271,7 @@ const TranslatorContentModule = (() => {
 		return null;
 	}
 
-	function isSafeNoteInsertionTarget(element) {
+	function _isSafeNoteInsertionTarget(element) {
 		return Boolean(getNoteInsertionTarget(element));
 	}
 
@@ -2822,6 +2840,7 @@ const TranslatorContentModule = (() => {
 
 	return {
 		__TEST__: {
+			detectContentMode,
 			HEADING_SELECTOR,
 			TITLE_LIKE_SELECTOR,
 			UNSUPPORTED_ANCESTOR_SELECTOR,

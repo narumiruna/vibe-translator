@@ -30,6 +30,7 @@ global.chrome = {
 };
 
 const {
+	detectContentMode,
 	isHeadingLikeElement,
 	isUnsupportedElement,
 	scoreCandidateBlock,
@@ -97,6 +98,32 @@ test("headline-like selectors are treated as headings", () => {
 		),
 		true,
 	);
+
+	assert.equal(
+		isHeadingLikeElement(
+			createFakeElement({
+				matchedSelectors: [".p-eplist__chapter-title"],
+			}),
+		),
+		true,
+	);
+});
+
+test("directory-like chapter listing pages use directory mode", () => {
+	const root = {
+		querySelector(selector) {
+			return selector === ".p-eplist" ? {} : null;
+		},
+		querySelectorAll(selector) {
+			if (selector === ".p-eplist__subtitle") {
+				return Array.from({ length: 20 }, () => ({}));
+			}
+
+			return [];
+		},
+	};
+
+	assert.equal(detectContentMode(root), "directory");
 });
 
 test("content inside article headers is no longer treated as unsupported", () => {
