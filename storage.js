@@ -21,7 +21,7 @@
 	const DEFAULT_USER_PROMPT_TEMPLATE = [
 		"Translate the provided source items into {{targetLanguage}}.",
 		"Preserve meaning, order, and inline structure.",
-		"Return a JSON object with a \"translations\" array in the same order as the input.",
+		'Return a JSON object with a "translations" array in the same order as the input.',
 		'Each translation item must use this shape: {"id":"...","translatedText":"..."}',
 		"Return one translation item for every source item.",
 		"Keep file paths, commands, URLs, code spans, identifiers, and product names in their original form.",

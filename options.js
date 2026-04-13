@@ -129,7 +129,9 @@
 
 		systemPromptPreview.value = input[0]?.content ? input[0].content : "";
 		userPromptPreview.value = input[1]?.content ? input[1].content : "";
-		const promptWarnings = TranslatorStorage.lintPromptTemplates(getFormSettings());
+		const promptWarnings = TranslatorStorage.lintPromptTemplates(
+			getFormSettings(),
+		);
 		const systemTokens = root.TranslatorApi.estimateTokenCount(
 			systemPromptPreview.value,
 		);
@@ -203,8 +205,9 @@
 		translationUnderlineOffsetInput.value = String(
 			settings.translationUnderlineOffset,
 		);
-		showTranslationDebugInfoInput.checked =
-			Boolean(settings.showTranslationDebugInfo);
+		showTranslationDebugInfoInput.checked = Boolean(
+			settings.showTranslationDebugInfo,
+		);
 		selectionPanelPositionModeInput.value =
 			TranslatorStorage.normalizeSelectionPanelPositionMode(
 				settings.selectionPanelPositionMode,
@@ -242,7 +245,8 @@
 	async function handleTestConnection() {
 		clearBanner();
 		testStatus.textContent = "Testing connection…";
-		testDetails.textContent = "Checking translation request and /models availability…";
+		testDetails.textContent =
+			"Checking translation request and /models availability…";
 
 		const validation = TranslatorStorage.validateSettings(getFormSettings());
 
@@ -275,7 +279,8 @@
 
 		if (!response?.ok) {
 			testStatus.textContent = "Connection test failed.";
-			testDetails.textContent = "The extension could not complete the test request.";
+			testDetails.textContent =
+				"The extension could not complete the test request.";
 			showBanner(response?.error || "Connection test failed.", true);
 			return;
 		}

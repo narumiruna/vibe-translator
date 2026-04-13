@@ -61,7 +61,9 @@ const TranslatorContentModule = (() => {
 		".gs-c-promo-heading__title",
 		'[data-testid*="headline" i]',
 	].join(", ");
-	const HEADING_SELECTOR = [TITLE_BLOCK_SELECTOR, TITLE_LIKE_SELECTOR].join(", ");
+	const HEADING_SELECTOR = [TITLE_BLOCK_SELECTOR, TITLE_LIKE_SELECTOR].join(
+		", ",
+	);
 	const SUMMARY_BLOCK_SELECTOR = [
 		"#novel_ex",
 		'[itemprop="description"]',
@@ -392,7 +394,9 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		const normalizedText = String(body.textContent || "").replace(/\s+/g, " ").trim();
+		const normalizedText = String(body.textContent || "")
+			.replace(/\s+/g, " ")
+			.trim();
 		const lineBreakCount = body.querySelectorAll("br").length;
 
 		const canExpand =
@@ -411,10 +415,14 @@ const TranslatorContentModule = (() => {
 			isSelectionPanelExpanded() ? "true" : "false",
 		);
 		expandButton.hidden = !canExpand;
-		expandButton.textContent = isSelectionPanelExpanded() ? "Collapse" : "Expand";
+		expandButton.textContent = isSelectionPanelExpanded()
+			? "Collapse"
+			: "Expand";
 		expandButton.setAttribute(
 			"aria-label",
-			isSelectionPanelExpanded() ? "Collapse translation" : "Expand translation",
+			isSelectionPanelExpanded()
+				? "Collapse translation"
+				: "Expand translation",
 		);
 		expandButton.setAttribute(
 			"aria-expanded",
@@ -473,11 +481,15 @@ const TranslatorContentModule = (() => {
 		);
 		const minLeft = SELECTION_PANEL_MARGIN;
 		const maxLeft = Math.max(minLeft, viewportWidth - panelWidth - minLeft);
-		const preferredLeft = Math.min(anchorRect.left, anchorRect.right - panelWidth);
+		const preferredLeft = Math.min(
+			anchorRect.left,
+			anchorRect.right - panelWidth,
+		);
 		const left = clampSelectionPanelValue(preferredLeft, minLeft, maxLeft);
 		const belowTop = anchorRect.bottom + SELECTION_PANEL_GAP;
 		const aboveTop = anchorRect.top - measuredHeight - SELECTION_PANEL_GAP;
-		const fitsBelow = belowTop + measuredHeight <= viewportHeight - SELECTION_PANEL_MARGIN;
+		const fitsBelow =
+			belowTop + measuredHeight <= viewportHeight - SELECTION_PANEL_MARGIN;
 		const fitsAbove = aboveTop >= SELECTION_PANEL_MARGIN;
 		let top = belowTop;
 
@@ -1442,10 +1454,10 @@ const TranslatorContentModule = (() => {
 		const headingBonus = isHeading ? 140 : 0;
 		const summaryBonus = element.matches(SUMMARY_BLOCK_SELECTOR) ? 140 : 0;
 		const readableLinkBonus = isTitleLink ? 320 : 0;
-		const linkPenalty = isHeading || isTitleLink
-			? linkDensity * 60
-			: linkDensity * 280;
-		const linkCountPenalty = isHeading || isTitleLink ? linkCount * 4 : linkCount * 10;
+		const linkPenalty =
+			isHeading || isTitleLink ? linkDensity * 60 : linkDensity * 280;
+		const linkCountPenalty =
+			isHeading || isTitleLink ? linkCount * 4 : linkCount * 10;
 
 		return (
 			base +
@@ -2025,7 +2037,9 @@ const TranslatorContentModule = (() => {
 		ensureObserver();
 
 		const profile = getTranslationProfile();
-		const debugState = isDebugInfoEnabled() ? createExtractionDebugState() : null;
+		const debugState = isDebugInfoEnabled()
+			? createExtractionDebugState()
+			: null;
 
 		const semantic = collectSemanticItems(profile, options, debugState);
 
@@ -2087,7 +2101,10 @@ const TranslatorContentModule = (() => {
 	}
 
 	function getNoteElementTagName(sourceElement) {
-		if (isHeadingLikeElement(sourceElement) || isReadableTitleLink(sourceElement)) {
+		if (
+			isHeadingLikeElement(sourceElement) ||
+			isReadableTitleLink(sourceElement)
+		) {
 			return "p";
 		}
 

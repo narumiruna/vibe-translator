@@ -169,6 +169,12 @@ test("normalizeShowTranslationDebugInfo coerces to boolean", () => {
 });
 
 test("normalizeSelectionPanelPositionMode falls back to near-selection", () => {
-	assert.equal(normalizeSelectionPanelPositionMode("bottom-right"), "bottom-right");
-	assert.equal(normalizeSelectionPanelPositionMode("somewhere"), "near-selection");
+	assert.equal(
+		normalizeSelectionPanelPositionMode("bottom-right"),
+		"bottom-right",
+	);
+	assert.equal(
+		normalizeSelectionPanelPositionMode("somewhere"),
+		"near-selection",
+	);
 });

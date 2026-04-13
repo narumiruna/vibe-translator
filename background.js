@@ -347,7 +347,9 @@ async function getSelectionAnchor(tabId, frameId, selectionText) {
 				};
 
 				const buildSearchSnippets = (text) => {
-					const normalized = String(text || "").replace(/\s+/g, " ").trim();
+					const normalized = String(text || "")
+						.replace(/\s+/g, " ")
+						.trim();
 
 					if (!normalized) {
 						return [];
@@ -413,7 +415,8 @@ async function getSelectionAnchor(tabId, frameId, selectionText) {
 						const normalizedNode = normalizeWithMap(currentNode.textContent);
 
 						for (const snippet of snippets) {
-							const normalizedIndex = normalizedNode.normalized.indexOf(snippet);
+							const normalizedIndex =
+								normalizedNode.normalized.indexOf(snippet);
 
 							if (normalizedIndex < 0) {
 								continue;
@@ -443,7 +446,9 @@ async function getSelectionAnchor(tabId, frameId, selectionText) {
 						currentNode = walker.nextNode();
 					}
 
-					for (const element of document.querySelectorAll(SEARCH_ELEMENT_SELECTOR)) {
+					for (const element of document.querySelectorAll(
+						SEARCH_ELEMENT_SELECTOR,
+					)) {
 						if (!isVisibleElement(element)) {
 							continue;
 						}
@@ -463,7 +468,10 @@ async function getSelectionAnchor(tabId, frameId, selectionText) {
 
 							const fallbackRect = toRect(element.getBoundingClientRect());
 
-							if (fallbackRect && (fallbackRect.width > 0 || fallbackRect.height > 0)) {
+							if (
+								fallbackRect &&
+								(fallbackRect.width > 0 || fallbackRect.height > 0)
+							) {
 								return fallbackRect;
 							}
 						}
