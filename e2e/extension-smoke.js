@@ -77,32 +77,25 @@ function getBooleanEnvValue(key, fallback) {
 }
 
 function getConfig() {
-	loadDotEnv(process.env.E2E_ENV_FILE || DEFAULT_ENV_PATH);
+	loadDotEnv(process.env.PLAYWRIGHT_ENV_FILE || DEFAULT_ENV_PATH);
 
-	const apiKey = getEnvValue("E2E_API_KEY", "OPENAI_API_KEY", "API_KEY");
-	const model = getEnvValue("E2E_MODEL", "OPENAI_MODEL", "MODEL");
+	const apiKey = getEnvValue("OPENAI_API_KEY");
+	const model = getEnvValue("OPENAI_MODEL");
 
 	assert.ok(
 		apiKey,
-		"Missing API key. Set E2E_API_KEY, OPENAI_API_KEY, or API_KEY in the environment or .env.",
+		"Missing API key. Set OPENAI_API_KEY in the environment or .env.",
 	);
 	assert.ok(
 		model,
-		"Missing model. Set E2E_MODEL, OPENAI_MODEL, or MODEL in the environment or .env.",
+		"Missing model. Set OPENAI_MODEL in the environment or .env.",
 	);
 
-	const baseUrl =
-		getEnvValue("E2E_BASE_URL", "OPENAI_BASE_URL", "BASE_URL") ||
-		"https://api.openai.com/v1";
-	const targetLanguage =
-		getEnvValue("E2E_TARGET_LANGUAGE", "TARGET_LANGUAGE") || "台灣正體中文";
+	const baseUrl = getEnvValue("OPENAI_BASE_URL") || "https://api.openai.com/v1";
+	const targetLanguage = getEnvValue("TARGET_LANGUAGE") || "台灣正體中文";
 	const browserChannel =
-		getEnvValue("E2E_BROWSER_CHANNEL", "PLAYWRIGHT_BROWSER_CHANNEL") ||
-		"chromium";
-	const executablePath = getEnvValue(
-		"E2E_CHROME_EXECUTABLE",
-		"CHROME_EXECUTABLE",
-	);
+		getEnvValue("PLAYWRIGHT_BROWSER_CHANNEL") || "chromium";
+	const executablePath = getEnvValue("PLAYWRIGHT_CHROME_EXECUTABLE");
 
 	return {
 		apiKey,
@@ -111,11 +104,11 @@ function getConfig() {
 		targetLanguage,
 		browserChannel,
 		executablePath,
-		headless: getBooleanEnvValue("E2E_HEADLESS", false),
-		userDataDir: getEnvValue("E2E_USER_DATA_DIR"),
+		headless: getBooleanEnvValue("PLAYWRIGHT_HEADLESS", false),
+		userDataDir: getEnvValue("PLAYWRIGHT_USER_DATA_DIR"),
 		artifactsDir: path.resolve(
 			ROOT_DIR,
-			process.env.E2E_ARTIFACTS_DIR || DEFAULT_ARTIFACTS_DIR,
+			getEnvValue("PLAYWRIGHT_ARTIFACTS_DIR") || DEFAULT_ARTIFACTS_DIR,
 		),
 	};
 }

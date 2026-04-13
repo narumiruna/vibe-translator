@@ -31,28 +31,26 @@ The test still exercises the real extension stack:
 Put these in `.env` or export them in your shell:
 
 ```bash
-E2E_API_KEY=...
-E2E_MODEL=gpt-4.1-mini
-E2E_BASE_URL=https://api.openai.com/v1
-E2E_TARGET_LANGUAGE=台灣正體中文
+OPENAI_API_KEY=...
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4.1-mini
+TARGET_LANGUAGE=台灣正體中文
 ```
-
-The script also accepts `OPENAI_API_KEY`, `API_KEY`, `OPENAI_MODEL`, `MODEL`, `OPENAI_BASE_URL`, and `BASE_URL`.
 
 ## Optional Environment Variables
 
 ```bash
-E2E_BROWSER_CHANNEL=chromium
-E2E_CHROME_EXECUTABLE=/custom/path/to/chrome
-E2E_USER_DATA_DIR=.e2e-user-data
-E2E_ARTIFACTS_DIR=e2e-artifacts
-E2E_HEADLESS=0
+PLAYWRIGHT_BROWSER_CHANNEL=chromium
+PLAYWRIGHT_CHROME_EXECUTABLE=/custom/path/to/chrome
+PLAYWRIGHT_USER_DATA_DIR=.e2e-user-data
+PLAYWRIGHT_ARTIFACTS_DIR=e2e-artifacts
+PLAYWRIGHT_HEADLESS=0
 ```
 
-If `E2E_USER_DATA_DIR` is unset, the suite uses a temporary Chromium profile and removes it after the run. Set `E2E_USER_DATA_DIR=.e2e-user-data` when you want to keep the seeded permission and extension state between runs.
+If `PLAYWRIGHT_USER_DATA_DIR` is unset, the suite uses a temporary Chromium profile and removes it after the run. Set `PLAYWRIGHT_USER_DATA_DIR=.e2e-user-data` when you want to keep the seeded permission and extension state between runs.
 
-If `E2E_HEADLESS` is not set, the script defaults to headed mode. Headless mode also works, because the test harness seeds the API origin permission before the main run.
-If `E2E_CHROME_EXECUTABLE` is unset, the suite uses Playwright's `chromium` channel because that is the supported path for loading unpacked extensions.
+If `PLAYWRIGHT_HEADLESS` is not set, the script defaults to headed mode. Headless mode also works, because the test harness seeds the API origin permission before the main run.
+If `PLAYWRIGHT_CHROME_EXECUTABLE` is unset, the suite uses Playwright's `chromium` channel because that is the supported path for loading unpacked extensions.
 
 ## Install
 
