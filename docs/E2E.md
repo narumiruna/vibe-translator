@@ -62,6 +62,26 @@ If `PLAYWRIGHT_USER_DATA_DIR` is unset, the suite uses a temporary Chromium prof
 If `PLAYWRIGHT_HEADLESS` is not set, the script defaults to headed mode. Headless mode also works, because the test harness seeds the API origin permission before the main run.
 If `PLAYWRIGHT_CHROME_EXECUTABLE` is unset, the suite uses Playwright's `chromium` channel because that is the supported path for loading unpacked extensions.
 
+## Font Requirements
+
+Some sites need CJK fonts to render Japanese or Traditional Chinese correctly in Playwright.
+
+On Linux, install a CJK font package before running E2E tests. For example:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
+```
+
+You can verify font availability with:
+
+```bash
+fc-list :lang=ja
+fc-list :lang=zh-tw
+```
+
+If these return no results, some pages may show missing glyphs even when the page encoding is correct.
+
 ## Install
 
 ```bash
