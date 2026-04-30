@@ -490,6 +490,78 @@ button.secondary:hover {
 	}
 }
 
+/* ── Tab navigation ────────────────────────────────────────────── */
+.tab-nav {
+	display: flex;
+	gap: 0;
+	border-bottom: 1px solid var(--separator);
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.tab-nav::-webkit-scrollbar {
+	display: none;
+}
+
+.tab-btn {
+	flex-shrink: 0;
+	padding: 12px 20px;
+	background: transparent;
+	border: none;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	color: var(--muted);
+	font-size: 0.875rem;
+	font-weight: 500;
+	letter-spacing: -0.01em;
+	cursor: pointer;
+	transition:
+		color 0.15s,
+		border-color 0.15s;
+	box-shadow: none;
+	margin-bottom: -1px;
+}
+
+.tab-btn:hover {
+	background: transparent;
+	color: var(--text);
+	opacity: 1;
+}
+
+.tab-btn.active {
+	color: var(--accent);
+	border-bottom-color: var(--accent);
+	font-weight: 600;
+}
+
+/* ── Tab panels ────────────────────────────────────────────────── */
+.tab-panel {
+	display: none;
+}
+
+.tab-panel.active {
+	display: block;
+}
+
+/* ── Sticky save bar ───────────────────────────────────────────── */
+.save-bar {
+	position: sticky;
+	bottom: 0;
+	z-index: 10;
+	padding: 14px 28px;
+	background: var(--panel);
+	border-top: 1px solid var(--separator);
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.save-bar-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
 /* ── Responsive ────────────────────────────────────────────────── */
 @media (max-width: 640px) {
 	.layout {
@@ -514,11 +586,15 @@ button.secondary:hover {
 		padding: 16px 18px;
 	}
 
-	.actions {
+	.save-bar {
+		padding: 12px 18px;
+	}
+
+	.save-bar-actions {
 		flex-direction: column;
 	}
 
-	.actions button {
+	.save-bar-actions button {
 		width: 100%;
 	}
 
