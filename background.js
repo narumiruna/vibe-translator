@@ -764,7 +764,6 @@ async function translatePage(tab) {
 	}
 
 	await queuePageTranslationItems(tab.id, session.sessionId, extraction.items);
-	await sendToast(tab.id, "Started translating visible content.", "success");
 }
 
 async function translateSelection(tabId, selectionText, frameId) {
