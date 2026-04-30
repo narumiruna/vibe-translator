@@ -91,7 +91,7 @@ test("normalizeTranslationAppearance clamps and sanitizes underline settings", (
 			translationUnderlineOffset: -4,
 		}),
 		{
-			translationUnderlineColor: "#1f7a4f",
+			translationUnderlineColor: "#007aff",
 			translationUnderlineStyle: "dashed",
 			translationUnderlineThickness: 6,
 			translationUnderlineOffset: 0,

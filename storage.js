@@ -53,7 +53,7 @@
 	function normalizeUnderlineColor(value) {
 		const trimmed = String(value || "").trim();
 
-		return HEX_COLOR_REGEX.test(trimmed) ? trimmed.toLowerCase() : "#1f7a4f";
+		return HEX_COLOR_REGEX.test(trimmed) ? trimmed.toLowerCase() : "#007aff";
 	}
 
 	function normalizeUnderlineStyle(value) {
@@ -146,7 +146,7 @@
 		model: "",
 		systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_TEMPLATE,
 		userPromptTemplate: DEFAULT_USER_PROMPT_TEMPLATE,
-		translationUnderlineColor: "#1f7a4f",
+		translationUnderlineColor: "#007aff",
 		translationUnderlineStyle: "dashed",
 		translationUnderlineThickness: 2,
 		translationUnderlineOffset: 3,

@@ -28,7 +28,7 @@ const TranslatorContentModule = (() => {
 		".entry",
 	].join(", ");
 	const DEFAULT_TRANSLATION_APPEARANCE = Object.freeze({
-		underlineColor: "#1f7a4f",
+		underlineColor: "#007aff",
 		underlineStyle: "dashed",
 		underlineThickness: 2,
 		underlineOffset: 3,
@@ -661,25 +661,25 @@ const TranslatorContentModule = (() => {
         max-width: 100%;
         margin: 0.28rem 0 0.76rem;
         padding: 0;
-        font: 500 0.92em/1.55 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-        color: #5f646d;
+        font: 400 0.9em/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        color: #6c6c70;
         text-align: start;
         background: transparent;
         position: static;
       }
 
       .translation[${ROOT_ATTR}="note"][data-phase="ready"] {
-        animation: ot-fade-in 0.22s ease forwards;
+        animation: ot-fade-in 0.18s ease forwards;
       }
 
       .translation[${ROOT_ATTR}="note"][data-stale="true"] {
-        opacity: 0.72;
+        opacity: 0.6;
       }
 
       .translation [${ROOT_ATTR}="note-body"] {
         all: initial;
         display: block;
-        margin-top: 0.18rem;
+        margin-top: 0.15rem;
         padding: 0;
         font: inherit;
         line-height: 1.6;
@@ -696,14 +696,14 @@ const TranslatorContentModule = (() => {
       .translation [${ROOT_ATTR}="note-body"][data-state="pending"] {
         min-height: 1.2em;
         color: transparent;
-        border-radius: 0.55rem;
+        border-radius: 6px;
         text-decoration-color: transparent;
         background:
           linear-gradient(
             90deg,
-            rgba(132, 138, 150, 0.12) 0%,
-            rgba(255, 255, 255, 0.72) 50%,
-            rgba(132, 138, 150, 0.12) 100%
+            rgba(60, 60, 67, 0.07) 0%,
+            rgba(255, 255, 255, 0.7) 50%,
+            rgba(60, 60, 67, 0.07) 100%
           );
         background-size: 200% 100%;
         animation: ot-shimmer 1.2s linear infinite;
@@ -713,11 +713,11 @@ const TranslatorContentModule = (() => {
         all: initial;
         display: inline;
         padding: 0.08em 0.34em;
-        border-radius: 0.35em;
-        background: rgba(111, 118, 129, 0.12);
-        color: #39414d;
+        border-radius: 5px;
+        background: rgba(60, 60, 67, 0.08);
+        color: #3a3a3c;
         text-decoration: none;
-        font: 0.92em/1.4 ui-monospace, 'SFMono-Regular', Menlo, monospace;
+        font: 0.92em/1.4 ui-monospace, "SF Mono", "SFMono-Regular", Menlo, monospace;
       }
 
       [${ROOT_ATTR}="toast-layer"] {
@@ -729,35 +729,50 @@ const TranslatorContentModule = (() => {
 
       [${ROOT_ATTR}="toast"] {
         max-width: min(100%, 32rem);
-        padding: 12px 14px;
+        padding: 11px 14px;
         border-radius: 12px;
-        background: rgba(28, 33, 36, 0.94);
-        color: #f7f9f8;
-        font: 500 13px/1.45 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        background: rgba(44, 44, 46, 0.95);
+        color: #f5f5f7;
+        font: 500 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
       }
 
       [${ROOT_ATTR}="toast"][data-level="success"] {
-        background: rgba(24, 78, 53, 0.96);
+        background: rgba(52, 199, 89, 0.9);
+        color: #ffffff;
       }
 
       [${ROOT_ATTR}="toast"][data-level="error"] {
-        background: rgba(121, 33, 33, 0.97);
+        background: rgba(255, 59, 48, 0.92);
+        color: #ffffff;
       }
 
       .translation[${ROOT_ATTR}="selection-panel"] {
         position: fixed;
-        right: 18px;
-        bottom: 18px;
+        right: 16px;
+        bottom: 16px;
         z-index: 2147483647;
         width: min(${SELECTION_PANEL_COMPACT_WIDTH}px, calc(100vw - 24px));
         max-width: min(420px, calc(100vw - 24px));
         padding: 10px 12px 12px;
-        border: 1px solid rgba(41, 66, 52, 0.16);
-        border-radius: 18px;
-        background: rgba(255, 252, 248, 0.98);
-        box-shadow: 0 20px 48px rgba(32, 39, 36, 0.18);
-        color: #2f352f;
-        font: 500 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        border: 1px solid rgba(60, 60, 67, 0.14);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.97);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.12);
+        color: #1c1c1e;
+        font: 400 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .translation[${ROOT_ATTR}="selection-panel"] {
+          background: rgba(28, 28, 30, 0.97);
+          border-color: rgba(255, 255, 255, 0.1);
+          color: #f5f5f7;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 16px 48px rgba(0, 0, 0, 0.4);
+        }
       }
 
       .translation [${ROOT_ATTR}="selection-panel-header"] {
@@ -765,7 +780,15 @@ const TranslatorContentModule = (() => {
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-        margin-bottom: 6px;
+        margin-bottom: 7px;
+        padding-bottom: 7px;
+        border-bottom: 1px solid rgba(60, 60, 67, 0.1);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .translation [${ROOT_ATTR}="selection-panel-header"] {
+          border-bottom-color: rgba(255, 255, 255, 0.08);
+        }
       }
 
       .translation [${ROOT_ATTR}="selection-panel-actions"] {
@@ -779,10 +802,10 @@ const TranslatorContentModule = (() => {
         margin: 0;
         flex: 1 1 auto;
         min-width: 0;
-        color: #45614c;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
+        color: #007aff;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
         white-space: nowrap;
         overflow: hidden;
@@ -791,34 +814,49 @@ const TranslatorContentModule = (() => {
 
       .translation [${ROOT_ATTR}="selection-panel-expand"] {
         border: 0;
-        background: rgba(69, 97, 76, 0.08);
-        color: #45614c;
+        background: rgba(0, 122, 255, 0.1);
+        color: #007aff;
         cursor: pointer;
-        padding: 4px 8px;
-        border-radius: 999px;
-        font: 700 11px/1 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        letter-spacing: 0.02em;
+        transition: background 0.15s;
       }
 
       .translation [${ROOT_ATTR}="selection-panel-expand"]:hover {
-        background: rgba(69, 97, 76, 0.14);
-        color: #2c4734;
+        background: rgba(0, 122, 255, 0.16);
       }
 
       .translation [${ROOT_ATTR}="selection-panel-close"] {
         border: 0;
-        background: transparent;
-        color: #6a726c;
+        background: rgba(60, 60, 67, 0.08);
+        color: #6c6c70;
         cursor: pointer;
-        padding: 2px;
-        border-radius: 999px;
-        font: 700 18px/1 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font: 500 15px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        transition: background 0.15s;
       }
 
       .translation [${ROOT_ATTR}="selection-panel-close"]:hover {
-        background: rgba(69, 97, 76, 0.1);
-        color: #2c4734;
+        background: rgba(60, 60, 67, 0.14);
+        color: #3a3a3c;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .translation [${ROOT_ATTR}="selection-panel-close"] {
+          background: rgba(255, 255, 255, 0.1);
+          color: #98989d;
+        }
+        .translation [${ROOT_ATTR}="selection-panel-close"]:hover {
+          background: rgba(255, 255, 255, 0.16);
+          color: #ebebf5;
+        }
       }
 
       .translation [${ROOT_ATTR}="selection-panel-body"] {
@@ -826,7 +864,7 @@ const TranslatorContentModule = (() => {
         max-height: ${SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT}px;
         overflow: auto;
         padding-right: 0;
-        color: #4d564f;
+        color: #3a3a3c;
         white-space: pre-wrap;
         word-break: break-word;
         text-decoration-line: underline;
@@ -836,6 +874,12 @@ const TranslatorContentModule = (() => {
         text-underline-offset: ${resolvedAppearance.underlineOffset}px;
       }
 
+      @media (prefers-color-scheme: dark) {
+        .translation [${ROOT_ATTR}="selection-panel-body"] {
+          color: #d1d1d6;
+        }
+      }
+
       .translation[${ROOT_ATTR}="selection-panel"][data-expanded="true"] [${ROOT_ATTR}="selection-panel-body"] {
         max-height: min(${SELECTION_PANEL_EXPANDED_MAX_BODY_HEIGHT}px, calc(100vh - 48px));
       }
@@ -843,14 +887,14 @@ const TranslatorContentModule = (() => {
       .translation [${ROOT_ATTR}="selection-panel-body"][data-state="pending"] {
         min-height: 2.4em;
         color: transparent;
-        border-radius: 0.75rem;
+        border-radius: 8px;
         text-decoration-color: transparent;
         background:
           linear-gradient(
             90deg,
-            rgba(132, 138, 150, 0.12) 0%,
-            rgba(255, 255, 255, 0.74) 50%,
-            rgba(132, 138, 150, 0.12) 100%
+            rgba(60, 60, 67, 0.07) 0%,
+            rgba(255, 255, 255, 0.7) 50%,
+            rgba(60, 60, 67, 0.07) 100%
           );
         background-size: 200% 100%;
         animation: ot-shimmer 1.2s linear infinite;
@@ -859,44 +903,54 @@ const TranslatorContentModule = (() => {
       .translation [${ROOT_ATTR}="selection-panel-body"] code {
         display: inline;
         padding: 0.08em 0.34em;
-        border-radius: 0.35em;
-        background: rgba(111, 118, 129, 0.12);
-        color: #39414d;
+        border-radius: 5px;
+        background: rgba(60, 60, 67, 0.08);
+        color: #3a3a3c;
         text-decoration: none;
-        font: 0.92em/1.4 ui-monospace, 'SFMono-Regular', Menlo, monospace;
+        font: 0.92em/1.4 ui-monospace, "SF Mono", "SFMono-Regular", Menlo, monospace;
       }
 
       .translation[${ROOT_ATTR}="debug-panel"] {
         position: fixed;
-        left: 18px;
-        bottom: 18px;
+        left: 16px;
+        bottom: 16px;
         z-index: 2147483647;
         width: min(420px, calc(100vw - 24px));
         max-height: min(44vh, 28rem);
         overflow: auto;
-        padding: 14px 14px 16px;
-        border: 1px solid rgba(52, 72, 60, 0.14);
-        border-radius: 18px;
-        background: rgba(248, 247, 243, 0.98);
-        box-shadow: 0 20px 48px rgba(32, 39, 36, 0.18);
-        color: #334038;
-        font: 500 13px/1.5 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        padding: 12px 14px 14px;
+        border: 1px solid rgba(60, 60, 67, 0.12);
+        border-radius: 14px;
+        background: rgba(242, 242, 247, 0.97);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.1);
+        color: #1c1c1e;
+        font: 400 12px/1.5 ui-monospace, "SF Mono", "SFMono-Regular", Menlo, monospace;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .translation[${ROOT_ATTR}="debug-panel"] {
+          background: rgba(28, 28, 30, 0.97);
+          border-color: rgba(255, 255, 255, 0.1);
+          color: #f5f5f7;
+        }
       }
 
       .translation [${ROOT_ATTR}="debug-title"] {
         display: block;
         margin: 0 0 10px;
-        color: #45614c;
-        font: 700 12px/1.4 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-        letter-spacing: 0.08em;
+        color: #007aff;
+        font: 600 11px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
       }
 
       .translation [${ROOT_ATTR}="debug-section-title"] {
         display: block;
         margin: 12px 0 6px;
-        color: #5c675f;
-        font-weight: 700;
+        color: #6c6c70;
+        font-weight: 600;
       }
 
       .translation [${ROOT_ATTR}="debug-list"] {
@@ -911,17 +965,17 @@ const TranslatorContentModule = (() => {
 
       @media (max-width: 640px) {
         .translation[${ROOT_ATTR}="selection-panel"] {
-          right: 12px;
-          left: 12px;
-          bottom: 12px;
+          right: 10px;
+          left: 10px;
+          bottom: 10px;
           width: auto;
           max-width: none;
         }
 
         .translation[${ROOT_ATTR}="debug-panel"] {
-          right: 12px;
-          left: 12px;
-          bottom: 12px;
+          right: 10px;
+          left: 10px;
+          bottom: 10px;
           width: auto;
           max-width: none;
         }
@@ -940,10 +994,12 @@ const TranslatorContentModule = (() => {
       @keyframes ot-fade-in {
         from {
           opacity: 0;
+          transform: translateY(4px);
         }
 
         to {
           opacity: 1;
+          transform: translateY(0);
         }
       }
     `;
