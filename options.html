@@ -27,14 +27,14 @@
         <form id="settings-form" class="form">
 
           <section class="form-section" aria-labelledby="api-section-title">
-            <h2 id="api-section-title" class="field-note" style="margin-bottom:14px;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.07em;">API</h2>
+            <h2 id="api-section-title" class="form-section-title">API</h2>
 
-            <label class="field" style="margin-bottom:14px;">
+            <label class="field">
               <span>API Key</span>
               <input id="api-key" name="apiKey" type="password" autocomplete="off" required />
             </label>
 
-            <label class="field" style="margin-bottom:14px;">
+            <label class="field">
               <span>Base URL</span>
               <input
                 id="base-url"
@@ -46,7 +46,7 @@
               />
             </label>
 
-            <label class="field" style="margin-bottom:14px;">
+            <label class="field">
               <span>Model</span>
               <input id="model" name="model" type="text" placeholder="gpt-4.1-mini" required />
             </label>
@@ -64,9 +64,9 @@
           </section>
 
           <section class="form-section" aria-labelledby="prompt-section-title">
-            <h2 id="prompt-section-title" class="field-note" style="margin-bottom:14px;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.07em;">Prompt Templates</h2>
+            <h2 id="prompt-section-title" class="form-section-title">Prompt Templates</h2>
 
-            <label class="field" style="margin-bottom:14px;">
+            <label class="field">
               <span>System Prompt Template</span>
               <small class="field-note">
                 Fully controls the system prompt sent to the model. You can use
@@ -81,7 +81,7 @@
               ></textarea>
             </label>
 
-            <label class="field" style="margin-bottom:16px;">
+            <label class="field">
               <span>User Prompt Template</span>
               <small class="field-note">
                 Fully controls the user prompt. It must include
@@ -98,8 +98,8 @@
 
             <section class="prompt-preview" aria-labelledby="prompt-preview-title">
               <div class="prompt-preview-header">
-                <h2 id="prompt-preview-title">Prompt Preview</h2>
-                <p class="field-note">Generated from the same request builder used by translation requests.</p>
+                <h2 id="prompt-preview-title">Actual Prompt Preview</h2>
+                <p class="field-note">Shows the exact prompts sent to the API, rendered from the templates above.</p>
                 <div class="prompt-preview-actions">
                   <button id="reset-system-prompt-button" type="button" class="secondary">
                     Reset System Template
@@ -126,9 +126,9 @@
           </section>
 
           <section class="form-section" aria-labelledby="appearance-section-title">
-            <h2 id="appearance-section-title" class="field-note" style="margin-bottom:14px;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.07em;">Appearance</h2>
+            <h2 id="appearance-section-title" class="form-section-title">Appearance</h2>
 
-            <section class="appearance-panel" style="margin-bottom:14px;" aria-labelledby="selection-panel-title">
+            <section class="appearance-panel" aria-labelledby="selection-panel-title">
               <div class="appearance-panel-header">
                 <h2 id="selection-panel-title">Selection Panel</h2>
                 <p class="field-note">Controls where the floating panel opens after translating selected text.</p>
@@ -146,7 +146,7 @@
             <section class="appearance-panel" aria-labelledby="appearance-title">
               <div class="appearance-panel-header">
                 <h2 id="appearance-title">Translation Underline</h2>
-                <p class="field-note">Controls the underline shown beneath translated text on the page.</p>
+                <p class="field-note">Adjusts the color, style, thickness, and offset of underlines on translated text.</p>
               </div>
 
               <div class="appearance-grid">
@@ -190,16 +190,16 @@
               </div>
 
               <div class="appearance-sample" aria-live="polite">
-                <span class="appearance-sample-label">Preview</span>
+                <span class="appearance-sample-label">Live preview</span>
                 <span id="translation-appearance-preview" class="appearance-sample-text">Translated text preview</span>
               </div>
             </section>
           </section>
 
           <section class="form-section" aria-labelledby="advanced-section-title">
-            <h2 id="advanced-section-title" class="field-note" style="margin-bottom:14px;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.07em;">Advanced</h2>
+            <h2 id="advanced-section-title" class="form-section-title">Advanced</h2>
 
-            <label class="field checkbox-field" style="margin-bottom:14px;">
+            <label class="field checkbox-field">
               <span class="checkbox-control">
                 <input
                   id="show-translation-debug-info"
@@ -226,7 +226,7 @@
           </section>
 
           <section class="form-section" aria-labelledby="status-section-title">
-            <h2 id="status-section-title" class="field-note" style="margin-bottom:14px;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.07em;">Status</h2>
+            <h2 id="status-section-title" class="form-section-title">Status</h2>
 
             <div class="status-grid">
               <article class="status-card">

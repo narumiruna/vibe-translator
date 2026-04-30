@@ -125,7 +125,30 @@ h1 {
 	font-size: 0.9rem;
 }
 
-/* ── Form container ────────────────────────────────────────────── */
+/* ── Form section title ────────────────────────────────────────── */
+.form-section-title {
+	margin: 0 0 14px;
+	color: var(--muted);
+	font-size: 0.75rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.07em;
+}
+
+/* Fields inside a form-section get spacing from their parent grid gap */
+.form-section .field,
+.form-section .checkbox-field {
+	display: grid;
+	gap: 6px;
+}
+
+.form-section > .field + .field,
+.form-section > .checkbox-field + .field,
+.form-section > .field + .checkbox-field {
+	margin-top: 14px;
+}
+
+/* ── Form section groups ────────────────────────────────────────── */
 .form {
 	display: grid;
 	gap: 0;
@@ -316,6 +339,10 @@ textarea[readonly] {
 	border-radius: 12px;
 	background: var(--panel-inset);
 	border: 1px solid var(--separator);
+}
+
+.appearance-panel + .appearance-panel {
+	margin-top: 14px;
 }
 
 .appearance-panel-header h2 {
