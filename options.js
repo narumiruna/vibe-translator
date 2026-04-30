@@ -341,10 +341,12 @@
 	tabBtns.forEach((btn) => {
 		btn.addEventListener("click", () => {
 			const target = btn.dataset.tab;
-			tabBtns.forEach((b) => b.classList.toggle("active", b === btn));
-			tabPanels.forEach((p) =>
-				p.classList.toggle("active", p.dataset.panel === target),
-			);
+			tabBtns.forEach((b) => {
+				b.classList.toggle("active", b === btn);
+			});
+			tabPanels.forEach((p) => {
+				p.classList.toggle("active", p.dataset.panel === target);
+			});
 		});
 	});
 
