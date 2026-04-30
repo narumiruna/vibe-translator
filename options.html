@@ -10,8 +10,14 @@
     <main class="layout">
       <section class="panel">
         <header class="hero">
-          <p class="eyebrow">Vibe Translator</p>
-          <h1>Vibe Translator Settings</h1>
+          <p class="eyebrow">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M2 3h4M4 1v2M2 3c0 2.5 2 4 2 4s2-1.5 2-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8 10l2-5 2 5M8.8 8.5h2.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Vibe Translator
+          </p>
+          <h1>Settings</h1>
           <p class="subtitle">
             Configure the API endpoint, model, prompt templates, and target
             language used for page and selection translation.
@@ -19,206 +25,231 @@
         </header>
 
         <form id="settings-form" class="form">
-          <label class="field">
-            <span>API Key</span>
-            <input id="api-key" name="apiKey" type="password" autocomplete="off" required />
-          </label>
 
-          <label class="field">
-            <span>OpenAI Base URL</span>
-            <input
-              id="base-url"
-              name="baseUrl"
-              type="url"
-              inputmode="url"
-              placeholder="https://api.openai.com/v1"
-              required
-            />
-          </label>
+          <section class="form-section" aria-labelledby="api-section-title">
+            <h2 id="api-section-title" class="field-note" style="margin-bottom:14px;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.07em;">API</h2>
 
-          <label class="field">
-            <span>Model</span>
-            <input id="model" name="model" type="text" placeholder="gpt-4.1-mini" required />
-          </label>
+            <label class="field" style="margin-bottom:14px;">
+              <span>API Key</span>
+              <input id="api-key" name="apiKey" type="password" autocomplete="off" required />
+            </label>
 
-          <label class="field">
-            <span>Target Language</span>
-            <input
-              id="target-language"
-              name="targetLanguage"
-              type="text"
-              placeholder="台灣正體中文"
-              required
-            />
-          </label>
+            <label class="field" style="margin-bottom:14px;">
+              <span>Base URL</span>
+              <input
+                id="base-url"
+                name="baseUrl"
+                type="url"
+                inputmode="url"
+                placeholder="https://api.openai.com/v1"
+                required
+              />
+            </label>
 
-          <label class="field">
-            <span>System Prompt Template</span>
-            <small class="field-note">
-              Fully controls the system prompt sent to the model. You can use
-              placeholders like <code>&#123;&#123;targetLanguage&#125;&#125;</code>,
-              <code>&#123;&#123;itemCount&#125;&#125;</code>, and <code>&#123;&#123;itemKind&#125;&#125;</code>.
-            </small>
-            <textarea
-              id="system-prompt-template"
-              name="systemPromptTemplate"
-              rows="8"
-              placeholder="Write the full system prompt template here."
-            ></textarea>
-          </label>
-
-          <label class="field">
-            <span>User Prompt Template</span>
-            <small class="field-note">
-              Fully controls the user prompt. It must include
-              <code>&#123;&#123;sourcePayload&#125;&#125;</code> so the source items are actually
-              sent to the model.
-            </small>
-            <textarea
-              id="user-prompt-template"
-              name="userPromptTemplate"
-              rows="8"
-              placeholder="Write the full user prompt template here."
-            ></textarea>
-          </label>
-
-          <section class="prompt-preview" aria-labelledby="prompt-preview-title">
-            <div class="prompt-preview-header">
-              <h2 id="prompt-preview-title">Actual Prompt Preview</h2>
-              <p class="field-note">Generated from the same request builder used by translation requests.</p>
-              <div class="prompt-preview-actions">
-                <button id="reset-system-prompt-button" type="button" class="secondary">
-                  Reset System Template
-                </button>
-                <button id="reset-user-prompt-button" type="button" class="secondary">
-                  Reset User Template
-                </button>
-              </div>
-            </div>
-
-            <p id="prompt-preview-stats" class="field-note">Estimating prompt size…</p>
-            <p id="prompt-lint-status" class="banner banner-warning" hidden></p>
-
-            <label class="field">
-              <span>System Prompt</span>
-              <textarea id="system-prompt-preview" rows="8" readonly></textarea>
+            <label class="field" style="margin-bottom:14px;">
+              <span>Model</span>
+              <input id="model" name="model" type="text" placeholder="gpt-4.1-mini" required />
             </label>
 
             <label class="field">
-              <span>User Prompt</span>
-              <textarea id="user-prompt-preview" rows="8" readonly></textarea>
+              <span>Target Language</span>
+              <input
+                id="target-language"
+                name="targetLanguage"
+                type="text"
+                placeholder="台灣正體中文"
+                required
+              />
             </label>
           </section>
 
-          <label class="field checkbox-field">
-            <span class="checkbox-control">
-              <input
-                id="show-translation-debug-info"
-                name="showTranslationDebugInfo"
-                type="checkbox"
-              />
-              <span>Show translation debug info on translated pages</span>
-            </span>
-            <small class="field-note">
-              Shows queued item ids, estimated token counts, and skipped extraction reasons in a page overlay.
-            </small>
-          </label>
+          <section class="form-section" aria-labelledby="prompt-section-title">
+            <h2 id="prompt-section-title" class="field-note" style="margin-bottom:14px;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.07em;">Prompt Templates</h2>
 
-		  <section class="appearance-panel" aria-labelledby="selection-panel-title">
-			<div class="appearance-panel-header">
-			  <h2 id="selection-panel-title">Selection Translation Panel</h2>
-			  <p class="field-note">Controls where the floating panel opens after translating selected text.</p>
-			</div>
+            <label class="field" style="margin-bottom:14px;">
+              <span>System Prompt Template</span>
+              <small class="field-note">
+                Fully controls the system prompt sent to the model. You can use
+                placeholders like <code>&#123;&#123;targetLanguage&#125;&#125;</code>,
+                <code>&#123;&#123;itemCount&#125;&#125;</code>, and <code>&#123;&#123;itemKind&#125;&#125;</code>.
+              </small>
+              <textarea
+                id="system-prompt-template"
+                name="systemPromptTemplate"
+                rows="8"
+                placeholder="Write the full system prompt template here."
+              ></textarea>
+            </label>
 
-			<label class="field">
-			  <span>Panel Position</span>
-			  <select id="selection-panel-position-mode" name="selectionPanelPositionMode">
-				<option value="near-selection">Near selected text</option>
-				<option value="bottom-right">Bottom-right corner</option>
-			  </select>
-			</label>
-		  </section>
+            <label class="field" style="margin-bottom:16px;">
+              <span>User Prompt Template</span>
+              <small class="field-note">
+                Fully controls the user prompt. It must include
+                <code>&#123;&#123;sourcePayload&#125;&#125;</code> so the source items are actually
+                sent to the model.
+              </small>
+              <textarea
+                id="user-prompt-template"
+                name="userPromptTemplate"
+                rows="8"
+                placeholder="Write the full user prompt template here."
+              ></textarea>
+            </label>
 
-          <section class="appearance-panel" aria-labelledby="appearance-title">
-            <div class="appearance-panel-header">
-              <h2 id="appearance-title">Translation Appearance</h2>
-              <p class="field-note">Controls the underline shown beneath translated text on the page.</p>
-            </div>
+            <section class="prompt-preview" aria-labelledby="prompt-preview-title">
+              <div class="prompt-preview-header">
+                <h2 id="prompt-preview-title">Prompt Preview</h2>
+                <p class="field-note">Generated from the same request builder used by translation requests.</p>
+                <div class="prompt-preview-actions">
+                  <button id="reset-system-prompt-button" type="button" class="secondary">
+                    Reset System Template
+                  </button>
+                  <button id="reset-user-prompt-button" type="button" class="secondary">
+                    Reset User Template
+                  </button>
+                </div>
+              </div>
 
-            <div class="appearance-grid">
+              <p id="prompt-preview-stats" class="field-note">Estimating prompt size…</p>
+              <p id="prompt-lint-status" class="banner banner-warning" hidden></p>
+
               <label class="field">
-                <span>Underline Color</span>
-                <input id="translation-underline-color" name="translationUnderlineColor" type="color" />
+                <span>System Prompt</span>
+                <textarea id="system-prompt-preview" rows="8" readonly></textarea>
               </label>
 
               <label class="field">
-                <span>Underline Style</span>
-                <select id="translation-underline-style" name="translationUnderlineStyle">
-                  <option value="solid">Solid</option>
-                  <option value="dashed">Dashed</option>
-                  <option value="dotted">Dotted</option>
+                <span>User Prompt</span>
+                <textarea id="user-prompt-preview" rows="8" readonly></textarea>
+              </label>
+            </section>
+          </section>
+
+          <section class="form-section" aria-labelledby="appearance-section-title">
+            <h2 id="appearance-section-title" class="field-note" style="margin-bottom:14px;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.07em;">Appearance</h2>
+
+            <section class="appearance-panel" style="margin-bottom:14px;" aria-labelledby="selection-panel-title">
+              <div class="appearance-panel-header">
+                <h2 id="selection-panel-title">Selection Panel</h2>
+                <p class="field-note">Controls where the floating panel opens after translating selected text.</p>
+              </div>
+
+              <label class="field">
+                <span>Panel Position</span>
+                <select id="selection-panel-position-mode" name="selectionPanelPositionMode">
+                  <option value="near-selection">Near selected text</option>
+                  <option value="bottom-right">Bottom-right corner</option>
                 </select>
               </label>
+            </section>
 
-              <label class="field">
-                <span>Underline Thickness</span>
+            <section class="appearance-panel" aria-labelledby="appearance-title">
+              <div class="appearance-panel-header">
+                <h2 id="appearance-title">Translation Underline</h2>
+                <p class="field-note">Controls the underline shown beneath translated text on the page.</p>
+              </div>
+
+              <div class="appearance-grid">
+                <label class="field">
+                  <span>Color</span>
+                  <input id="translation-underline-color" name="translationUnderlineColor" type="color" />
+                </label>
+
+                <label class="field">
+                  <span>Style</span>
+                  <select id="translation-underline-style" name="translationUnderlineStyle">
+                    <option value="solid">Solid</option>
+                    <option value="dashed">Dashed</option>
+                    <option value="dotted">Dotted</option>
+                  </select>
+                </label>
+
+                <label class="field">
+                  <span>Thickness (px)</span>
+                  <input
+                    id="translation-underline-thickness"
+                    name="translationUnderlineThickness"
+                    type="number"
+                    min="1"
+                    max="6"
+                    step="1"
+                  />
+                </label>
+
+                <label class="field">
+                  <span>Offset (px)</span>
+                  <input
+                    id="translation-underline-offset"
+                    name="translationUnderlineOffset"
+                    type="number"
+                    min="0"
+                    max="12"
+                    step="1"
+                  />
+                </label>
+              </div>
+
+              <div class="appearance-sample" aria-live="polite">
+                <span class="appearance-sample-label">Preview</span>
+                <span id="translation-appearance-preview" class="appearance-sample-text">Translated text preview</span>
+              </div>
+            </section>
+          </section>
+
+          <section class="form-section" aria-labelledby="advanced-section-title">
+            <h2 id="advanced-section-title" class="field-note" style="margin-bottom:14px;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.07em;">Advanced</h2>
+
+            <label class="field checkbox-field" style="margin-bottom:14px;">
+              <span class="checkbox-control">
                 <input
-                  id="translation-underline-thickness"
-                  name="translationUnderlineThickness"
-                  type="number"
-                  min="1"
-                  max="6"
-                  step="1"
+                  id="show-translation-debug-info"
+                  name="showTranslationDebugInfo"
+                  type="checkbox"
                 />
-              </label>
+                <span>Show translation debug info on translated pages</span>
+              </span>
+              <small class="field-note">
+                Shows queued item ids, estimated token counts, and skipped extraction reasons in a page overlay.
+              </small>
+            </label>
 
-              <label class="field">
-                <span>Underline Offset</span>
-                <input
-                  id="translation-underline-offset"
-                  name="translationUnderlineOffset"
-                  type="number"
-                  min="0"
-                  max="12"
-                  step="1"
-                />
-              </label>
-            </div>
+            <label class="field">
+              <span>Disabled Domains</span>
+              <small class="field-note">One domain per line. Translation is skipped on these sites.</small>
+              <textarea
+                id="disabled-domains"
+                name="disabledDomains"
+                rows="4"
+                placeholder="chat.openai.com&#10;example.com"
+              ></textarea>
+            </label>
+          </section>
 
-            <div class="appearance-sample" aria-live="polite">
-              <span class="appearance-sample-label">Live sample</span>
-              <span id="translation-appearance-preview" class="appearance-sample-text">Translated text preview</span>
+          <section class="form-section" aria-labelledby="status-section-title">
+            <h2 id="status-section-title" class="field-note" style="margin-bottom:14px;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.07em;">Status</h2>
+
+            <div class="status-grid">
+              <article class="status-card">
+                <h2>API Origin Permission</h2>
+                <p id="permission-status" class="status-text">Checking permission…</p>
+              </article>
+              <article class="status-card">
+                <h2>Connection Test</h2>
+                <p id="test-status" class="status-text">Run a test request after saving.</p>
+                <p id="test-details" class="field-note">Checks both translation and the /models endpoint.</p>
+              </article>
             </div>
           </section>
 
-          <label class="field">
-            <span>Disabled Domains</span>
-            <textarea
-              id="disabled-domains"
-              name="disabledDomains"
-              rows="4"
-              placeholder="chat.openai.com&#10;example.com"
-            ></textarea>
-          </label>
+          <section class="form-section">
+            <div class="actions">
+              <button id="save-button" type="submit">Save Settings</button>
+              <button id="test-button" type="button" class="secondary">Test Connection</button>
+            </div>
 
-          <div class="status-grid">
-            <article class="status-card">
-              <h2>API Origin Permission</h2>
-              <p id="permission-status" class="status-text">Checking permission…</p>
-            </article>
-            <article class="status-card">
-              <h2>Connection Test</h2>
-              <p id="test-status" class="status-text">Run a test request after saving.</p>
-              <p id="test-details" class="field-note">Checks both translation and the /models endpoint.</p>
-            </article>
-          </div>
+            <p id="form-status" class="banner" hidden style="margin-top:12px;"></p>
+          </section>
 
-          <div class="actions">
-            <button id="save-button" type="submit">Save Settings</button>
-            <button id="test-button" type="button" class="secondary">Test Connection</button>
-          </div>
-
-          <p id="form-status" class="banner" hidden></p>
         </form>
       </section>
     </main>
