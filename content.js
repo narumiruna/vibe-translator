@@ -16,9 +16,22 @@ const TranslatorContentModule = (() => {
 	const PREFETCH_VIEWPORTS = 2;
 	const VISIBLE_TRANSLATION_FLUSH_DELAY_MS = 200;
 	const OBSERVER_DEBOUNCE_MS = 200;
+	const ARTICLE_CONTENT_SELECTOR = [
+		"article",
+		'[role="article"]',
+		".article-content",
+		".doc-content",
+		".docs-content",
+		".docs-prose",
+		".entry-content",
+		".markdown-body",
+		".post-content",
+		".prose",
+		".rich-text",
+	].join(", ");
 	const MAIN_CONTENT_SELECTOR = [
 		"main",
-		"article",
+		ARTICLE_CONTENT_SELECTOR,
 		'[role="main"]',
 		"#main",
 		".main",
@@ -150,7 +163,19 @@ const TranslatorContentModule = (() => {
 		".share",
 		".sharing",
 		".social-share",
+		".docs-mobile-tools",
+		".docs-nav-card",
+		".docs-nav-rail",
+		".docs-toc-card",
+		".docs-toc-inline",
+		".docs-toc-rail",
+		".toc",
+		".table-of-contents",
+		"nav",
+		'[role="navigation"]',
+		'[aria-label*="navigation" i]',
 		'[aria-label*="share" i]',
+		'[aria-label*="table of contents" i]',
 		'[class*="share"]',
 		'[data-testid*="share"]',
 	].join(", ");
@@ -165,7 +190,19 @@ const TranslatorContentModule = (() => {
 		".share",
 		".sharing",
 		".social-share",
+		".docs-mobile-tools",
+		".docs-nav-card",
+		".docs-nav-rail",
+		".docs-toc-card",
+		".docs-toc-inline",
+		".docs-toc-rail",
+		".toc",
+		".table-of-contents",
+		"nav",
+		'[role="navigation"]',
+		'[aria-label*="navigation" i]',
 		'[aria-label*="share" i]',
+		'[aria-label*="table of contents" i]',
 		'[class*="share"]',
 		'[data-testid*="share"]',
 	].join(", ");
@@ -1149,6 +1186,9 @@ const TranslatorContentModule = (() => {
 		const directBlockChildCount = getDirectBlockChildCount(element);
 		const linkDensity = getElementLinkDensity(element, textLength);
 		const rootBonus = element.matches('main, article, [role="main"]') ? 400 : 0;
+		const articleContentBonus = element.matches(ARTICLE_CONTENT_SELECTOR)
+			? 900
+			: 0;
 		const bodyPenalty = element === document.body ? 1200 : 0;
 		const nestedRootPenalty =
 			element.querySelectorAll('main, article, [role="main"]').length * 120;
@@ -1156,7 +1196,8 @@ const TranslatorContentModule = (() => {
 		return (
 			Math.min(600, textLength / 4) +
 			semanticCount * 45 +
-			rootBonus -
+			rootBonus +
+			articleContentBonus -
 			linkDensity * 420 -
 			unsupportedCount * 24 -
 			interactiveCount * 4 -
@@ -2897,6 +2938,7 @@ const TranslatorContentModule = (() => {
 	return {
 		__TEST__: {
 			detectContentMode,
+			ARTICLE_CONTENT_SELECTOR,
 			HEADING_SELECTOR,
 			TITLE_LIKE_SELECTOR,
 			UNSUPPORTED_ANCESTOR_SELECTOR,
@@ -2904,6 +2946,7 @@ const TranslatorContentModule = (() => {
 			isHeadingLikeElement,
 			isUnsupportedElement,
 			scoreCandidateBlock,
+			scoreTranslationRoot,
 		},
 	};
 })();

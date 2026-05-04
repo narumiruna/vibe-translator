@@ -30,10 +30,12 @@ global.chrome = {
 };
 
 const {
+	ARTICLE_CONTENT_SELECTOR,
 	detectContentMode,
 	isHeadingLikeElement,
 	isUnsupportedElement,
 	scoreCandidateBlock,
+	scoreTranslationRoot,
 } = require("../content.js");
 
 function splitSelector(selector) {
@@ -51,6 +53,9 @@ function createFakeElement(options = {}) {
 	const directBlockChildCount = options.directBlockChildCount || 0;
 
 	return {
+		isConnected: options.isConnected ?? true,
+		innerText: options.innerText || options.textContent || "",
+		textContent: options.textContent || options.innerText || "",
 		tagName: options.tagName || "DIV",
 		children: Array.from({ length: directBlockChildCount }, () => ({
 			matches(selector) {
@@ -70,8 +75,23 @@ function createFakeElement(options = {}) {
 				return linkTexts.map((text) => ({ textContent: text }));
 			}
 
+			if (selector === 'main, article, [role="main"]') {
+				return Array.from({ length: options.nestedRootCount || 0 }, () => ({}));
+			}
+
+			if (selector.includes(".docs-nav-rail") || selector.includes("time")) {
+				return Array.from(
+					{ length: options.unsupportedCount || 0 },
+					() => ({}),
+				);
+			}
+
 			if (selector.includes('[role="button"]')) {
 				return Array.from({ length: interactiveCount }, () => ({}));
+			}
+
+			if (selector.includes("blockquote") && selector.includes("figcaption")) {
+				return Array.from({ length: options.semanticCount || 0 }, () => ({}));
 			}
 
 			return [];
@@ -147,6 +167,56 @@ test("content inside article headers is no longer treated as unsupported", () =>
 			}),
 		),
 		true,
+	);
+});
+
+test("navigation and table-of-contents regions are unsupported", () => {
+	assert.equal(
+		isUnsupportedElement(
+			createFakeElement({
+				ancestorSelectors: ["nav"],
+				matchedSelectors: ["h2"],
+				tagName: "H2",
+			}),
+		),
+		true,
+	);
+
+	assert.equal(
+		isUnsupportedElement(
+			createFakeElement({
+				ancestorSelectors: [".docs-toc-rail"],
+				matchedSelectors: ["p"],
+				tagName: "P",
+			}),
+		),
+		true,
+	);
+});
+
+test("article content roots outrank surrounding docs layout roots", () => {
+	const repeatedText = "Readable documentation paragraph ".repeat(80);
+	const mainLayout = createFakeElement({
+		directBlockChildCount: 2,
+		innerText: repeatedText,
+		interactiveCount: 50,
+		linkTexts: Array.from({ length: 50 }, (_, index) => `Navigation ${index}`),
+		matchedSelectors: ["main"],
+		semanticCount: 32,
+		tagName: "MAIN",
+	});
+	const articleBody = createFakeElement({
+		directBlockChildCount: 13,
+		innerText: repeatedText.slice(0, 1800),
+		interactiveCount: 20,
+		linkTexts: Array.from({ length: 20 }, (_, index) => `Guide ${index}`),
+		matchedSelectors: [".docs-prose"],
+		semanticCount: 30,
+	});
+
+	assert.match(ARTICLE_CONTENT_SELECTOR, /\.docs-prose/);
+	assert.ok(
+		scoreTranslationRoot(articleBody) > scoreTranslationRoot(mainLayout),
 	);
 });
 
