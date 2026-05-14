@@ -20,6 +20,7 @@ function extractJsonObject(text) {
 		}
 	}
 
+	const targetPayloads = [];
 	const itemPayloads = [];
 	const fallbackPayloads = [];
 
@@ -29,7 +30,7 @@ function extractJsonObject(text) {
 				const parsed = JSON.parse(source.slice(start, end));
 
 				if (parsed?.targetLanguage) {
-					return parsed;
+					targetPayloads.push(parsed);
 				}
 
 				if (parsed?.items) {
@@ -45,7 +46,33 @@ function extractJsonObject(text) {
 		}
 	}
 
-	return itemPayloads.at(-1) || fallbackPayloads.at(-1) || null;
+	return (
+		targetPayloads.at(-1) ||
+		itemPayloads.at(-1) ||
+		fallbackPayloads.at(-1) ||
+		null
+	);
+}
+
+function stringifyMessageContent(content) {
+	if (Array.isArray(content)) {
+		return content
+			.map((item) => {
+				if (typeof item === "string") {
+					return item;
+				}
+
+				if (typeof item?.text === "string") {
+					return item.text;
+				}
+
+				return "";
+			})
+			.filter(Boolean)
+			.join("\n");
+	}
+
+	return String(content || "");
 }
 
 function buildMockTranslations(requestPayload) {
@@ -53,7 +80,9 @@ function buildMockTranslations(requestPayload) {
 		? requestPayload.input
 		: [];
 	const userMessage = input.find((item) => item?.role === "user");
-	const sourcePayload = extractJsonObject(userMessage?.content);
+	const sourcePayload = extractJsonObject(
+		stringifyMessageContent(userMessage?.content),
+	);
 	const sourceItems = Array.isArray(sourcePayload?.items)
 		? sourcePayload.items
 		: sourcePayload?.id
@@ -136,4 +165,5 @@ module.exports = {
 	buildMockTranslations,
 	createMockApiServer,
 	extractJsonObject,
+	stringifyMessageContent,
 };
