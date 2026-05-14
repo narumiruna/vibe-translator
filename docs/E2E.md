@@ -11,7 +11,8 @@ This repository now includes Playwright E2E scripts that load the unpacked Chrom
 5. Opens `test/fixture-page.html`
 6. Triggers full-page translation from the background service worker
 7. Triggers selected-text translation from the background service worker
-8. Saves screenshots in `e2e-artifacts/`
+8. Verifies the split helper scripts are loaded in the options page, service worker, and injected content page
+9. Saves screenshots in `e2e-artifacts/`
 
 ## Syosetu Regression Coverage
 
@@ -30,11 +31,12 @@ The smoke suite intentionally avoids Chrome's toolbar button and native context 
 The test still exercises the real extension stack:
 
 1. MV3 service worker
-2. Content script injection
-3. `chrome.storage` settings
-4. Host permission checks
-5. Real API requests
-6. DOM rendering on the target page
+2. Content script injection, including helper-file load order
+3. Options page helper scripts used by prompt preview and Test Connection
+4. `chrome.storage` settings
+5. Host permission checks
+6. Real API requests
+7. DOM rendering on the target page
 
 ## Required Environment Variables
 

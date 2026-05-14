@@ -391,12 +391,25 @@ async function launchExtensionContext(config, originPatterns = []) {
 	};
 }
 
+async function getMissingWindowGlobals(page, globalNames) {
+	return page.evaluate((names) => {
+		return names.filter((name) => typeof window[name] === "undefined");
+	}, globalNames || []);
+}
+
 async function saveOptions(context, extensionId, config, options = {}) {
 	const page = await context.newPage();
 	const optionsUrl = `chrome-extension://${extensionId}/options.html`;
 	const originPattern = getApiPermissionPattern(config.baseUrl);
 
 	await page.goto(optionsUrl, { waitUntil: "domcontentloaded" });
+	if (options.requiredGlobals) {
+		assert.deepEqual(
+			await getMissingWindowGlobals(page, options.requiredGlobals),
+			[],
+			"Expected options page helper scripts to expose all required globals.",
+		);
+	}
 	await page.locator("#api-key").fill(config.apiKey);
 	await page.locator("#base-url").fill(config.baseUrl);
 	await page.locator("#model").fill(config.model);
@@ -469,6 +482,12 @@ async function callBackground(context, operation, payload) {
 				throw new Error("Could not resolve the active tab for smoke testing.");
 			}
 
+			if (type === "getMissingGlobals") {
+				return (innerPayload?.globalNames || []).filter(
+					(name) => typeof globalThis[name] === "undefined",
+				);
+			}
+
 			if (type === "translatePage") {
 				if (typeof translatePage !== "function") {
 					throw new Error(
@@ -522,5 +541,6 @@ module.exports = {
 	saveOptions,
 	takeScreenshot,
 	waitFor,
+	getMissingWindowGlobals,
 	waitForText,
 };

@@ -9,6 +9,7 @@ const {
 	closeExtensionContext,
 	createStaticServer,
 	getConfig,
+	getMissingWindowGlobals,
 	launchExtensionContext,
 	saveOptions,
 	takeScreenshot,
@@ -16,9 +17,54 @@ const {
 } = require("./lib/extension-test-helpers");
 
 const FIXTURE_PATH = "/test/fixture-page.html";
+const REQUIRED_BACKGROUND_GLOBALS = [
+	"TranslatorApi",
+	"TranslatorApiCache",
+	"TranslatorApiChunkPlan",
+	"TranslatorApiResponses",
+	"TranslatorMessages",
+	"TranslatorPageTranslationQueue",
+	"TranslatorProtectedFragments",
+	"TranslatorStorage",
+];
+const REQUIRED_CONTENT_GLOBALS = [
+	"TranslatorContentExtraction",
+	"TranslatorContentViewport",
+	"TranslatorMessages",
+	"TranslatorSelectionPanel",
+];
+const REQUIRED_OPTIONS_GLOBALS = [
+	"TranslatorApi",
+	"TranslatorApiCache",
+	"TranslatorApiChunkPlan",
+	"TranslatorApiResponses",
+	"TranslatorMessages",
+	"TranslatorProtectedFragments",
+	"TranslatorStorage",
+];
 
 function escapeRegExp(value) {
 	return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function expectRuntimeGlobals(page, globalNames, label) {
+	assert.deepEqual(
+		await getMissingWindowGlobals(page, globalNames),
+		[],
+		`Expected ${label} helper scripts to expose all required globals.`,
+	);
+}
+
+async function expectBackgroundGlobals(context) {
+	const missingGlobals = await callBackground(context, "getMissingGlobals", {
+		globalNames: REQUIRED_BACKGROUND_GLOBALS,
+	});
+
+	assert.deepEqual(
+		missingGlobals,
+		[],
+		"Expected service worker helper scripts to expose all required globals.",
+	);
 }
 
 async function expectVisibleText(page, matcher, label) {
@@ -54,6 +100,7 @@ async function runPageTranslationSmoke(context, serverOrigin, artifactsDir) {
 		timeoutMs: REQUEST_TIMEOUT_MS,
 		timeoutMessage: "No completed page translation note appeared.",
 	});
+	await expectRuntimeGlobals(page, REQUIRED_CONTENT_GLOBALS, "content page");
 
 	const noteBodyText = await waitFor(
 		async () => {
@@ -118,6 +165,7 @@ async function runSelectionTranslationSmoke(
 		timeoutMs: REQUEST_TIMEOUT_MS,
 		timeoutMessage: "Selection translation panel did not appear.",
 	});
+	await expectRuntimeGlobals(page, REQUIRED_CONTENT_GLOBALS, "content page");
 	await waitFor(
 		async () => {
 			const state = await panelBody.getAttribute("data-state");
@@ -156,7 +204,9 @@ async function main() {
 		console.log(`Using fixture server: ${server.origin}`);
 		console.log(`Using Chrome profile: ${runState.userDataDir}`);
 
+		await expectBackgroundGlobals(runState.context);
 		await saveOptions(runState.context, runState.extensionId, config, {
+			requiredGlobals: REQUIRED_OPTIONS_GLOBALS,
 			runConnectionTest: true,
 			screenshotName: "options-smoke.png",
 		});
