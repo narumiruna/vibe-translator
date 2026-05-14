@@ -22,6 +22,7 @@ lint:
 
 check:
     @node --check background.js
+    @node --check content-viewport.js
     @node --check content.js
     @node --check storage.js
     @node --check api.js
@@ -47,6 +48,7 @@ zip:
     zip "$$zip_name" \
       manifest.json \
       background.js \
+      content-viewport.js \
       content.js \
       storage.js \
       api.js \
