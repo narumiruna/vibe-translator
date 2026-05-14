@@ -31,6 +31,7 @@ check:
     @node --check api-protected-fragments.js
     @node --check api-cache.js
     @node --check api-chunk-plan.js
+    @node --check api-responses.js
     @node --check api.js
     @node --check translator-messages.js
     @node --check options.js
@@ -64,6 +65,7 @@ zip:
       api-protected-fragments.js \
       api-cache.js \
       api-chunk-plan.js \
+      api-responses.js \
       api.js \
       translator-messages.js \
       options.html \

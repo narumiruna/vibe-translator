@@ -3,6 +3,7 @@ importScripts(
 	"api-protected-fragments.js",
 	"api-cache.js",
 	"api-chunk-plan.js",
+	"api-responses.js",
 	"api.js",
 	"translator-messages.js",
 	"page-translation-session.js",

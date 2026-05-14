@@ -28,7 +28,8 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 | `api-protected-fragments.js` | Placeholder masking and protected fragment validation |
 | `api-cache.js` | Translation cache keying and LRU cache helpers |
 | `api-chunk-plan.js` | Chunk planning, recursive split, and progressive merge helpers |
-| `api.js` | Responses API requests, prompt rendering, and batched request orchestration |
+| `api-responses.js` | Responses API prompt rendering, request building, and response parsing |
+| `api.js` | Translation request caching, retry, and batched request orchestration |
 | `storage.js` | Settings validation, normalization, and persistence |
 | `options.html/css/js` | Settings page UI |
 | `test/` | Node unit tests |
