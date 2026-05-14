@@ -49,10 +49,10 @@ OPENAI_MODEL=gpt-4.1-mini
 TARGET_LANGUAGE=台灣正體中文
 ```
 
-For local smoke testing without a real API key, use the mock OpenAI-compatible API mode instead:
+For local smoke testing without a real API key, use the mock OpenAI-compatible API mode instead. The mock mode starts a local `/v1/models` and `/v1/responses` server and seeds the extension with its base URL:
 
 ```bash
-PLAYWRIGHT_MOCK_API=1 npm run e2e:smoke
+npm run e2e:mock
 ```
 
 ## Optional Environment Variables
