@@ -135,6 +135,23 @@ h1 {
 	letter-spacing: 0.07em;
 }
 
+/* ── Field ─────────────────────────────────────────────────────── */
+.field {
+	display: grid;
+	gap: 6px;
+}
+
+.field > span {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--text);
+	letter-spacing: -0.01em;
+}
+
+.checkbox-field {
+	gap: 8px;
+}
+
 /* Fields inside a form-section get spacing from their parent grid gap */
 .form-section .field,
 .form-section .checkbox-field {
@@ -169,23 +186,6 @@ h1 {
 .form > .checkbox-field {
 	padding: 20px 28px;
 	border-bottom: 1px solid var(--separator);
-}
-
-/* ── Field ─────────────────────────────────────────────────────── */
-.field {
-	display: grid;
-	gap: 6px;
-}
-
-.field > span {
-	font-size: 0.875rem;
-	font-weight: 600;
-	color: var(--text);
-	letter-spacing: -0.01em;
-}
-
-.checkbox-field {
-	gap: 8px;
 }
 
 .checkbox-control {
@@ -411,10 +411,6 @@ textarea[readonly] {
 	gap: 10px;
 }
 
-.actions + .banner {
-	margin-top: 12px;
-}
-
 button {
 	display: inline-flex;
 	align-items: center;
@@ -472,6 +468,10 @@ button.secondary:hover {
 	.banner {
 		color: #30d158;
 	}
+}
+
+.actions + .banner {
+	margin-top: 12px;
 }
 
 .banner.is-error {
