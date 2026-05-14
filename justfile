@@ -24,6 +24,7 @@ check:
     @node --check background.js
     @node --check content-viewport.js
     @node --check content.js
+    @node --check page-translation-session.js
     @node --check storage.js
     @node --check api.js
     @node --check options.js
@@ -50,6 +51,7 @@ zip:
       background.js \
       content-viewport.js \
       content.js \
+      page-translation-session.js \
       storage.js \
       api.js \
       options.html \

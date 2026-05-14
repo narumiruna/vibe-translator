@@ -2,7 +2,7 @@
 	"name": "vibe-translator",
 	"private": true,
 	"scripts": {
-		"check": "node --check background.js && node --check content-viewport.js && node --check content.js && node --check storage.js && node --check api.js && node --check options.js && npm test",
+		"check": "node --check background.js && node --check content-viewport.js && node --check content.js && node --check page-translation-session.js && node --check storage.js && node --check api.js && node --check options.js && npm test",
 		"test": "node --test test/*.test.js",
 		"e2e:smoke": "node e2e/extension-smoke.js",
 		"e2e:syosetu": "node e2e/syosetu-directory.js"

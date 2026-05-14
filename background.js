@@ -1,11 +1,10 @@
-importScripts("storage.js", "api.js");
+importScripts("storage.js", "api.js", "page-translation-session.js");
 
 const MENU_TRANSLATE_PAGE = "translate-page";
 const MENU_TRANSLATE_SELECTION = "translate-selection";
 const BADGE_COLOR = "#1f7a4f";
 const PAGE_TRANSLATION_CONCURRENCY = 5;
 const PAGE_TRANSLATION_BATCH_SIZE = 8;
-const pageTranslationSessions = new Map();
 
 function isSupportedPage(url) {
 	return /^https?:\/\//i.test(String(url || ""));
@@ -506,54 +505,19 @@ async function loadSettingsOrOpenOptions() {
 	throw new Error("Settings are incomplete. Configure the extension first.");
 }
 
-function createPageTranslationSession(tabId, settings) {
-	return {
-		tabId,
-		sessionId: `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-		settings,
-		pendingItems: [],
-		pendingIds: new Set(),
-		translatedIds: new Set(),
-		inFlightCount: 0,
-	};
-}
+const pageTranslationQueue =
+	TranslatorPageTranslationQueue.createPageTranslationQueue({
+		concurrency: PAGE_TRANSLATION_CONCURRENCY,
+		batchSize: PAGE_TRANSLATION_BATCH_SIZE,
+		processBatch: ({ tabId, sessionId, items }) =>
+			processPageTranslationItemBatch(tabId, sessionId, items),
+		onError(error) {
+			console.error("Failed to process page translation item:", error);
+		},
+	});
 
 function getPageTranslationSession(tabId, sessionId) {
-	const session = pageTranslationSessions.get(tabId);
-
-	if (!session) {
-		return null;
-	}
-
-	if (sessionId && session.sessionId !== sessionId) {
-		return null;
-	}
-
-	return session;
-}
-
-async function processQueuedPageTranslationItems(tabId, sessionId) {
-	const session = getPageTranslationSession(tabId, sessionId);
-
-	if (!session) {
-		return;
-	}
-
-	while (
-		session.pendingItems.length > 0 &&
-		session.inFlightCount < PAGE_TRANSLATION_CONCURRENCY
-	) {
-		const items = session.pendingItems.splice(0, PAGE_TRANSLATION_BATCH_SIZE);
-
-		if (items.length === 0) {
-			break;
-		}
-
-		session.inFlightCount += 1;
-		processPageTranslationItemBatch(tabId, sessionId, items).catch((error) => {
-			console.error("Failed to process page translation item:", error);
-		});
-	}
+	return pageTranslationQueue.get(tabId, sessionId);
 }
 
 async function processPageTranslationItemBatch(tabId, sessionId, items) {
@@ -603,9 +567,11 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 					);
 
 				if (completedTranslations.length > 0) {
-					for (const translation of completedTranslations) {
-						currentSession.translatedIds.add(translation.id);
-					}
+					pageTranslationQueue.markTranslated(
+						tabId,
+						sessionId,
+						completedTranslations.map((translation) => translation.id),
+					);
 
 					await renderPageTranslationUpdates(
 						tabId,
@@ -628,68 +594,17 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 		}
 	} catch (error) {
 		if (isTabMessageDisconnectError(error)) {
-			pageTranslationSessions.delete(tabId);
+			pageTranslationQueue.remove(tabId);
 			setBadge(tabId, "");
 			return;
 		}
 
 		throw error;
-	} finally {
-		const currentSession = getPageTranslationSession(tabId, sessionId);
-
-		if (currentSession) {
-			for (const itemId of itemIds) {
-				currentSession.pendingIds.delete(itemId);
-			}
-			currentSession.inFlightCount = Math.max(
-				0,
-				currentSession.inFlightCount - 1,
-			);
-
-			if (currentSession.pendingItems.length > 0) {
-				processQueuedPageTranslationItems(
-					tabId,
-					currentSession.sessionId,
-				).catch((error) => {
-					console.error("Failed to continue page translation queue:", error);
-				});
-			}
-		}
 	}
 }
 
 async function queuePageTranslationItems(tabId, sessionId, items) {
-	const session = getPageTranslationSession(tabId, sessionId);
-
-	if (!session) {
-		return { queued: 0 };
-	}
-
-	const queuedItems = [];
-
-	for (const item of items || []) {
-		if (
-			!item ||
-			typeof item.id !== "string" ||
-			session.pendingIds.has(item.id)
-		) {
-			continue;
-		}
-
-		session.pendingIds.add(item.id);
-		queuedItems.push(item);
-	}
-
-	if (queuedItems.length > 0) {
-		session.pendingItems = queuedItems.concat(session.pendingItems);
-		processQueuedPageTranslationItems(tabId, session.sessionId).catch(
-			(error) => {
-				console.error("Failed to queue page translation items:", error);
-			},
-		);
-	}
-
-	return { queued: queuedItems.length };
+	return pageTranslationQueue.enqueue(tabId, sessionId, items);
 }
 
 async function translatePage(tab) {
@@ -712,9 +627,7 @@ async function translatePage(tab) {
 	}
 
 	await ensureContentScript(tab.id);
-	const session = createPageTranslationSession(tab.id, settings);
-
-	pageTranslationSessions.set(tab.id, session);
+	const session = pageTranslationQueue.create(tab.id, settings);
 
 	const extraction = await chrome.tabs.sendMessage(tab.id, {
 		type: "start-page-translation-session",
@@ -727,7 +640,7 @@ async function translatePage(tab) {
 	});
 
 	if (!extraction || !Array.isArray(extraction.items)) {
-		pageTranslationSessions.delete(tab.id);
+		pageTranslationQueue.remove(tab.id);
 		await sendToast(
 			tab.id,
 			"No translatable text was found on this page.",
@@ -753,7 +666,7 @@ async function translatePage(tab) {
 			return;
 		}
 
-		pageTranslationSessions.delete(tab.id);
+		pageTranslationQueue.remove(tab.id);
 		await sendToast(
 			tab.id,
 			"No translatable text was found on this page.",
@@ -908,7 +821,7 @@ chrome.action.onClicked.addListener(async (tab) => {
 		await translatePage(tab);
 	} catch (error) {
 		if (tab?.id) {
-			pageTranslationSessions.delete(tab.id);
+			pageTranslationQueue.remove(tab.id);
 			await chrome.tabs
 				.sendMessage(tab.id, {
 					type: "clear-pending-translations",
@@ -932,7 +845,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 		}
 	} catch (error) {
 		if (tab?.id) {
-			pageTranslationSessions.delete(tab.id);
+			pageTranslationQueue.remove(tab.id);
 			await chrome.tabs
 				.sendMessage(tab.id, {
 					type: "clear-pending-translations",
@@ -946,13 +859,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 	if (changeInfo.status === "loading") {
-		pageTranslationSessions.delete(tabId);
+		pageTranslationQueue.remove(tabId);
 		setBadge(tabId, "");
 	}
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-	pageTranslationSessions.delete(tabId);
+	pageTranslationQueue.remove(tabId);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
