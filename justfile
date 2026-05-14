@@ -28,6 +28,7 @@ check:
     @node --check page-translation-session.js
     @node --check storage.js
     @node --check api.js
+    @node --check translator-messages.js
     @node --check options.js
     @just test
 
@@ -56,6 +57,7 @@ zip:
       page-translation-session.js \
       storage.js \
       api.js \
+      translator-messages.js \
       options.html \
       options.css \
       options.js \

@@ -272,10 +272,12 @@
 			return;
 		}
 
-		const response = await chrome.runtime.sendMessage({
-			type: "test-connection",
-			payload: validation.settings,
-		});
+		const response = await chrome.runtime.sendMessage(
+			TranslatorMessages.createMessage(
+				TranslatorMessages.MESSAGE_TYPES.TEST_CONNECTION,
+				validation.settings,
+			),
+		);
 
 		if (!response?.ok) {
 			testStatus.textContent = "Connection test failed.";

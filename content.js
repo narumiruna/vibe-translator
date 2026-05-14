@@ -2024,13 +2024,12 @@ const TranslatorContentModule = (() => {
 		}
 
 		try {
-			await chrome.runtime.sendMessage({
-				type: "queue-page-translation-items",
-				payload: {
+			await chrome.runtime.sendMessage(
+				window.TranslatorMessages.queuePageTranslationItems({
 					sessionId: pageState.pageTranslation.sessionId,
 					items: extraction.items,
-				},
-			});
+				}),
+			);
 		} catch (_error) {
 			// Ignore runtime messaging failures on teardown or unsupported pages.
 		}
@@ -2446,6 +2445,7 @@ const TranslatorContentModule = (() => {
 		return { cleared };
 	}
 
+	const MessageTypes = window.TranslatorMessages.MESSAGE_TYPES;
 	const selectionPanelRenderer = window.TranslatorSelectionPanel
 		? window.TranslatorSelectionPanel.createSelectionPanelRenderer({
 				document,
@@ -2543,12 +2543,12 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		if (message.type === "ping") {
+		if (message.type === MessageTypes.PING) {
 			sendResponse({ ok: true });
 			return;
 		}
 
-		if (message.type === "extract-page-content") {
+		if (message.type === MessageTypes.EXTRACT_PAGE_CONTENT) {
 			sendResponse({
 				ok: true,
 				...collectPageItems(),
@@ -2556,7 +2556,7 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		if (message.type === "get-selection-anchor") {
+		if (message.type === MessageTypes.GET_SELECTION_ANCHOR) {
 			sendResponse({
 				ok: true,
 				anchorRect: getSelectionAnchorRect(),
@@ -2564,7 +2564,7 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		if (message.type === "start-page-translation-session") {
+		if (message.type === MessageTypes.START_PAGE_TRANSLATION_SESSION) {
 			sendResponse({
 				ok: true,
 				...startPageTranslationSession(message.payload || {}),
@@ -2572,7 +2572,7 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		if (message.type === "render-page-translations") {
+		if (message.type === MessageTypes.RENDER_PAGE_TRANSLATIONS) {
 			sendResponse({
 				ok: true,
 				...renderPageTranslations(message.payload || {}),
@@ -2580,7 +2580,7 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		if (message.type === "render-page-translation-updates") {
+		if (message.type === MessageTypes.RENDER_PAGE_TRANSLATION_UPDATES) {
 			sendResponse({
 				ok: true,
 				...renderPageTranslations(message.payload || {}),
@@ -2588,7 +2588,7 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		if (message.type === "render-page-placeholders") {
+		if (message.type === MessageTypes.RENDER_PAGE_PLACEHOLDERS) {
 			sendResponse({
 				ok: true,
 				...renderPagePlaceholders(message.payload || {}),
@@ -2596,7 +2596,7 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		if (message.type === "render-selection-translation") {
+		if (message.type === MessageTypes.RENDER_SELECTION_TRANSLATION) {
 			sendResponse({
 				ok: true,
 				...renderSelectionTranslation(message.payload || {}),
@@ -2604,7 +2604,7 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		if (message.type === "render-selection-placeholder") {
+		if (message.type === MessageTypes.RENDER_SELECTION_PLACEHOLDER) {
 			sendResponse({
 				ok: true,
 				...renderSelectionPlaceholder(message.payload || {}),
@@ -2612,7 +2612,7 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		if (message.type === "clear-pending-translations") {
+		if (message.type === MessageTypes.CLEAR_PENDING_TRANSLATIONS) {
 			sendResponse({
 				ok: true,
 				...clearPendingTranslations(),
@@ -2620,7 +2620,7 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		if (message.type === "clear-page-placeholders") {
+		if (message.type === MessageTypes.CLEAR_PAGE_PLACEHOLDERS) {
 			sendResponse({
 				ok: true,
 				...clearPagePlaceholders(message.payload || {}),
@@ -2628,7 +2628,7 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
-		if (message.type === "show-toast") {
+		if (message.type === MessageTypes.SHOW_TOAST) {
 			const payload = message.payload || {};
 			showToast(payload.message || "", payload.level || "info");
 			sendResponse({ ok: true });

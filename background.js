@@ -1,4 +1,9 @@
-importScripts("storage.js", "api.js", "page-translation-session.js");
+importScripts(
+	"storage.js",
+	"api.js",
+	"translator-messages.js",
+	"page-translation-session.js",
+);
 
 const MENU_TRANSLATE_PAGE = "translate-page";
 const MENU_TRANSLATE_SELECTION = "translate-selection";
@@ -132,14 +137,14 @@ async function renderPageTranslationUpdates(
 		return;
 	}
 
-	await chrome.tabs.sendMessage(tabId, {
-		type: "render-page-translation-updates",
-		payload: {
+	await chrome.tabs.sendMessage(
+		tabId,
+		TranslatorMessages.renderPageTranslationUpdates({
 			targetLanguage,
 			translations,
 			...buildTranslationAppearancePayload(settings),
-		},
-	});
+		}),
+	);
 }
 
 async function clearPagePlaceholders(tabId, ids) {
@@ -148,12 +153,12 @@ async function clearPagePlaceholders(tabId, ids) {
 	}
 
 	await chrome.tabs
-		.sendMessage(tabId, {
-			type: "clear-page-placeholders",
-			payload: {
+		.sendMessage(
+			tabId,
+			TranslatorMessages.clearPagePlaceholders({
 				ids,
-			},
-		})
+			}),
+		)
 		.catch(() => {});
 }
 
@@ -173,7 +178,10 @@ async function setupContextMenus() {
 
 async function ensureContentScript(tabId) {
 	try {
-		const response = await chrome.tabs.sendMessage(tabId, { type: "ping" });
+		const response = await chrome.tabs.sendMessage(
+			tabId,
+			TranslatorMessages.ping(),
+		);
 
 		if (response?.ok) {
 			return;
@@ -184,20 +192,25 @@ async function ensureContentScript(tabId) {
 
 	await chrome.scripting.executeScript({
 		target: { tabId },
-		files: ["content-viewport.js", "content-selection-panel.js", "content.js"],
+		files: [
+			"content-viewport.js",
+			"content-selection-panel.js",
+			"translator-messages.js",
+			"content.js",
+		],
 	});
 }
 
 async function sendToast(tabId, message, level) {
 	try {
 		await ensureContentScript(tabId);
-		await chrome.tabs.sendMessage(tabId, {
-			type: "show-toast",
-			payload: {
+		await chrome.tabs.sendMessage(
+			tabId,
+			TranslatorMessages.showToast({
 				level: level || "info",
 				message,
-			},
-		});
+			}),
+		);
 	} catch (_error) {
 		// Ignore toast failures on unsupported pages.
 	}
@@ -534,14 +547,14 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 	const itemIds = batchItems.map((item) => item.id);
 
 	try {
-		await chrome.tabs.sendMessage(tabId, {
-			type: "render-page-placeholders",
-			payload: {
+		await chrome.tabs.sendMessage(
+			tabId,
+			TranslatorMessages.renderPagePlaceholders({
 				ids: itemIds,
 				targetLanguage: session.settings.targetLanguage,
 				...buildTranslationAppearancePayload(session.settings),
-			},
-		});
+			}),
+		);
 
 		const chunkPlan = TranslatorApi.createRecursiveChunkPlan(batchItems);
 		const mergeState = TranslatorApi.createProgressiveMergeState(chunkPlan);
@@ -629,15 +642,15 @@ async function translatePage(tab) {
 	await ensureContentScript(tab.id);
 	const session = pageTranslationQueue.create(tab.id, settings);
 
-	const extraction = await chrome.tabs.sendMessage(tab.id, {
-		type: "start-page-translation-session",
-		payload: {
+	const extraction = await chrome.tabs.sendMessage(
+		tab.id,
+		TranslatorMessages.startPageTranslationSession({
 			sessionId: session.sessionId,
 			targetLanguage: settings.targetLanguage,
 			...buildTranslationAppearancePayload(settings),
 			...buildDebugPayload(settings),
-		},
-	});
+		}),
+	);
 
 	if (!extraction || !Array.isArray(extraction.items)) {
 		pageTranslationQueue.remove(tab.id);
@@ -710,14 +723,14 @@ async function translateSelection(tabId, selectionText, frameId) {
 		settings.selectionPanelPositionMode === "near-selection"
 			? await getSelectionAnchor(tabId, frameId, text)
 			: null;
-	await chrome.tabs.sendMessage(tabId, {
-		type: "render-selection-placeholder",
-		payload: {
+	await chrome.tabs.sendMessage(
+		tabId,
+		TranslatorMessages.renderSelectionPlaceholder({
 			targetLanguage: settings.targetLanguage,
 			...buildTranslationAppearancePayload(settings),
 			...buildSelectionPanelPayload(settings, selectionAnchor),
-		},
-	});
+		}),
+	);
 
 	const chunkPlan = TranslatorApi.createRecursiveChunkPlan([
 		{ id: "selection", kind: "selection", text },
@@ -737,17 +750,17 @@ async function translateSelection(tabId, selectionText, frameId) {
 		throw new Error("The API did not return a translation.");
 	}
 
-	await chrome.tabs.sendMessage(tabId, {
-		type: "render-selection-translation",
-		payload: {
+	await chrome.tabs.sendMessage(
+		tabId,
+		TranslatorMessages.renderSelectionTranslation({
 			sourceText: text,
 			targetLanguage: settings.targetLanguage,
 			...buildTranslationAppearancePayload(settings),
 			...buildSelectionPanelPayload(settings, selectionAnchor),
 			translation,
 			protectedFragments: translations[0]?.protectedFragments || [],
-		},
-	});
+		}),
+	);
 	await sendToast(tabId, "Selected text translated.", "success");
 	setBadge(tabId, "TR");
 }
@@ -757,7 +770,7 @@ async function handleRuntimeMessage(message, sender) {
 		return { ok: false };
 	}
 
-	if (message.type === "test-connection") {
+	if (message.type === TranslatorMessages.MESSAGE_TYPES.TEST_CONNECTION) {
 		const validation = TranslatorStorage.validateSettings(message.payload);
 
 		if (!validation.isValid) {
@@ -782,7 +795,10 @@ async function handleRuntimeMessage(message, sender) {
 		};
 	}
 
-	if (message.type === "queue-page-translation-items") {
+	if (
+		message.type ===
+		TranslatorMessages.MESSAGE_TYPES.QUEUE_PAGE_TRANSLATION_ITEMS
+	) {
 		const tabId = sender?.tab?.id;
 
 		if (!tabId) {
@@ -823,9 +839,7 @@ chrome.action.onClicked.addListener(async (tab) => {
 		if (tab?.id) {
 			pageTranslationQueue.remove(tab.id);
 			await chrome.tabs
-				.sendMessage(tab.id, {
-					type: "clear-pending-translations",
-				})
+				.sendMessage(tab.id, TranslatorMessages.clearPendingTranslations())
 				.catch(() => {});
 			await sendToast(tab.id, error.message, "error");
 			setBadge(tab.id, "!");
@@ -847,9 +861,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 		if (tab?.id) {
 			pageTranslationQueue.remove(tab.id);
 			await chrome.tabs
-				.sendMessage(tab.id, {
-					type: "clear-pending-translations",
-				})
+				.sendMessage(tab.id, TranslatorMessages.clearPendingTranslations())
 				.catch(() => {});
 			await sendToast(tab.id, error.message, "error");
 			setBadge(tab.id, "!");
