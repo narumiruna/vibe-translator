@@ -1,6 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+require("../api-protected-fragments.js");
+require("../api-cache.js");
+
 const {
 	buildResponsesRequest,
 	buildTranslationInput,

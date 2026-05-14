@@ -1,5 +1,7 @@
 importScripts(
 	"storage.js",
+	"api-protected-fragments.js",
+	"api-cache.js",
 	"api.js",
 	"translator-messages.js",
 	"page-translation-session.js",
