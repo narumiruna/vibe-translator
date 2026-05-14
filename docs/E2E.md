@@ -49,6 +49,12 @@ OPENAI_MODEL=gpt-4.1-mini
 TARGET_LANGUAGE=台灣正體中文
 ```
 
+For local smoke testing without a real API key, use the mock OpenAI-compatible API mode instead:
+
+```bash
+PLAYWRIGHT_MOCK_API=1 npm run e2e:smoke
+```
+
 ## Optional Environment Variables
 
 ```bash
@@ -57,6 +63,7 @@ PLAYWRIGHT_CHROME_EXECUTABLE=/custom/path/to/chrome
 PLAYWRIGHT_USER_DATA_DIR=.e2e-user-data
 PLAYWRIGHT_ARTIFACTS_DIR=e2e-artifacts
 PLAYWRIGHT_HEADLESS=0
+PLAYWRIGHT_MOCK_API=0
 ```
 
 If `PLAYWRIGHT_USER_DATA_DIR` is unset, the suite uses a temporary Chromium profile and removes it after the run. Set `PLAYWRIGHT_USER_DATA_DIR=.e2e-user-data` when you want to keep the seeded permission and extension state between runs.
@@ -97,6 +104,10 @@ npm run e2e:smoke
 ```
 
 ```bash
+npm run e2e:mock
+```
+
+```bash
 npm run e2e:syosetu
 ```
 
@@ -104,6 +115,7 @@ Or, using the project command wrapper:
 
 ```bash
 just e2e
+just e2e-mock
 just e2e-syosetu
 ```
 

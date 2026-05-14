@@ -76,16 +76,18 @@ function getBooleanEnvValue(key, fallback) {
 function getConfig() {
 	loadDotEnv(process.env.PLAYWRIGHT_ENV_FILE || DEFAULT_ENV_PATH);
 
-	const apiKey = getEnvValue("OPENAI_API_KEY");
-	const model = getEnvValue("OPENAI_MODEL");
+	const useMockApi = getBooleanEnvValue("PLAYWRIGHT_MOCK_API", false);
+	const apiKey =
+		getEnvValue("OPENAI_API_KEY") || (useMockApi ? "mock-api-key" : "");
+	const model = getEnvValue("OPENAI_MODEL") || (useMockApi ? "mock-model" : "");
 
 	assert.ok(
 		apiKey,
-		"Missing API key. Set OPENAI_API_KEY in the environment or .env.",
+		"Missing API key. Set OPENAI_API_KEY in the environment or .env, or set PLAYWRIGHT_MOCK_API=1.",
 	);
 	assert.ok(
 		model,
-		"Missing model. Set OPENAI_MODEL in the environment or .env.",
+		"Missing model. Set OPENAI_MODEL in the environment or .env, or set PLAYWRIGHT_MOCK_API=1.",
 	);
 
 	const baseUrl = getEnvValue("OPENAI_BASE_URL") || "https://api.openai.com/v1";
@@ -98,6 +100,7 @@ function getConfig() {
 		apiKey,
 		model,
 		baseUrl,
+		useMockApi,
 		targetLanguage,
 		browserChannel,
 		executablePath,
@@ -125,6 +128,127 @@ function getContentType(filePath) {
 		default:
 			return "application/octet-stream";
 	}
+}
+
+function readRequestBody(request) {
+	return new Promise((resolve, reject) => {
+		const chunks = [];
+
+		request.on("data", (chunk) => chunks.push(chunk));
+		request.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+		request.on("error", reject);
+	});
+}
+
+function extractJsonObject(text) {
+	const source = String(text || "");
+	const starts = [];
+
+	for (let index = 0; index < source.length; index += 1) {
+		if (source[index] === "{") {
+			starts.push(index);
+		}
+	}
+
+	for (const start of starts.reverse()) {
+		for (let end = source.length; end > start; end -= 1) {
+			try {
+				const parsed = JSON.parse(source.slice(start, end));
+
+				if (parsed?.targetLanguage || parsed?.items || parsed?.text) {
+					return parsed;
+				}
+			} catch (_error) {
+				// Keep trimming until any prompt suffix is removed.
+			}
+		}
+	}
+
+	return null;
+}
+
+function buildMockTranslations(requestPayload) {
+	const input = Array.isArray(requestPayload?.input)
+		? requestPayload.input
+		: [];
+	const userMessage = input.find((item) => item?.role === "user");
+	const sourcePayload = extractJsonObject(userMessage?.content);
+	const sourceItems = Array.isArray(sourcePayload?.items)
+		? sourcePayload.items
+		: sourcePayload?.id
+			? [sourcePayload]
+			: [{ id: "sample", text: "Hello world." }];
+
+	return sourceItems.map((item) => ({
+		id: String(item.id),
+		translatedText: `[mock:${String(item.text || "").slice(0, 48)}]`,
+	}));
+}
+
+async function createMockApiServer() {
+	const server = http.createServer(async (request, response) => {
+		const requestUrl = new URL(request.url || "/", "http://127.0.0.1");
+
+		if (request.method === "GET" && requestUrl.pathname === "/v1/models") {
+			response.writeHead(200, {
+				"Content-Type": "application/json; charset=utf-8",
+			});
+			response.end(JSON.stringify({ data: [{ id: "mock-model" }] }));
+			return;
+		}
+
+		if (request.method === "POST" && requestUrl.pathname === "/v1/responses") {
+			let requestPayload = {};
+
+			try {
+				requestPayload = JSON.parse(await readRequestBody(request));
+			} catch (_error) {
+				requestPayload = {};
+			}
+
+			const translations = buildMockTranslations(requestPayload);
+
+			response.writeHead(200, {
+				"Content-Type": "application/json; charset=utf-8",
+			});
+			response.end(
+				JSON.stringify({
+					output_parsed: { translations },
+					output_text: JSON.stringify({ translations }),
+				}),
+			);
+			return;
+		}
+
+		response.writeHead(404, {
+			"Content-Type": "application/json; charset=utf-8",
+		});
+		response.end(JSON.stringify({ error: { message: "Not Found" } }));
+	});
+
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", resolve);
+	});
+
+	const address = server.address();
+	const port = typeof address === "object" && address ? address.port : 0;
+
+	return {
+		origin: `http://127.0.0.1:${port}`,
+		baseUrl: `http://127.0.0.1:${port}/v1`,
+		close: () =>
+			new Promise((resolve, reject) => {
+				server.close((error) => {
+					if (error) {
+						reject(error);
+						return;
+					}
+
+					resolve();
+				});
+			}),
+	};
 }
 
 async function createStaticServer(rootDir) {
@@ -260,21 +384,30 @@ async function hasHostPermission(page, originPattern) {
 }
 
 async function waitForText(locator, matcher, timeoutMs, label) {
-	return waitFor(
-		async () => {
-			const text = ((await locator.textContent()) || "").trim();
+	let lastText = "";
 
-			if (matcher.test(text)) {
-				return text;
-			}
+	try {
+		return await waitFor(
+			async () => {
+				const text = ((await locator.textContent()) || "").trim();
 
-			return "";
-		},
-		{
-			timeoutMs,
-			timeoutMessage: `${label} did not match ${matcher}`,
-		},
-	);
+				lastText = text;
+
+				if (matcher.test(text)) {
+					return text;
+				}
+
+				return "";
+			},
+			{
+				timeoutMs,
+				timeoutMessage: `${label} did not match ${matcher}`,
+			},
+		);
+	} catch (error) {
+		error.message = `${error.message}. Last text: ${lastText || "(empty)"}`;
+		throw error;
+	}
 }
 
 async function takeScreenshot(page, artifactsDir, fileName, fullPage = true) {
@@ -414,6 +547,7 @@ async function saveOptions(context, extensionId, config, options = {}) {
 	await page.locator("#base-url").fill(config.baseUrl);
 	await page.locator("#model").fill(config.model);
 	await page.locator("#target-language").fill(config.targetLanguage);
+	await page.locator('[data-tab="appearance"]').click();
 	await page
 		.locator("#selection-panel-position-mode")
 		.selectOption(options.selectionPanelPositionMode || "near-selection");
@@ -445,11 +579,32 @@ async function saveOptions(context, extensionId, config, options = {}) {
 	if (options.runConnectionTest) {
 		await page.locator("#test-button").click();
 
-		const testStatus = await waitForText(
-			page.locator("#test-status"),
+		const testStatus = await waitFor(
+			async () => {
+				const text = (
+					(await page.locator("#test-status").textContent()) || ""
+				).trim();
+
+				return /^Sample translation:/i.test(text) || /failed/i.test(text)
+					? text
+					: "";
+			},
+			{
+				timeoutMs: REQUEST_TIMEOUT_MS,
+				timeoutMessage: "Connection test status did not settle.",
+			},
+		);
+		const testDetails = (
+			(await page.locator("#test-details").textContent()) || ""
+		).trim();
+		const formStatus = (
+			(await page.locator("#form-status").textContent()) || ""
+		).trim();
+
+		assert.match(
+			testStatus,
 			/^Sample translation:/i,
-			REQUEST_TIMEOUT_MS,
-			"Connection test status",
+			`Expected successful connection test. Details: ${testDetails} ${formStatus}`,
 		);
 		assert.doesNotMatch(testStatus, /\(empty\)/i);
 	}
@@ -486,6 +641,19 @@ async function callBackground(context, operation, payload) {
 				return (innerPayload?.globalNames || []).filter(
 					(name) => typeof globalThis[name] === "undefined",
 				);
+			}
+
+			if (type === "getMissingContentGlobals") {
+				const [result] = await chrome.scripting.executeScript({
+					target: { tabId: tab.id },
+					args: [innerPayload?.globalNames || []],
+					func: (globalNames) =>
+						globalNames.filter(
+							(name) => typeof globalThis[name] === "undefined",
+						),
+				});
+
+				return result?.result || [];
 			}
 
 			if (type === "translatePage") {
@@ -534,6 +702,7 @@ module.exports = {
 	REQUEST_TIMEOUT_MS,
 	callBackground,
 	closeExtensionContext,
+	createMockApiServer,
 	createStaticServer,
 	getApiPermissionPattern,
 	getConfig,

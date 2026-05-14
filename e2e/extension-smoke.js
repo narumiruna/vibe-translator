@@ -7,9 +7,9 @@ const {
 	REQUEST_TIMEOUT_MS,
 	callBackground,
 	closeExtensionContext,
+	createMockApiServer,
 	createStaticServer,
 	getConfig,
-	getMissingWindowGlobals,
 	launchExtensionContext,
 	saveOptions,
 	takeScreenshot,
@@ -47,11 +47,20 @@ function escapeRegExp(value) {
 	return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-async function expectRuntimeGlobals(page, globalNames, label) {
+async function expectContentGlobals(context, page) {
+	const missingGlobals = await callBackground(
+		context,
+		"getMissingContentGlobals",
+		{
+			globalNames: REQUIRED_CONTENT_GLOBALS,
+			pageUrl: page.url(),
+		},
+	);
+
 	assert.deepEqual(
-		await getMissingWindowGlobals(page, globalNames),
+		missingGlobals,
 		[],
-		`Expected ${label} helper scripts to expose all required globals.`,
+		"Expected content helper scripts to expose all required globals in the injected world.",
 	);
 }
 
@@ -100,7 +109,7 @@ async function runPageTranslationSmoke(context, serverOrigin, artifactsDir) {
 		timeoutMs: REQUEST_TIMEOUT_MS,
 		timeoutMessage: "No completed page translation note appeared.",
 	});
-	await expectRuntimeGlobals(page, REQUIRED_CONTENT_GLOBALS, "content page");
+	await expectContentGlobals(context, page);
 
 	const noteBodyText = await waitFor(
 		async () => {
@@ -165,7 +174,7 @@ async function runSelectionTranslationSmoke(
 		timeoutMs: REQUEST_TIMEOUT_MS,
 		timeoutMessage: "Selection translation panel did not appear.",
 	});
-	await expectRuntimeGlobals(page, REQUIRED_CONTENT_GLOBALS, "content page");
+	await expectContentGlobals(context, page);
 	await waitFor(
 		async () => {
 			const state = await panelBody.getAttribute("data-state");
@@ -196,12 +205,20 @@ async function runSelectionTranslationSmoke(
 async function main() {
 	const config = getConfig();
 	const server = await createStaticServer(ROOT_DIR);
+	const mockApiServer = config.useMockApi ? await createMockApiServer() : null;
 	const fixtureOriginPattern = `${server.origin}/*`;
 	let runState;
+
+	if (mockApiServer) {
+		config.baseUrl = mockApiServer.baseUrl;
+	}
 
 	try {
 		runState = await launchExtensionContext(config, [fixtureOriginPattern]);
 		console.log(`Using fixture server: ${server.origin}`);
+		if (mockApiServer) {
+			console.log(`Using mock API server: ${mockApiServer.baseUrl}`);
+		}
 		console.log(`Using Chrome profile: ${runState.userDataDir}`);
 
 		await expectBackgroundGlobals(runState.context);
@@ -228,6 +245,7 @@ async function main() {
 		console.log("Selection translation smoke passed.");
 	} finally {
 		await closeExtensionContext(runState);
+		await mockApiServer?.close();
 		await server.close();
 	}
 }
