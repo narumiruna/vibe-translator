@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 require("../api-protected-fragments.js");
 require("../api-cache.js");
+require("../api-chunk-plan.js");
 
 const {
 	buildResponsesRequest,
