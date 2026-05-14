@@ -364,10 +364,11 @@ const TranslatorContentModule = (() => {
         float: none;
         clear: both;
         max-width: 100%;
-        margin: 0.28rem 0 0.76rem;
-        padding: 0;
-        font: 400 0.9em/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-        color: #6c6c70;
+        margin: 0.18rem 0 0.82rem;
+        padding: 0 0 0 0.08rem;
+        font: 400 0.92em/1.62 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        letter-spacing: 0.005em;
+        color: #5f6368;
         text-align: start;
         background: transparent;
         position: static;
@@ -378,24 +379,35 @@ const TranslatorContentModule = (() => {
       }
 
       .translation[${ROOT_ATTR}="note"][data-stale="true"] {
-        opacity: 0.6;
+        opacity: 0.48;
+        filter: grayscale(0.2);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .translation[${ROOT_ATTR}="note"] {
+          color: #b8b8be;
+        }
       }
 
       .translation [${ROOT_ATTR}="note-body"] {
         all: initial;
         display: block;
-        margin-top: 0.15rem;
+        max-width: min(100%, 72ch);
+        margin-top: 0.08rem;
         padding: 0;
         font: inherit;
-        line-height: 1.6;
+        line-height: 1.64;
         color: inherit;
+        opacity: 0.96;
         text-decoration-line: underline;
         text-decoration-color: ${resolvedAppearance.underlineColor};
         text-decoration-style: ${resolvedAppearance.underlineStyle};
         text-decoration-thickness: ${resolvedAppearance.underlineThickness}px;
         text-underline-offset: ${resolvedAppearance.underlineOffset}px;
         white-space: pre-wrap;
-        word-break: break-word;
+        overflow-wrap: anywhere;
+        word-break: normal;
+        hyphens: auto;
       }
 
       .translation [${ROOT_ATTR}="note-body"][data-state="pending"] {
@@ -423,6 +435,13 @@ const TranslatorContentModule = (() => {
         color: #3a3a3c;
         text-decoration: none;
         font: 0.92em/1.4 ui-monospace, "SF Mono", "SFMono-Regular", Menlo, monospace;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .translation [${ROOT_ATTR}="note-body"] code {
+          background: rgba(255, 255, 255, 0.11);
+          color: #f2f2f7;
+        }
       }
 
       [${ROOT_ATTR}="toast-layer"] {
