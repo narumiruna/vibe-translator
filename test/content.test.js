@@ -7,6 +7,7 @@ const originalChrome = global.chrome;
 
 global.window = {
 	__OPENAI_TRANSLATOR_CONTENT__: false,
+	TranslatorContentExtraction: require("../content-extraction.js"),
 	TranslatorMessages: require("../translator-messages.js"),
 	clearTimeout,
 	getComputedStyle() {

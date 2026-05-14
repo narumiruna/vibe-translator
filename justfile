@@ -24,6 +24,7 @@ check:
     @node --check background.js
     @node --check content-viewport.js
     @node --check content-selection-panel.js
+    @node --check content-extraction.js
     @node --check content.js
     @node --check page-translation-session.js
     @node --check storage.js
@@ -53,6 +54,7 @@ zip:
       background.js \
       content-viewport.js \
       content-selection-panel.js \
+      content-extraction.js \
       content.js \
       page-translation-session.js \
       storage.js \
