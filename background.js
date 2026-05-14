@@ -184,7 +184,7 @@ async function ensureContentScript(tabId) {
 
 	await chrome.scripting.executeScript({
 		target: { tabId },
-		files: ["content-viewport.js", "content.js"],
+		files: ["content-viewport.js", "content-selection-panel.js", "content.js"],
 	});
 }
 

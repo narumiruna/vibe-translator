@@ -21,6 +21,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 | `manifest.json` | Manifest V3 configuration |
 | `background.js` | Action click, context menus, permission flow, session orchestration |
 | `content-viewport.js` | Viewport measurement for progressive page translation |
+| `content-selection-panel.js` | Floating selected-text translation panel rendering and positioning |
 | `content.js` | DOM extraction, translation rendering, scroll-driven queuing |
 | `api.js` | Responses API requests, chunking, placeholder masking, and caching |
 | `storage.js` | Settings validation, normalization, and persistence |
