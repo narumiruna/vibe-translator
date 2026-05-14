@@ -67,6 +67,15 @@
 		);
 	}
 
+	function shouldCloseSelectionPanelOnKey(event) {
+		return Boolean(
+			event &&
+				event.key === "Escape" &&
+				!event.defaultPrevented &&
+				!event.isComposing,
+		);
+	}
+
 	function createSelectionPanelRenderer(options = {}) {
 		const rootAttr = options.rootAttr || "data-ot-role";
 		const doc = options.document || root.document;
@@ -93,6 +102,7 @@
 			positionMode: "near-selection",
 			anchorRect: null,
 			expanded: false,
+			keyboardHandlerInstalled: false,
 		};
 
 		function isExpanded() {
@@ -225,8 +235,25 @@
 			}
 		}
 
+		function ensureKeyboardHandler() {
+			if (
+				state.keyboardHandlerInstalled ||
+				typeof doc.addEventListener !== "function"
+			) {
+				return;
+			}
+
+			doc.addEventListener("keydown", (event) => {
+				if (shouldCloseSelectionPanelOnKey(event)) {
+					close();
+				}
+			});
+			state.keyboardHandlerInstalled = true;
+		}
+
 		function getPanel() {
 			ensureStyles();
+			ensureKeyboardHandler();
 			let panel = doc.querySelector(`[${rootAttr}="selection-panel"]`);
 
 			if (panel) {
@@ -387,6 +414,7 @@
 		getSelectionPanelWidth,
 		normalizeSelectionAnchorRect,
 		normalizeSelectionPanelPositionMode,
+		shouldCloseSelectionPanelOnKey,
 	};
 
 	root.TranslatorSelectionPanel = api;

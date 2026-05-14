@@ -5,6 +5,7 @@ const {
 	getSelectionPanelWidth,
 	normalizeSelectionAnchorRect,
 	normalizeSelectionPanelPositionMode,
+	shouldCloseSelectionPanelOnKey,
 } = require("../content-selection-panel.js");
 
 test("normalizeSelectionPanelPositionMode falls back to near-selection", () => {
@@ -59,4 +60,18 @@ test("getSelectionPanelWidth keeps compact and expanded widths within viewport m
 	assert.equal(getSelectionPanelWidth(1024, false), 280);
 	assert.equal(getSelectionPanelWidth(1024, true), 420);
 	assert.equal(getSelectionPanelWidth(300, true), 276);
+});
+
+test("shouldCloseSelectionPanelOnKey only accepts plain Escape", () => {
+	assert.equal(shouldCloseSelectionPanelOnKey({ key: "Escape" }), true);
+	assert.equal(
+		shouldCloseSelectionPanelOnKey({ key: "Escape", defaultPrevented: true }),
+		false,
+	);
+	assert.equal(
+		shouldCloseSelectionPanelOnKey({ key: "Escape", isComposing: true }),
+		false,
+	);
+	assert.equal(shouldCloseSelectionPanelOnKey({ key: "Enter" }), false);
+	assert.equal(shouldCloseSelectionPanelOnKey(null), false);
 });
