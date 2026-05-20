@@ -15,6 +15,8 @@ const BADGE_COLOR = "#1f7a4f";
 const PAGE_TRANSLATION_CONCURRENCY = 5;
 const PAGE_TRANSLATION_BATCH_SIZE = 8;
 
+let contextMenusSetupPromise = null;
+
 function isSupportedPage(url) {
 	return /^https?:\/\//i.test(String(url || ""));
 }
@@ -166,18 +168,97 @@ async function clearPagePlaceholders(tabId, ids) {
 		.catch(() => {});
 }
 
-async function setupContextMenus() {
-	await chrome.contextMenus.removeAll();
-	await chrome.contextMenus.create({
+function getRuntimeLastError() {
+	const error = chrome.runtime.lastError;
+
+	if (!error) {
+		return null;
+	}
+
+	return new Error(error.message || String(error));
+}
+
+function removeAllContextMenus() {
+	return new Promise((resolve, reject) => {
+		chrome.contextMenus.removeAll(() => {
+			const error = getRuntimeLastError();
+
+			if (error) {
+				reject(error);
+				return;
+			}
+
+			resolve();
+		});
+	});
+}
+
+function createContextMenu(properties) {
+	return new Promise((resolve, reject) => {
+		chrome.contextMenus.create(properties, () => {
+			const error = getRuntimeLastError();
+
+			if (error) {
+				reject(error);
+				return;
+			}
+
+			resolve();
+		});
+	});
+}
+
+function updateContextMenu(properties) {
+	const { id, ...updateProperties } = properties;
+
+	return new Promise((resolve, reject) => {
+		chrome.contextMenus.update(id, updateProperties, () => {
+			const error = getRuntimeLastError();
+
+			if (error) {
+				reject(error);
+				return;
+			}
+
+			resolve();
+		});
+	});
+}
+
+async function createOrUpdateContextMenu(properties) {
+	try {
+		await createContextMenu(properties);
+	} catch (error) {
+		if (!String(error.message || "").includes("duplicate id")) {
+			throw error;
+		}
+
+		await updateContextMenu(properties);
+	}
+}
+
+async function doSetupContextMenus() {
+	await removeAllContextMenus();
+	await createOrUpdateContextMenu({
 		id: MENU_TRANSLATE_PAGE,
 		title: "Translate entire page",
 		contexts: ["page"],
 	});
-	await chrome.contextMenus.create({
+	await createOrUpdateContextMenu({
 		id: MENU_TRANSLATE_SELECTION,
 		title: "Translate selected text",
 		contexts: ["selection"],
 	});
+}
+
+function setupContextMenus() {
+	if (!contextMenusSetupPromise) {
+		contextMenusSetupPromise = doSetupContextMenus().finally(() => {
+			contextMenusSetupPromise = null;
+		});
+	}
+
+	return contextMenusSetupPromise;
 }
 
 async function ensureContentScript(tabId) {
