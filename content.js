@@ -27,6 +27,7 @@ const TranslatorContentModule = (() => {
 		READABLE_BLOCK_SELECTOR,
 		SEMANTIC_BLOCK_SELECTOR,
 		SKIP_ANCESTOR_SELECTOR,
+		SOCIAL_TEXT_BLOCK_SELECTOR,
 		TERMINAL_LIKE_SELECTOR,
 		TITLE_LIKE_SELECTOR,
 		UNSUPPORTED_ANCESTOR_SELECTOR,
@@ -126,10 +127,10 @@ const TranslatorContentModule = (() => {
 
 	function estimateTextTokens(text) {
 		if (
-			root.TranslatorApi &&
-			typeof root.TranslatorApi.estimateTokenCount === "function"
+			window.TranslatorApi &&
+			typeof window.TranslatorApi.estimateTokenCount === "function"
 		) {
-			return root.TranslatorApi.estimateTokenCount(text);
+			return window.TranslatorApi.estimateTokenCount(text);
 		}
 
 		const normalized = String(text || "").trim();
@@ -1999,6 +2000,17 @@ const TranslatorContentModule = (() => {
 		return { rendered };
 	}
 
+	function isIdentityTransform(transform) {
+		const normalized = String(transform || "").replace(/\s+/g, "");
+
+		return (
+			!normalized ||
+			normalized === "none" ||
+			normalized === "matrix(1,0,0,1,0,0)" ||
+			normalized === "matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)"
+		);
+	}
+
 	function hasUnsafeLayoutContext(element) {
 		let current = element;
 
@@ -2010,7 +2022,7 @@ const TranslatorContentModule = (() => {
 			const style = window.getComputedStyle(current);
 
 			if (
-				style.transform !== "none" ||
+				!isIdentityTransform(style.transform) ||
 				style.perspective !== "none" ||
 				style.filter !== "none" ||
 				style.backdropFilter !== "none" ||
@@ -2286,10 +2298,14 @@ const TranslatorContentModule = (() => {
 		__TEST__: {
 			detectContentMode,
 			ARTICLE_CONTENT_SELECTOR,
+			DIRECT_NOTE_TARGET_SELECTOR,
 			HEADING_SELECTOR,
+			READABLE_BLOCK_SELECTOR,
+			SOCIAL_TEXT_BLOCK_SELECTOR,
 			TITLE_LIKE_SELECTOR,
 			UNSUPPORTED_ANCESTOR_SELECTOR,
 			UNSUPPORTED_ELEMENT_SELECTOR,
+			_isSafeNoteInsertionTarget,
 			isHeadingLikeElement,
 			isUnsupportedElement,
 			scoreCandidateBlock,

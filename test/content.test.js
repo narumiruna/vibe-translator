@@ -12,13 +12,19 @@ global.window = {
 	clearTimeout,
 	getComputedStyle() {
 		return {
-			visibility: "visible",
+			backdropFilter: "none",
 			display: "block",
+			filter: "none",
+			mixBlendMode: "normal",
+			perspective: "none",
+			transform: "none",
+			visibility: "visible",
 		};
 	},
 	setTimeout,
 };
 global.document = {
+	body: {},
 	querySelectorAll() {
 		return [];
 	},
@@ -33,6 +39,10 @@ global.chrome = {
 
 const {
 	ARTICLE_CONTENT_SELECTOR,
+	DIRECT_NOTE_TARGET_SELECTOR,
+	READABLE_BLOCK_SELECTOR,
+	SOCIAL_TEXT_BLOCK_SELECTOR,
+	_isSafeNoteInsertionTarget,
 	detectContentMode,
 	isHeadingLikeElement,
 	isUnsupportedElement,
@@ -59,6 +69,8 @@ function createFakeElement(options = {}) {
 		innerText: options.innerText || options.textContent || "",
 		textContent: options.textContent || options.innerText || "",
 		tagName: options.tagName || "DIV",
+		parentElement: options.parentElement || null,
+		computedStyle: options.computedStyle || null,
 		children: Array.from({ length: directBlockChildCount }, () => ({
 			matches(selector) {
 				return splitSelector(selector).includes("div");
@@ -256,6 +268,58 @@ test("plain heading blocks keep a positive heading bonus", () => {
 		scoreCandidateBlock(heading, "Section title") >
 			scoreCandidateBlock(nonHeading, "Section title"),
 	);
+});
+
+test("X tweet text blocks are readable direct note targets", () => {
+	assert.ok(READABLE_BLOCK_SELECTOR.includes(SOCIAL_TEXT_BLOCK_SELECTOR));
+	assert.ok(DIRECT_NOTE_TARGET_SELECTOR.includes(SOCIAL_TEXT_BLOCK_SELECTOR));
+
+	const tweetText = createFakeElement({
+		matchedSelectors: [SOCIAL_TEXT_BLOCK_SELECTOR],
+		tagName: "DIV",
+	});
+
+	assert.ok(scoreCandidateBlock(tweetText, "Short status") >= 40);
+});
+
+test("identity transforms do not block direct note insertion targets", () => {
+	const body = {};
+	const parent = {
+		computedStyle: {
+			backdropFilter: "none",
+			filter: "none",
+			mixBlendMode: "normal",
+			perspective: "none",
+			transform: "matrix(1, 0, 0, 1, 0, 0)",
+		},
+		matches() {
+			return false;
+		},
+		parentElement: body,
+		tagName: "DIV",
+	};
+	const tweetText = createFakeElement({
+		matchedSelectors: [SOCIAL_TEXT_BLOCK_SELECTOR],
+		parentElement: parent,
+		tagName: "DIV",
+	});
+
+	global.document.body = body;
+	global.window.getComputedStyle = (element) =>
+		element.computedStyle || {
+			backdropFilter: "none",
+			display: "block",
+			filter: "none",
+			mixBlendMode: "normal",
+			perspective: "none",
+			transform: "none",
+			visibility: "visible",
+		};
+
+	assert.equal(_isSafeNoteInsertionTarget(tweetText), true);
+
+	parent.computedStyle.transform = "matrix(1, 0, 0, 1, 0, 12)";
+	assert.equal(_isSafeNoteInsertionTarget(tweetText), false);
 });
 
 test.after(() => {

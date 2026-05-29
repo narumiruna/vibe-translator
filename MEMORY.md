@@ -10,6 +10,7 @@
 - For fixed overlays that switch from corner anchoring to explicit `top`/`left` positioning, also clear the opposite edges with `right: auto` and `bottom: auto`; otherwise the box can stretch to the viewport edge.
 - When a message payload adds new UI state like selection anchors or display mode, verify those fields are forwarded through every render wrapper, not just the background-to-content send.
 - Reusing a Playwright Chromium persistent profile after a crashed run can leave `Singleton*` lock files behind; clear them before the next `launchPersistentContext` or Chromium may exit immediately.
+- Symptom: X/Twitter post pages show no translatable text or cannot render a note. Cause: tweet bodies are `div[data-testid="tweetText"]`, and X may wrap them in an identity CSS transform. Fix: treat tweet text as a readable direct note target and allow identity transforms in note insertion checks.
 
 ## TASTE
 - Selection translation UI should default to a compact tooltip-sized card; long content can expand, but the default should prefer density over empty space.

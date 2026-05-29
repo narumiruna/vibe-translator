@@ -49,17 +49,20 @@
 		".description",
 		".p-novel__summary",
 	].join(", ");
+	const SOCIAL_TEXT_BLOCK_SELECTOR = ['[data-testid="tweetText"]'].join(", ");
 	const DIRECTORY_SECTION_TITLE_SELECTOR = ".p-eplist__chapter-title";
 	const READABLE_LINK_SELECTOR = ".p-eplist__subtitle";
 	const READABLE_BLOCK_SELECTOR = [
 		SEMANTIC_BLOCK_SELECTOR,
 		HEADING_SELECTOR,
 		SUMMARY_BLOCK_SELECTOR,
+		SOCIAL_TEXT_BLOCK_SELECTOR,
 		DIRECTORY_SECTION_TITLE_SELECTOR,
 		READABLE_LINK_SELECTOR,
 	].join(", ");
 	const DIRECT_NOTE_TARGET_SELECTOR = [
 		SUMMARY_BLOCK_SELECTOR,
+		SOCIAL_TEXT_BLOCK_SELECTOR,
 		DIRECTORY_SECTION_TITLE_SELECTOR,
 	].join(", ");
 	const DIRECT_BLOCK_CHILD_SELECTOR = [
@@ -326,10 +329,12 @@
 		const linkDensity = getElementLinkDensity(element, textLength);
 		const isHeading = isHeadingLikeElement(element);
 		const isTitleLink = isReadableTitleLink(element);
+		const isSocialTextBlock = element.matches(SOCIAL_TEXT_BLOCK_SELECTOR);
 		const base = Math.min(320, textLength);
 		const semanticBonus = element.matches(SEMANTIC_BLOCK_SELECTOR) ? 60 : 0;
 		const headingBonus = isHeading ? 140 : 0;
 		const summaryBonus = element.matches(SUMMARY_BLOCK_SELECTOR) ? 140 : 0;
+		const socialTextBonus = isSocialTextBlock ? 160 : 0;
 		const readableLinkBonus = isTitleLink ? 320 : 0;
 		const linkPenalty =
 			isHeading || isTitleLink ? linkDensity * 60 : linkDensity * 280;
@@ -341,6 +346,7 @@
 			semanticBonus +
 			headingBonus +
 			summaryBonus +
+			socialTextBonus +
 			readableLinkBonus -
 			linkPenalty -
 			linkCountPenalty -
@@ -437,6 +443,7 @@
 		READABLE_LINK_SELECTOR,
 		SEMANTIC_BLOCK_SELECTOR,
 		SKIP_ANCESTOR_SELECTOR,
+		SOCIAL_TEXT_BLOCK_SELECTOR,
 		SUMMARY_BLOCK_SELECTOR,
 		TERMINAL_LIKE_SELECTOR,
 		TITLE_LIKE_SELECTOR,
