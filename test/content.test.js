@@ -245,22 +245,25 @@ test("site-owned translation class is not treated as extension-owned", () => {
 	assert.equal(isTranslatorOwned(extensionBlock), true);
 });
 
-test("source id allocation does not reuse removed ids", () => {
+test("source id allocation scans existing ids once and stays monotonic", () => {
 	const originalQuerySelectorAll = global.document.querySelectorAll;
+	let scanCount = 0;
 
 	try {
 		_resetSourceIdCounterForTest();
-		global.document.querySelectorAll = () => [
-			{ getAttribute: () => "ot-3" },
-			{ getAttribute: () => "ot-7" },
-		];
+		global.document.querySelectorAll = () => {
+			scanCount += 1;
+
+			return scanCount === 1
+				? [{ getAttribute: () => "ot-3" }, { getAttribute: () => "ot-7" }]
+				: [{ getAttribute: () => "ot-100" }];
+		};
 
 		assert.equal(_getHighestSourceIdCounter(), 7);
+		scanCount = 0;
 		assert.equal(_allocateSourceId(), "ot-8");
-
-		global.document.querySelectorAll = () => [{ getAttribute: () => "ot-1" }];
-
 		assert.equal(_allocateSourceId(), "ot-9");
+		assert.equal(scanCount, 1);
 	} finally {
 		global.document.querySelectorAll = originalQuerySelectorAll;
 		_resetSourceIdCounterForTest();

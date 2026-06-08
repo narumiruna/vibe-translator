@@ -48,7 +48,7 @@ const TranslatorContentModule = (() => {
 	let observerFlushTimer = null;
 	let staleFlushTimer = null;
 	let visibleTranslationFlushTimer = null;
-	let sourceIdCounter = 0;
+	let sourceIdCounter = null;
 	let sourceTextSnapshots = new WeakMap();
 	const pendingStaleSources = new Set();
 	const pendingObserverMutations = [];
@@ -934,15 +934,23 @@ const TranslatorContentModule = (() => {
 		return highest;
 	}
 
+	function initializeSourceIdCounter() {
+		if (sourceIdCounter !== null) {
+			return;
+		}
+
+		sourceIdCounter = getHighestSourceIdCounter();
+	}
+
 	function allocateSourceId() {
-		sourceIdCounter = Math.max(sourceIdCounter, getHighestSourceIdCounter());
+		initializeSourceIdCounter();
 		sourceIdCounter += 1;
 
 		return `ot-${sourceIdCounter}`;
 	}
 
 	function resetSourceIdCounterForTest() {
-		sourceIdCounter = 0;
+		sourceIdCounter = null;
 	}
 
 	function rememberSourceText(element, text) {
