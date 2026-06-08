@@ -46,4 +46,4 @@ The review found that `frameId` is used for selection anchor lookup but not for 
 - [ ] CI syntax coverage matches local shipped-script checks, verified by `.github/workflows/ci.yml` inspection and `npm run check` output.
 - [ ] Local mock e2e status is known, verified by `npm ci` if needed and `npm run e2e:mock` pass output or a documented concrete environment blocker.
 - [ ] Manual QA documentation covers iframe selection, table cells, partial API failures, and dynamic mutation behavior, verified by `docs/TESTING.md` entries.
-- [ ] Final quality gates are recorded, verified by `biome format --write && biome lint --write`, `npx biome lint .`, `npm run check`, and `npm run e2e:mock` outputs or documented blockers.
+- [ ] Final quality gates are recorded, verified by `biome format --write && biome lint --write`, `npm run check`, and `npm run e2e:mock` outputs or documented blockers.
