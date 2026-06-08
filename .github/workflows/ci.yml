@@ -27,13 +27,5 @@ jobs:
       - name: Run Biome lint
         run: biome lint
 
-      - name: Syntax check
-        run: |
-          node --check background.js
-          node --check content.js
-          node --check storage.js
-          node --check api.js
-          node --check options.js
-
-      - name: Run tests
-        run: node --test test/*.test.js
+      - name: Run check
+        run: npm run check

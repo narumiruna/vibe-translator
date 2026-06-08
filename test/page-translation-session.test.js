@@ -87,6 +87,37 @@ test("page translation queue deduplicates pending item ids", async () => {
 	assert.deepEqual(processed, ["a", "b"]);
 });
 
+test("page translation queue recovers after synchronous batch errors", async () => {
+	const errors = [];
+	const processed = [];
+	const queue = createPageTranslationQueue({
+		concurrency: 1,
+		batchSize: 1,
+		onError(error) {
+			errors.push(error.message);
+		},
+		processBatch({ items }) {
+			const id = items[0]?.id;
+
+			if (id === "a") {
+				throw new Error("sync failure");
+			}
+
+			processed.push(id);
+		},
+	});
+	const session = queue.create(5, {});
+
+	queue.enqueue(5, session.sessionId, [{ id: "a" }, { id: "b" }]);
+	await nextTick();
+	await nextTick();
+	await nextTick();
+
+	assert.deepEqual(errors, ["sync failure"]);
+	assert.deepEqual(processed, ["b"]);
+	assert.equal(queue.get(5, session.sessionId).inFlightCount, 0);
+});
+
 test("page translation queue ignores stale session ids", () => {
 	const queue = createPageTranslationQueue();
 	const session = queue.create(3, {});

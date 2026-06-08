@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Partial Failure Fixture</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        line-height: 1.6;
+        max-width: 720px;
+        margin: 40px auto;
+        padding: 0 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <article>
+      <h1>Partial translation failure fixture</h1>
+      <p>This paragraph should still translate when another chunk fails.</p>
+      <p>Force mock failure chunk for partial failure coverage.</p>
+      <p>This final paragraph should also keep its successful translation.</p>
+    </article>
+  </body>
+</html>

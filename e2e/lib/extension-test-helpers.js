@@ -12,6 +12,25 @@ const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const DEFAULT_ENV_PATH = path.join(ROOT_DIR, ".env");
 const DEFAULT_ARTIFACTS_DIR = path.join(ROOT_DIR, "e2e-artifacts");
 const REQUEST_TIMEOUT_MS = 120000;
+const EXTENSION_FILES = [
+	"manifest.json",
+	"background.js",
+	"content-viewport.js",
+	"content-selection-panel.js",
+	"content-extraction.js",
+	"content.js",
+	"page-translation-session.js",
+	"storage.js",
+	"api-protected-fragments.js",
+	"api-cache.js",
+	"api-chunk-plan.js",
+	"api-responses.js",
+	"api.js",
+	"translator-messages.js",
+	"options.html",
+	"options.css",
+	"options.js",
+];
 
 function loadDotEnv(filePath) {
 	if (!fs.existsSync(filePath)) {
@@ -192,6 +211,30 @@ async function ensureDir(dirPath) {
 	await fsp.mkdir(dirPath, { recursive: true });
 }
 
+async function createE2eExtensionDir(userDataDir, permissionPatterns) {
+	const extensionDir = path.join(userDataDir, "extension-under-test");
+
+	await ensureDir(extensionDir);
+
+	for (const relativePath of EXTENSION_FILES) {
+		const sourcePath = path.join(ROOT_DIR, relativePath);
+		const targetPath = path.join(extensionDir, relativePath);
+
+		await ensureDir(path.dirname(targetPath));
+		await fsp.copyFile(sourcePath, targetPath);
+	}
+
+	const manifestPath = path.join(extensionDir, "manifest.json");
+	const manifest = JSON.parse(await fsp.readFile(manifestPath, "utf8"));
+
+	manifest.host_permissions = Array.from(
+		new Set([...(manifest.host_permissions || []), ...permissionPatterns]),
+	);
+	await fsp.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+
+	return extensionDir;
+}
+
 async function clearChromiumProfileLocks(userDataDir) {
 	const lockNames = [
 		"SingletonCookie",
@@ -208,22 +251,17 @@ async function clearChromiumProfileLocks(userDataDir) {
 	}
 }
 
-function createLaunchOptions(config, forceHeadless) {
+function createLaunchOptions(config, forceHeadless, extensionDir = ROOT_DIR) {
 	return {
 		headless: forceHeadless ?? config.headless,
 		channel: config.executablePath ? undefined : config.browserChannel,
 		executablePath: config.executablePath || undefined,
 		ignoreDefaultArgs: ["--disable-extensions"],
 		args: [
-			`--disable-extensions-except=${ROOT_DIR}`,
-			`--load-extension=${ROOT_DIR}`,
+			`--disable-extensions-except=${extensionDir}`,
+			`--load-extension=${extensionDir}`,
 		],
 	};
-}
-
-async function readJsonFile(filePath) {
-	const content = await fsp.readFile(filePath, "utf8");
-	return JSON.parse(content);
 }
 
 async function waitFor(predicate, options = {}) {
@@ -254,13 +292,6 @@ async function getServiceWorker(context) {
 	}
 
 	return context.waitForEvent("serviceworker", { timeout: REQUEST_TIMEOUT_MS });
-}
-
-async function hasHostPermission(page, originPattern) {
-	return page.evaluate(
-		async (pattern) => chrome.permissions.contains({ origins: [pattern] }),
-		originPattern,
-	);
 }
 
 async function waitForText(locator, matcher, timeoutMs, label) {
@@ -297,73 +328,6 @@ async function takeScreenshot(page, artifactsDir, fileName, fullPage = true) {
 	});
 }
 
-async function getExtensionIdFromPreferences(userDataDir) {
-	const preferencesPath = path.join(userDataDir, "Default", "Preferences");
-
-	return waitFor(
-		async () => {
-			if (!fs.existsSync(preferencesPath)) {
-				return "";
-			}
-
-			const preferences = await readJsonFile(preferencesPath);
-			const extensionEntries = Object.entries(
-				preferences?.extensions?.settings || {},
-			);
-
-			for (const [extensionId, entry] of extensionEntries) {
-				if (path.resolve(entry?.path || "") === ROOT_DIR) {
-					return extensionId;
-				}
-			}
-
-			return "";
-		},
-		{
-			timeoutMs: REQUEST_TIMEOUT_MS,
-			timeoutMessage:
-				"Could not resolve the unpacked extension id from the Chromium profile.",
-		},
-	);
-}
-
-async function seedHostPermission(userDataDir, originPattern) {
-	const preferencesPath = path.join(userDataDir, "Default", "Preferences");
-	const preferences = await readJsonFile(preferencesPath);
-	const extensionEntries = Object.values(
-		preferences?.extensions?.settings || {},
-	);
-	const extensionEntry = extensionEntries.find(
-		(entry) => path.resolve(entry?.path || "") === ROOT_DIR,
-	);
-
-	if (!extensionEntry) {
-		throw new Error(
-			"Could not find the unpacked extension entry in Chromium preferences.",
-		);
-	}
-
-	for (const permissionBucket of [
-		"active_permissions",
-		"granted_permissions",
-	]) {
-		const existingHosts = Array.isArray(
-			extensionEntry?.[permissionBucket]?.explicit_host,
-		)
-			? extensionEntry[permissionBucket].explicit_host
-			: [];
-
-		if (!existingHosts.includes(originPattern)) {
-			extensionEntry[permissionBucket].explicit_host = [
-				...existingHosts,
-				originPattern,
-			];
-		}
-	}
-
-	await fsp.writeFile(preferencesPath, JSON.stringify(preferences));
-}
-
 async function launchExtensionContext(config, originPatterns = []) {
 	const userDataDir = config.userDataDir
 		? path.resolve(ROOT_DIR, config.userDataDir)
@@ -377,27 +341,29 @@ async function launchExtensionContext(config, originPatterns = []) {
 
 	await ensureDir(userDataDir);
 	await ensureDir(config.artifactsDir);
+	const extensionDir = await createE2eExtensionDir(
+		userDataDir,
+		permissionPatterns,
+	);
 	await clearChromiumProfileLocks(userDataDir);
 
-	const bootstrapContext = await chromium.launchPersistentContext(
+	const discoveryContext = await chromium.launchPersistentContext(
 		userDataDir,
-		createLaunchOptions(config, true),
+		createLaunchOptions(config, undefined, extensionDir),
 	);
-	await bootstrapContext.close();
-
-	const extensionId = await getExtensionIdFromPreferences(userDataDir);
-	for (const originPattern of permissionPatterns) {
-		await seedHostPermission(userDataDir, originPattern);
-	}
+	const discoveryWorker = await getServiceWorker(discoveryContext);
+	const extensionId = new URL(discoveryWorker.url()).hostname;
+	await discoveryContext.close();
 	await clearChromiumProfileLocks(userDataDir);
 
 	const context = await chromium.launchPersistentContext(
 		userDataDir,
-		createLaunchOptions(config),
+		createLaunchOptions(config, undefined, extensionDir),
 	);
 
 	return {
 		context,
+		extensionDir,
 		extensionId,
 		userDataDir,
 		isTemporaryUserDataDir: !config.userDataDir,
@@ -431,12 +397,6 @@ async function saveOptions(context, extensionId, config, options = {}) {
 	await page
 		.locator("#selection-panel-position-mode")
 		.selectOption(options.selectionPanelPositionMode || "near-selection");
-
-	assert.equal(
-		await hasHostPermission(page, originPattern),
-		true,
-		`Expected seeded host permission for ${originPattern} before saving settings.`,
-	);
 
 	await page.locator("#save-button").click();
 	await waitForText(
@@ -557,8 +517,30 @@ async function callBackground(context, operation, payload) {
 					);
 				}
 
-				await translateSelection(tab.id, innerPayload.selectionText, 0);
-				return { tabId: tab.id };
+				let frameId = Number.isInteger(innerPayload?.frameId)
+					? innerPayload.frameId
+					: 0;
+
+				if (innerPayload?.frameUrl) {
+					const frameResults = await chrome.scripting.executeScript({
+						target: { tabId: tab.id, allFrames: true },
+						func: () => location.href,
+					});
+					const frameResult = frameResults.find(
+						(result) => result.result === innerPayload.frameUrl,
+					);
+
+					if (!frameResult) {
+						throw new Error(
+							`Could not resolve frame id for ${innerPayload.frameUrl}`,
+						);
+					}
+
+					frameId = frameResult.frameId;
+				}
+
+				await translateSelection(tab.id, innerPayload.selectionText, frameId);
+				return { tabId: tab.id, frameId };
 			}
 
 			throw new Error(`Unsupported background operation: ${type}`);

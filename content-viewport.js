@@ -2,19 +2,31 @@
 	const DEFAULT_PREFETCH_VIEWPORTS = 2;
 	const DEFAULT_TOP_MARGIN = 96;
 
+	function normalizeNumberOption(value, fallback) {
+		const numeric = Number(value);
+
+		return Number.isFinite(numeric) ? numeric : fallback;
+	}
+
 	function normalizeViewportOptions(options) {
-		const viewportHeight = Math.max(0, Number(options?.viewportHeight) || 0);
+		const viewportHeight = Math.max(
+			0,
+			normalizeNumberOption(options?.viewportHeight, 0),
+		);
 		const prefetchViewports = Math.max(
 			0,
-			Number(options?.prefetchViewports) || DEFAULT_PREFETCH_VIEWPORTS,
+			normalizeNumberOption(
+				options?.prefetchViewports,
+				DEFAULT_PREFETCH_VIEWPORTS,
+			),
 		);
 		const topPrefetchViewports = Math.max(
 			0,
-			Number(options?.topPrefetchViewports) || prefetchViewports,
+			normalizeNumberOption(options?.topPrefetchViewports, prefetchViewports),
 		);
 		const topMargin = Math.max(
 			0,
-			Number(options?.topMargin) || DEFAULT_TOP_MARGIN,
+			normalizeNumberOption(options?.topMargin, DEFAULT_TOP_MARGIN),
 		);
 
 		return {

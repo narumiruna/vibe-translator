@@ -18,6 +18,23 @@ test("normalizeViewportOptions fills defaults", () => {
 	});
 });
 
+test("normalizeViewportOptions preserves explicit zero values", () => {
+	assert.deepEqual(
+		normalizeViewportOptions({
+			viewportHeight: 720,
+			prefetchViewports: 0,
+			topPrefetchViewports: 0,
+			topMargin: 0,
+		}),
+		{
+			viewportHeight: 720,
+			prefetchViewports: 0,
+			topPrefetchViewports: 0,
+			topMargin: 0,
+		},
+	);
+});
+
 test("isRectWithinTranslationWindow includes visible and prefetched blocks", () => {
 	const options = { viewportHeight: 800, prefetchViewports: 1, topMargin: 96 };
 

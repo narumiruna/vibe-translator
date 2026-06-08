@@ -6,6 +6,7 @@ const {
 	DEFAULT_SYSTEM_PROMPT_TEMPLATE,
 	DEFAULT_USER_PROMPT_TEMPLATE,
 	getApiPermissionPattern,
+	getSettings,
 	lintPromptTemplates,
 	migrateLegacyPromptSettings,
 	normalizeDisabledDomains,
@@ -177,4 +178,42 @@ test("normalizeSelectionPanelPositionMode falls back to near-selection", () => {
 		normalizeSelectionPanelPositionMode("somewhere"),
 		"near-selection",
 	);
+});
+
+test("getSettings returns migrated and normalized stored settings", async () => {
+	const originalChrome = global.chrome;
+
+	global.chrome = {
+		storage: {
+			sync: {
+				get: async () => ({
+					settings: {
+						apiKey: " sk-demo ",
+						baseUrl: " https://example.com/v1/// ",
+						model: " demo-model ",
+						instructions: "Translate carefully.",
+						targetLanguage: " 日本語 ",
+						disabledDomains: "Example.COM, docs.example.com",
+					},
+				}),
+			},
+		},
+	};
+
+	try {
+		const settings = await getSettings();
+
+		assert.equal(settings.apiKey, "sk-demo");
+		assert.equal(settings.baseUrl, "https://example.com/v1");
+		assert.equal(settings.model, "demo-model");
+		assert.equal(settings.targetLanguage, "日本語");
+		assert.match(settings.systemPromptTemplate, /^Translate carefully\./);
+		assert.equal(settings.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+		assert.equal(
+			settings.disabledDomains,
+			"example.com\ndocs.example.com",
+		);
+	} finally {
+		global.chrome = originalChrome;
+	}
 });

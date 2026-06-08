@@ -187,6 +187,36 @@
 		});
 	}
 
+	function validateTranslationCoverage(items, translations) {
+		const expectedIds = (items || [])
+			.map((item) => item?.id)
+			.filter((id) => typeof id === "string");
+		const expectedIdSet = new Set(expectedIds);
+		const seenIds = new Set();
+
+		for (const translation of translations || []) {
+			const id = translation?.id;
+
+			if (!expectedIdSet.has(id)) {
+				throw new Error(`Translation response included unknown id: ${id}`);
+			}
+
+			if (seenIds.has(id)) {
+				throw new Error(`Translation response included duplicate id: ${id}`);
+			}
+
+			seenIds.add(id);
+		}
+
+		const missingIds = expectedIds.filter((id) => !seenIds.has(id));
+
+		if (missingIds.length > 0) {
+			throw new Error(
+				`Translation response missing id(s): ${missingIds.join(", ")}`,
+			);
+		}
+	}
+
 	async function callResponsesApi(settings, items, fetchImpl) {
 		const requestPayload = buildResponsesRequest(settings, items);
 		const response = await fetchImpl(`${settings.baseUrl}/responses`, {
@@ -220,6 +250,7 @@
 
 		const translations = parseTranslationResponse(payload);
 
+		validateTranslationCoverage(items, translations);
 		validateProtectedFragments(items, translations);
 
 		return translations;
@@ -235,6 +266,7 @@
 		parseTranslationResponse,
 		renderPromptTemplate,
 		stripCodeFences,
+		validateTranslationCoverage,
 	};
 
 	root.TranslatorApiResponses = api;

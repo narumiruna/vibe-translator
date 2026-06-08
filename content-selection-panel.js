@@ -114,6 +114,8 @@
 				return;
 			}
 
+			panel.setAttribute("data-expanded", isExpanded() ? "true" : "false");
+
 			const normalizedText = String(body.textContent || "")
 				.replace(/\s+/g, " ")
 				.trim();
@@ -228,11 +230,15 @@
 		function close() {
 			const panel = doc.querySelector(`[${rootAttr}="selection-panel"]`);
 
-			if (panel) {
-				withObserverPaused(() => {
-					panel.remove();
-				});
+			if (!panel) {
+				return { cleared: 0 };
 			}
+
+			withObserverPaused(() => {
+				panel.remove();
+			});
+
+			return { cleared: 1 };
 		}
 
 		function ensureKeyboardHandler() {
