@@ -4,6 +4,14 @@ const assert = require("node:assert/strict");
 const originalWindow = global.window;
 const originalDocument = global.document;
 const originalChrome = global.chrome;
+const originalNode = global.Node;
+
+global.Node = {
+	DOCUMENT_POSITION_FOLLOWING: 4,
+	DOCUMENT_POSITION_PRECEDING: 2,
+	ELEMENT_NODE: 1,
+	TEXT_NODE: 3,
+};
 
 global.window = {
 	__OPENAI_TRANSLATOR_CONTENT__: false,
@@ -42,9 +50,19 @@ const {
 	DIRECT_NOTE_TARGET_SELECTOR,
 	READABLE_BLOCK_SELECTOR,
 	SOCIAL_TEXT_BLOCK_SELECTOR,
+	_allocateSourceId,
+	_getHighestSourceIdCounter,
+	_getNoteElementTagName,
+	_hasSourceTextChanged,
 	_isSafeNoteInsertionTarget,
+	_rememberSourceText,
+	_resetSourceIdCounterForTest,
+	_resetSourceTextSnapshotsForTest,
+	_shouldAppendNoteInsideTarget,
 	detectContentMode,
 	isHeadingLikeElement,
+	isInsideTranslation,
+	isTranslatorOwned,
 	isUnsupportedElement,
 	scoreCandidateBlock,
 	scoreTranslationRoot,
@@ -208,6 +226,86 @@ test("navigation and table-of-contents regions are unsupported", () => {
 	);
 });
 
+test("site-owned translation class is not treated as extension-owned", () => {
+	const siteTranslationBlock = createFakeElement({
+		ancestorSelectors: [".translation"],
+		matchedSelectors: ["p"],
+		tagName: "P",
+	});
+	const extensionBlock = createFakeElement({
+		ancestorSelectors: ['[data-ot-role]'],
+		matchedSelectors: ["p"],
+		tagName: "P",
+	});
+
+	assert.equal(isInsideTranslation(siteTranslationBlock), false);
+	assert.equal(isTranslatorOwned(siteTranslationBlock), false);
+	assert.equal(isUnsupportedElement(siteTranslationBlock), false);
+	assert.equal(isInsideTranslation(extensionBlock), true);
+	assert.equal(isTranslatorOwned(extensionBlock), true);
+});
+
+test("source id allocation scans existing ids once and stays monotonic", () => {
+	const originalQuerySelectorAll = global.document.querySelectorAll;
+	let scanCount = 0;
+
+	try {
+		_resetSourceIdCounterForTest();
+		global.document.querySelectorAll = () => {
+			scanCount += 1;
+
+			return scanCount === 1
+				? [{ getAttribute: () => "ot-3" }, { getAttribute: () => "ot-7" }]
+				: [{ getAttribute: () => "ot-100" }];
+		};
+
+		assert.equal(_getHighestSourceIdCounter(), 7);
+		scanCount = 0;
+		assert.equal(_allocateSourceId(), "ot-8");
+		assert.equal(_allocateSourceId(), "ot-9");
+		assert.equal(scanCount, 1);
+	} finally {
+		global.document.querySelectorAll = originalQuerySelectorAll;
+		_resetSourceIdCounterForTest();
+	}
+});
+
+test("table cell notes use structure-preserving insertion helpers", () => {
+	assert.equal(_getNoteElementTagName({ tagName: "TD" }), "div");
+	assert.equal(_getNoteElementTagName({ tagName: "TH" }), "div");
+	assert.equal(_shouldAppendNoteInsideTarget({ tagName: "TD" }), true);
+	assert.equal(_shouldAppendNoteInsideTarget({ tagName: "P" }), false);
+});
+
+test("source text snapshots ignore unchanged mutations", () => {
+	const textNode = {
+		nodeType: global.Node.TEXT_NODE,
+		textContent: "Alpha text",
+	};
+	const element = {
+		childNodes: [textNode],
+		closest() {
+			return null;
+		},
+		getAttribute() {
+			return null;
+		},
+		matches() {
+			return false;
+		},
+		nodeType: global.Node.ELEMENT_NODE,
+		tagName: "P",
+	};
+
+	_resetSourceTextSnapshotsForTest();
+	_rememberSourceText(element, "Alpha text");
+	assert.equal(_hasSourceTextChanged(element), false);
+
+	textNode.textContent = "Beta text";
+	assert.equal(_hasSourceTextChanged(element), true);
+	_resetSourceTextSnapshotsForTest();
+});
+
 test("article content roots outrank surrounding docs layout roots", () => {
 	const repeatedText = "Readable documentation paragraph ".repeat(80);
 	const mainLayout = createFakeElement({
@@ -326,4 +424,5 @@ test.after(() => {
 	global.window = originalWindow;
 	global.document = originalDocument;
 	global.chrome = originalChrome;
+	global.Node = originalNode;
 });

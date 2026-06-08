@@ -106,14 +106,15 @@
 
 				session.inFlightCount += 1;
 
-				Promise.resolve(
-					processBatch({
-						tabId,
-						sessionId,
-						items,
-						session,
-					}),
-				)
+				Promise.resolve()
+					.then(() =>
+						processBatch({
+							tabId,
+							sessionId,
+							items,
+							session,
+						}),
+					)
 					.catch((error) => {
 						onError(error, {
 							tabId,

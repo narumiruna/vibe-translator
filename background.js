@@ -58,6 +58,20 @@ function isTabMessageDisconnectError(error) {
 	);
 }
 
+function getFrameMessageOptions(frameId) {
+	return Number.isInteger(frameId) && frameId >= 0 ? { frameId } : undefined;
+}
+
+function getScriptTarget(tabId, frameId) {
+	const target = { tabId };
+
+	if (Number.isInteger(frameId) && frameId >= 0) {
+		target.frameIds = [frameId];
+	}
+
+	return target;
+}
+
 function buildTranslationAppearancePayload(settings) {
 	const appearance = TranslatorStorage.normalizeTranslationAppearance(settings);
 
@@ -168,6 +182,20 @@ async function clearPagePlaceholders(tabId, ids) {
 		.catch(() => {});
 }
 
+async function clearSelectionTranslation(tabId, frameId) {
+	if (!tabId) {
+		return;
+	}
+
+	await chrome.tabs
+		.sendMessage(
+			tabId,
+			TranslatorMessages.clearSelectionTranslation(),
+			getFrameMessageOptions(frameId),
+		)
+		.catch(() => {});
+}
+
 function getRuntimeLastError() {
 	const error = chrome.runtime.lastError;
 
@@ -261,11 +289,12 @@ function setupContextMenus() {
 	return contextMenusSetupPromise;
 }
 
-async function ensureContentScript(tabId) {
+async function ensureContentScript(tabId, frameId) {
 	try {
 		const response = await chrome.tabs.sendMessage(
 			tabId,
 			TranslatorMessages.ping(),
+			getFrameMessageOptions(frameId),
 		);
 
 		if (response?.ok) {
@@ -276,7 +305,7 @@ async function ensureContentScript(tabId) {
 	}
 
 	await chrome.scripting.executeScript({
-		target: { tabId },
+		target: getScriptTarget(tabId, frameId),
 		files: [
 			"content-viewport.js",
 			"content-selection-panel.js",
@@ -644,44 +673,45 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 
 		const chunkPlan = TranslatorApi.createRecursiveChunkPlan(batchItems);
 		const mergeState = TranslatorApi.createProgressiveMergeState(chunkPlan);
-		await TranslatorApi.requestTranslationsBatchedProgressive({
-			settings: session.settings,
-			chunks: chunkPlan.chunks,
-			concurrency: Math.min(
-				PAGE_TRANSLATION_CONCURRENCY,
-				chunkPlan.chunks.length || 1,
-			),
-			onChunkResolved: async ({ translations }) => {
-				const currentSession = getPageTranslationSession(tabId, sessionId);
+		const progressiveResult =
+			await TranslatorApi.requestTranslationsBatchedProgressive({
+				settings: session.settings,
+				chunks: chunkPlan.chunks,
+				concurrency: Math.min(
+					PAGE_TRANSLATION_CONCURRENCY,
+					chunkPlan.chunks.length || 1,
+				),
+				onChunkResolved: async ({ translations }) => {
+					const currentSession = getPageTranslationSession(tabId, sessionId);
 
-				if (!currentSession) {
-					return;
-				}
+					if (!currentSession) {
+						return;
+					}
 
-				const completedTranslations =
-					TranslatorApi.consumeProgressiveTranslations(
-						chunkPlan,
-						mergeState,
-						translations,
-					);
+					const completedTranslations =
+						TranslatorApi.consumeProgressiveTranslations(
+							chunkPlan,
+							mergeState,
+							translations,
+						);
 
-				if (completedTranslations.length > 0) {
-					pageTranslationQueue.markTranslated(
-						tabId,
-						sessionId,
-						completedTranslations.map((translation) => translation.id),
-					);
+					if (completedTranslations.length > 0) {
+						pageTranslationQueue.markTranslated(
+							tabId,
+							sessionId,
+							completedTranslations.map((translation) => translation.id),
+						);
 
-					await renderPageTranslationUpdates(
-						tabId,
-						currentSession.settings.targetLanguage,
-						completedTranslations,
-						currentSession.settings,
-					);
-					setBadge(tabId, String(currentSession.translatedIds.size));
-				}
-			},
-		});
+						await renderPageTranslationUpdates(
+							tabId,
+							currentSession.settings.targetLanguage,
+							completedTranslations,
+							currentSession.settings,
+						);
+						setBadge(tabId, String(currentSession.translatedIds.size));
+					}
+				},
+			});
 
 		const incompleteSegmentIds = TranslatorApi.getIncompleteSegmentIds(
 			chunkPlan,
@@ -690,6 +720,18 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 
 		if (incompleteSegmentIds.length > 0) {
 			await clearPagePlaceholders(tabId, incompleteSegmentIds);
+		}
+
+		if (progressiveResult.failures.length > 0) {
+			const failedCount =
+				incompleteSegmentIds.length || progressiveResult.failures.length;
+
+			setBadge(tabId, "!");
+			await sendToast(
+				tabId,
+				`Failed to translate ${failedCount} page item${failedCount === 1 ? "" : "s"}. Successful translations were kept.`,
+				"error",
+			);
 		}
 	} catch (error) {
 		if (isTabMessageDisconnectError(error)) {
@@ -804,11 +846,12 @@ async function translateSelection(tabId, selectionText, frameId) {
 		);
 	}
 
-	await ensureContentScript(tabId);
+	await ensureContentScript(tabId, frameId);
 	const selectionAnchor =
 		settings.selectionPanelPositionMode === "near-selection"
 			? await getSelectionAnchor(tabId, frameId, text)
 			: null;
+	const frameMessageOptions = getFrameMessageOptions(frameId);
 	await chrome.tabs.sendMessage(
 		tabId,
 		TranslatorMessages.renderSelectionPlaceholder({
@@ -816,39 +859,46 @@ async function translateSelection(tabId, selectionText, frameId) {
 			...buildTranslationAppearancePayload(settings),
 			...buildSelectionPanelPayload(settings, selectionAnchor),
 		}),
+		frameMessageOptions,
 	);
 
-	const chunkPlan = TranslatorApi.createRecursiveChunkPlan([
-		{ id: "selection", kind: "selection", text },
-	]);
-	const partialTranslations = await TranslatorApi.requestTranslationsBatched({
-		settings,
-		chunks: chunkPlan.chunks,
-		concurrency: 1,
-	});
-	const translations = TranslatorApi.mergeRecursiveTranslations(
-		chunkPlan,
-		partialTranslations,
-	);
-	const translation = translations[0]?.translation;
+	try {
+		const chunkPlan = TranslatorApi.createRecursiveChunkPlan([
+			{ id: "selection", kind: "selection", text },
+		]);
+		const partialTranslations = await TranslatorApi.requestTranslationsBatched({
+			settings,
+			chunks: chunkPlan.chunks,
+			concurrency: 1,
+		});
+		const translations = TranslatorApi.mergeRecursiveTranslations(
+			chunkPlan,
+			partialTranslations,
+		);
+		const translation = translations[0]?.translation;
 
-	if (!translation) {
-		throw new Error("The API did not return a translation.");
+		if (!translation) {
+			throw new Error("The API did not return a translation.");
+		}
+
+		await chrome.tabs.sendMessage(
+			tabId,
+			TranslatorMessages.renderSelectionTranslation({
+				sourceText: text,
+				targetLanguage: settings.targetLanguage,
+				...buildTranslationAppearancePayload(settings),
+				...buildSelectionPanelPayload(settings, selectionAnchor),
+				translation,
+				protectedFragments: translations[0]?.protectedFragments || [],
+			}),
+			frameMessageOptions,
+		);
+		await sendToast(tabId, "Selected text translated.", "success");
+		setBadge(tabId, "TR");
+	} catch (error) {
+		await clearSelectionTranslation(tabId, frameId);
+		throw error;
 	}
-
-	await chrome.tabs.sendMessage(
-		tabId,
-		TranslatorMessages.renderSelectionTranslation({
-			sourceText: text,
-			targetLanguage: settings.targetLanguage,
-			...buildTranslationAppearancePayload(settings),
-			...buildSelectionPanelPayload(settings, selectionAnchor),
-			translation,
-			protectedFragments: translations[0]?.protectedFragments || [],
-		}),
-	);
-	await sendToast(tabId, "Selected text translated.", "success");
-	setBadge(tabId, "TR");
 }
 
 async function handleRuntimeMessage(message, sender) {

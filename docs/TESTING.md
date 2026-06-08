@@ -31,12 +31,13 @@
 4. Confirm deeper content below that window does not start translating yet
 5. Confirm each completed translation is inserted after the source block instead of replacing the original text
 6. Confirm headings remain headings, list items remain list items, and table cells remain table cells
-7. Confirm translations use the saved underline appearance settings
-8. Confirm the action badge changes from empty to a numeric count as page translations complete
-9. Scroll downward and confirm newly visible blocks are queued and translated automatically
-10. Right-click a blank area and choose **Translate entire page** again
-11. Confirm existing notes are updated in place instead of duplicated
-12. Confirm there is no per-block display toggle UI and no page-level display mode toolbar
+7. On `test/fixture-page.html`, confirm table-cell translations render inside cells and do not add extra table columns
+8. Confirm translations use the saved underline appearance settings
+9. Confirm the action badge changes from empty to a numeric count as page translations complete
+10. Scroll downward and confirm newly visible blocks are queued and translated automatically
+11. Right-click a blank area and choose **Translate entire page** again
+12. Confirm existing notes are updated in place instead of duplicated
+13. Confirm there is no per-block display toggle UI and no page-level display mode toolbar
 
 ## Selection translation
 
@@ -52,6 +53,7 @@
 10. Run selection translation again and confirm the panel can be reopened normally
 11. Confirm the action badge shows `TR` after a successful selection translation
 12. Switch **Selection Translation Panel** to **Bottom-right corner** and confirm the panel opens near the bottom-right instead
+13. Select text inside the iframe on `test/fixture-page.html` and confirm the panel appears inside that iframe, not in the top page
 
 ## Protected fragments
 
@@ -66,8 +68,9 @@
 1. Start page translation on a page that can be edited or updated after translation begins
 2. Change the text of an already translated block, or use a page that injects additional readable content dynamically
 3. Confirm the previous translation note becomes visually stale before the updated content is re-queued
-4. Confirm the changed block is translated again once it is within the active translation window
-5. Confirm newly inserted readable blocks are picked up when they scroll into view
+4. Confirm toggling a class or style without changing text does not make the previous translation note stale or re-queue the block
+5. Confirm the changed block is translated again once it is within the active translation window
+6. Confirm newly inserted readable blocks are picked up when they scroll into view
 
 ## Disabled domains
 
@@ -95,4 +98,6 @@
 4. Remove `{{sourcePayload}}` from the user prompt template and confirm save validation fails
 5. Click **Test Connection**, deny the API origin permission request, and confirm the options page shows a permission-related error state
 6. Deny API origin permission during page or selection translation and confirm an error toast is shown on the page
-7. Open `chrome://extensions/` and confirm translation is rejected safely without injecting UI
+7. Simulate one failed page-translation API chunk and confirm successful translations remain while a partial-failure toast is shown
+8. Simulate a selected-text API failure and confirm the pending selection panel is removed or replaced by an error state
+9. Open `chrome://extensions/` and confirm translation is rejected safely without injecting UI

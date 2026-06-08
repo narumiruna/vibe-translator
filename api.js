@@ -72,7 +72,7 @@
 		} catch (error) {
 			if (
 				error instanceof SyntaxError ||
-				/Response JSON|Unexpected token|missing id|parsed output|translations array|Protected placeholder/i.test(
+				/Response JSON|Unexpected token|missing id|duplicate id|unknown id|parsed output|translations array|Protected placeholder/i.test(
 					error.message,
 				)
 			) {

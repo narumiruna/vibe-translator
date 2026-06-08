@@ -95,7 +95,10 @@ function buildMockTranslations(requestPayload) {
 	}));
 }
 
-async function createMockApiServer() {
+async function createMockApiServer(options = {}) {
+	const state = {
+		failOnTextIncludes: options.failOnTextIncludes || "",
+	};
 	const server = http.createServer(async (request, response) => {
 		const requestUrl = new URL(request.url || "/", "http://127.0.0.1");
 
@@ -114,6 +117,21 @@ async function createMockApiServer() {
 				requestPayload = JSON.parse(await readRequestBody(request));
 			} catch (_error) {
 				requestPayload = {};
+			}
+
+			if (
+				state.failOnTextIncludes &&
+				JSON.stringify(requestPayload).includes(state.failOnTextIncludes)
+			) {
+				response.writeHead(500, {
+					"Content-Type": "application/json; charset=utf-8",
+				});
+				response.end(
+					JSON.stringify({
+						error: { message: "Mock translation failure." },
+					}),
+				);
+				return;
 			}
 
 			const translations = buildMockTranslations(requestPayload);
@@ -147,6 +165,9 @@ async function createMockApiServer() {
 	return {
 		origin: `http://127.0.0.1:${port}`,
 		baseUrl: `http://127.0.0.1:${port}/v1`,
+		setFailOnTextIncludes(value) {
+			state.failOnTextIncludes = String(value || "");
+		},
 		close: () =>
 			new Promise((resolve, reject) => {
 				server.close((error) => {

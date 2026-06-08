@@ -105,7 +105,6 @@
 		'[role="math"]',
 		'[aria-hidden="true"]',
 		'[contenteditable="true"]',
-		".translation",
 		"[data-ot-role]",
 	].join(", ");
 	const INTERACTIVE_SELECTOR =

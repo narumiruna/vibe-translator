@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 require("../api-protected-fragments.js");
 require("../api-cache.js");
 require("../api-chunk-plan.js");
-require("../api-responses.js");
+const { validateTranslationCoverage } = require("../api-responses.js");
 
 const {
 	buildResponsesRequest,
@@ -384,6 +384,100 @@ test("validateProtectedFragments rejects missing placeholders", () => {
 			[{ id: "1", translation: "你好" }],
 		);
 	}, /Protected placeholder/);
+});
+
+test("validateTranslationCoverage rejects missing duplicate and unknown ids", () => {
+	const items = [
+		{ id: "a", text: "Alpha" },
+		{ id: "b", text: "Beta" },
+	];
+
+	assert.throws(
+		() => validateTranslationCoverage(items, [{ id: "a", translation: "甲" }]),
+		/missing id/i,
+	);
+	assert.throws(
+		() =>
+			validateTranslationCoverage(items, [
+				{ id: "a", translation: "甲" },
+				{ id: "a", translation: "乙" },
+			]),
+		/duplicate id/i,
+	);
+	assert.throws(
+		() =>
+			validateTranslationCoverage(items, [
+				{ id: "a", translation: "甲" },
+				{ id: "c", translation: "丙" },
+			]),
+		/unknown id/i,
+	);
+});
+
+test("requestTranslations retries incomplete coverage before caching", async () => {
+	clearTranslationCache();
+
+	let calls = 0;
+	const fakeFetch = async () => {
+		calls += 1;
+
+		if (calls === 1) {
+			return {
+				ok: true,
+				text: async () =>
+					JSON.stringify({
+						output_parsed: {
+							translations: [{ id: "a", translation: "甲" }],
+						},
+					}),
+			};
+		}
+
+		return {
+			ok: true,
+			text: async () =>
+				JSON.stringify({
+					output_parsed: {
+						translations: [
+							{ id: "a", translation: "甲" },
+							{ id: "b", translation: "乙" },
+						],
+					},
+				}),
+		};
+	};
+	const settings = buildSettings({ model: "demo-coverage" });
+	const items = [
+		{ id: "a", kind: "paragraph", text: "Alpha", protectedFragments: [] },
+		{ id: "b", kind: "paragraph", text: "Beta", protectedFragments: [] },
+	];
+
+	const result = await requestTranslations({
+		settings,
+		items,
+		fetchImpl: fakeFetch,
+	});
+
+	assert.equal(calls, 2);
+	assert.deepEqual(result, [
+		{ id: "a", translation: "甲" },
+		{ id: "b", translation: "乙" },
+	]);
+
+	const cached = await requestTranslations({
+		settings,
+		items: [
+			{ id: "c", kind: "paragraph", text: "Alpha", protectedFragments: [] },
+			{ id: "d", kind: "paragraph", text: "Beta", protectedFragments: [] },
+		],
+		fetchImpl: fakeFetch,
+	});
+
+	assert.equal(calls, 2);
+	assert.deepEqual(cached, [
+		{ id: "c", translation: "甲" },
+		{ id: "d", translation: "乙" },
+	]);
 });
 
 test("requestTranslationsBatched runs chunks in parallel and preserves chunk order", async () => {

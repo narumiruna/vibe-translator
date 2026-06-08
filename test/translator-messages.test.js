@@ -24,4 +24,7 @@ test("message builders use shared message types", () => {
 			},
 		},
 	);
+	assert.deepEqual(TranslatorMessages.clearSelectionTranslation(), {
+		type: TranslatorMessages.MESSAGE_TYPES.CLEAR_SELECTION_TRANSLATION,
+	});
 });

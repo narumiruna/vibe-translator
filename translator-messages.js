@@ -2,6 +2,7 @@
 	const MESSAGE_TYPES = Object.freeze({
 		CLEAR_PAGE_PLACEHOLDERS: "clear-page-placeholders",
 		CLEAR_PENDING_TRANSLATIONS: "clear-pending-translations",
+		CLEAR_SELECTION_TRANSLATION: "clear-selection-translation",
 		EXTRACT_PAGE_CONTENT: "extract-page-content",
 		GET_SELECTION_ANCHOR: "get-selection-anchor",
 		PING: "ping",
@@ -33,6 +34,9 @@
 		},
 		clearPendingTranslations() {
 			return createMessage(MESSAGE_TYPES.CLEAR_PENDING_TRANSLATIONS);
+		},
+		clearSelectionTranslation() {
+			return createMessage(MESSAGE_TYPES.CLEAR_SELECTION_TRANSLATION);
 		},
 		createMessage,
 		ping() {

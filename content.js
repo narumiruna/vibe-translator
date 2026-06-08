@@ -48,25 +48,41 @@ const TranslatorContentModule = (() => {
 	let observerFlushTimer = null;
 	let staleFlushTimer = null;
 	let visibleTranslationFlushTimer = null;
+	let sourceIdCounter = null;
+	let sourceTextSnapshots = new WeakMap();
 	const pendingStaleSources = new Set();
 	const pendingObserverMutations = [];
 	const ViewportApi = window.TranslatorContentViewport || {
 		DEFAULT_PREFETCH_VIEWPORTS: 2,
 		DEFAULT_TOP_MARGIN: 96,
 		normalizeViewportOptions(options) {
+			const normalizeNumberOption = (value, fallback) => {
+				const numeric = Number(value);
+
+				return Number.isFinite(numeric) ? numeric : fallback;
+			};
 			const prefetchViewports = Math.max(
 				0,
-				Number(options?.prefetchViewports) || PREFETCH_VIEWPORTS,
+				normalizeNumberOption(options?.prefetchViewports, PREFETCH_VIEWPORTS),
 			);
 
 			return {
-				viewportHeight: Math.max(0, Number(options?.viewportHeight) || 0),
+				viewportHeight: Math.max(
+					0,
+					normalizeNumberOption(options?.viewportHeight, 0),
+				),
 				prefetchViewports,
 				topPrefetchViewports: Math.max(
 					0,
-					Number(options?.topPrefetchViewports) || prefetchViewports,
+					normalizeNumberOption(
+						options?.topPrefetchViewports,
+						prefetchViewports,
+					),
 				),
-				topMargin: Math.max(0, Number(options?.topMargin) || 96),
+				topMargin: Math.max(
+					0,
+					normalizeNumberOption(options?.topMargin, 96),
+				),
 			};
 		},
 		isRectWithinTranslationWindow(rect, options) {
@@ -780,7 +796,7 @@ const TranslatorContentModule = (() => {
 	}
 
 	function isInsideTranslation(element) {
-		return Boolean(element?.closest?.(".translation"));
+		return Boolean(element?.closest?.(`[${ROOT_ATTR}]`));
 	}
 
 	const isUnsupportedElement = ExtractionApi.isUnsupportedElement;
@@ -902,6 +918,63 @@ const TranslatorContentModule = (() => {
 		const meaningfulChars = normalized.replace(/[\s\p{P}\p{S}]/gu, "");
 
 		return meaningfulChars.length >= 2;
+	}
+
+	function getHighestSourceIdCounter() {
+		let highest = 0;
+
+		for (const element of document.querySelectorAll(`[${SOURCE_ATTR}]`)) {
+			const match = /^ot-(\d+)$/.exec(element.getAttribute(SOURCE_ATTR) || "");
+
+			if (match) {
+				highest = Math.max(highest, Number(match[1]) || 0);
+			}
+		}
+
+		return highest;
+	}
+
+	function initializeSourceIdCounter() {
+		if (sourceIdCounter !== null) {
+			return;
+		}
+
+		sourceIdCounter = getHighestSourceIdCounter();
+	}
+
+	function allocateSourceId() {
+		initializeSourceIdCounter();
+		sourceIdCounter += 1;
+
+		return `ot-${sourceIdCounter}`;
+	}
+
+	function resetSourceIdCounterForTest() {
+		sourceIdCounter = null;
+	}
+
+	function rememberSourceText(element, text) {
+		if (element) {
+			sourceTextSnapshots.set(element, String(text || ""));
+		}
+	}
+
+	function hasSourceTextChanged(element) {
+		if (!element) {
+			return false;
+		}
+
+		const previousText = sourceTextSnapshots.get(element);
+
+		if (typeof previousText !== "string") {
+			return true;
+		}
+
+		return getSegmentContent(element).text !== previousText;
+	}
+
+	function resetSourceTextSnapshotsForTest() {
+		sourceTextSnapshots = new WeakMap();
 	}
 
 	function createProtectedPlaceholder(context, fragment) {
@@ -1099,7 +1172,7 @@ const TranslatorContentModule = (() => {
 	const hasSelectedRelative = ExtractionApi.hasSelectedRelative;
 
 	function isTranslatorOwned(element) {
-		return Boolean(element?.closest?.(`[${ROOT_ATTR}], .translation`));
+		return Boolean(element?.closest?.(`[${ROOT_ATTR}]`));
 	}
 
 	function classifySegment(element, content) {
@@ -1250,7 +1323,7 @@ const TranslatorContentModule = (() => {
 
 		const id = element.getAttribute(SOURCE_ATTR);
 
-		if (!id) {
+		if (!id || !hasSourceTextChanged(element)) {
 			return;
 		}
 
@@ -1394,21 +1467,22 @@ const TranslatorContentModule = (() => {
 		observerStarted = true;
 	}
 
-	function buildSegmentItem(element, counterRef, analysis) {
+	function buildSegmentItem(element, analysis) {
 		const content = analysis?.content || getSegmentContent(element);
 		const classification =
 			analysis?.classification || classifySegment(element, content);
 		let itemId = element.getAttribute(SOURCE_ATTR);
 
 		if (!itemId) {
-			counterRef.value += 1;
-			itemId = `ot-${counterRef.value}`;
+			itemId = allocateSourceId();
 		}
 
 		element.setAttribute(SOURCE_ATTR, itemId);
 		if (!element.hasAttribute(QUEUED_ATTR)) {
 			element.setAttribute(QUEUED_ATTR, "false");
 		}
+
+		rememberSourceText(element, content.text);
 
 		return {
 			id: itemId,
@@ -1457,9 +1531,6 @@ const TranslatorContentModule = (() => {
 		const windowCandidates = [];
 		const totalElements = [];
 		const selectedElements = [];
-		const counterRef = {
-			value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length,
-		};
 		const root = profile?.root;
 		const elements = getCandidateElements(root);
 		const windowed = Boolean(options?.windowed) && profile?.windowed !== false;
@@ -1488,7 +1559,7 @@ const TranslatorContentModule = (() => {
 				continue;
 			}
 
-			const item = buildSegmentItem(element, counterRef, analysis);
+			const item = buildSegmentItem(element, analysis);
 			selectedElements.push(element);
 			debugSelect("leaf block", element);
 			recordExtractionDebugSelect(debugState, item);
@@ -1512,9 +1583,6 @@ const TranslatorContentModule = (() => {
 	}
 
 	function collectFallbackItems(profile, options, debugState) {
-		const counterRef = {
-			value: document.querySelectorAll(`[${SOURCE_ATTR}]`).length,
-		};
 		const seen = new Set();
 		const selectedElements = [];
 		const items = [];
@@ -1593,7 +1661,7 @@ const TranslatorContentModule = (() => {
 				);
 
 				if (shouldQueue) {
-					const item = buildSegmentItem(anchor, counterRef, analysis);
+					const item = buildSegmentItem(anchor, analysis);
 					selectedElements.push(anchor);
 					debugSelect("leaf block", anchor);
 					recordExtractionDebugSelect(debugState, item);
@@ -1702,7 +1770,26 @@ const TranslatorContentModule = (() => {
 			? sourceElement.tagName.toLowerCase()
 			: "p";
 
+		if (tagName === "td" || tagName === "th") {
+			return "div";
+		}
+
 		return tagName === "a" || tagName === "span" ? "p" : tagName;
+	}
+
+	function shouldAppendNoteInsideTarget(element) {
+		const tagName = element?.tagName ? element.tagName.toLowerCase() : "";
+
+		return tagName === "td" || tagName === "th";
+	}
+
+	function insertNoteForTarget(insertionTarget, note) {
+		if (shouldAppendNoteInsideTarget(insertionTarget)) {
+			insertionTarget.appendChild(note);
+			return;
+		}
+
+		insertionTarget.insertAdjacentElement("afterend", note);
 	}
 
 	function buildNote(sourceElement, id) {
@@ -1957,7 +2044,7 @@ const TranslatorContentModule = (() => {
 			note.removeAttribute("data-stale");
 
 			if (!existingNote) {
-				insertionTarget.insertAdjacentElement("afterend", note);
+				insertNoteForTarget(insertionTarget, note);
 			}
 		});
 
@@ -1990,7 +2077,7 @@ const TranslatorContentModule = (() => {
 				setNotePending(note, payload.targetLanguage);
 
 				if (!note.isConnected) {
-					insertionTarget.insertAdjacentElement("afterend", note);
+					insertNoteForTarget(insertionTarget, note);
 				}
 			});
 			setSourceQueued(element, true);
@@ -2128,6 +2215,14 @@ const TranslatorContentModule = (() => {
 		}
 
 		return selectionPanelRenderer.renderPlaceholder(payload);
+	}
+
+	function clearSelectionTranslation() {
+		if (!selectionPanelRenderer) {
+			return { cleared: 0 };
+		}
+
+		return selectionPanelRenderer.close();
 	}
 
 	function clearPendingTranslations() {
@@ -2276,6 +2371,14 @@ const TranslatorContentModule = (() => {
 			return;
 		}
 
+		if (message.type === MessageTypes.CLEAR_SELECTION_TRANSLATION) {
+			sendResponse({
+				ok: true,
+				...clearSelectionTranslation(),
+			});
+			return;
+		}
+
 		if (message.type === MessageTypes.CLEAR_PAGE_PLACEHOLDERS) {
 			sendResponse({
 				ok: true,
@@ -2306,7 +2409,17 @@ const TranslatorContentModule = (() => {
 			UNSUPPORTED_ANCESTOR_SELECTOR,
 			UNSUPPORTED_ELEMENT_SELECTOR,
 			_isSafeNoteInsertionTarget,
+			_getHighestSourceIdCounter: getHighestSourceIdCounter,
+			_getNoteElementTagName: getNoteElementTagName,
+			_allocateSourceId: allocateSourceId,
+			_hasSourceTextChanged: hasSourceTextChanged,
+			_rememberSourceText: rememberSourceText,
+			_resetSourceIdCounterForTest: resetSourceIdCounterForTest,
+			_resetSourceTextSnapshotsForTest: resetSourceTextSnapshotsForTest,
+			_shouldAppendNoteInsideTarget: shouldAppendNoteInsideTarget,
 			isHeadingLikeElement,
+			isInsideTranslation,
+			isTranslatorOwned,
 			isUnsupportedElement,
 			scoreCandidateBlock,
 			scoreTranslationRoot,

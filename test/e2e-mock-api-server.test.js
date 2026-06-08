@@ -114,3 +114,45 @@ test("mock API server exposes models and responses endpoints", async () => {
 		await server.close();
 	}
 });
+
+test("mock API server can fail matching response requests", async () => {
+	const server = await createMockApiServer({ failOnTextIncludes: "Fail me" });
+
+	try {
+		const response = await fetch(`${server.baseUrl}/responses`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				input: [
+					{
+						role: "user",
+						content:
+							'{"targetLanguage":"台灣正體中文","id":"a","text":"Fail me"}',
+					},
+				],
+			}),
+		});
+
+		assert.equal(response.status, 500);
+		assert.match((await response.json()).error.message, /Mock translation/);
+
+		server.setFailOnTextIncludes("");
+		const recovered = await fetch(`${server.baseUrl}/responses`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				input: [
+					{
+						role: "user",
+						content:
+							'{"targetLanguage":"台灣正體中文","id":"a","text":"Fail me"}',
+					},
+				],
+			}),
+		});
+
+		assert.equal(recovered.status, 200);
+	} finally {
+		await server.close();
+	}
+});

@@ -192,10 +192,10 @@
 	}
 
 	function validateSettings(input) {
-		const merged = migrateLegacyPromptSettings({
+		const merged = {
 			...DEFAULT_SETTINGS,
-			...(input || {}),
-		});
+			...migrateLegacyPromptSettings(input || {}),
+		};
 		const settings = {
 			apiKey: String(merged.apiKey || "").trim(),
 			baseUrl: normalizeBaseUrl(merged.baseUrl),
@@ -274,15 +274,12 @@
 
 	async function getSettings() {
 		if (!root.chrome || !chrome.storage?.sync) {
-			return { ...DEFAULT_SETTINGS };
+			return validateSettings({}).settings;
 		}
 
 		const stored = await chrome.storage.sync.get(STORAGE_KEY);
 
-		return migrateLegacyPromptSettings({
-			...DEFAULT_SETTINGS,
-			...(stored[STORAGE_KEY] || {}),
-		});
+		return validateSettings(stored[STORAGE_KEY] || {}).settings;
 	}
 
 	async function saveSettings(input) {
