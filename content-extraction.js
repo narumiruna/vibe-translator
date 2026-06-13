@@ -49,7 +49,10 @@
 		".description",
 		".p-novel__summary",
 	].join(", ");
-	const SOCIAL_TEXT_BLOCK_SELECTOR = ['[data-testid="tweetText"]'].join(", ");
+	const SOCIAL_TEXT_BLOCK_SELECTOR = [
+		'[data-testid="tweetText"]',
+		'div[lang]:has(> div > span[dir="auto"])',
+	].join(", ");
 	const DIRECTORY_SECTION_TITLE_SELECTOR = ".p-eplist__chapter-title";
 	const READABLE_LINK_SELECTOR = ".p-eplist__subtitle";
 	const READABLE_BLOCK_SELECTOR = [
@@ -93,6 +96,8 @@
 		"input",
 		"select",
 		"option",
+		"button",
+		'[role="button"]',
 		"svg",
 		"canvas",
 		"math",
