@@ -31,6 +31,7 @@ const REQUIRED_BACKGROUND_GLOBALS = [
 ];
 const REQUIRED_CONTENT_GLOBALS = [
 	"TranslatorContentExtraction",
+	"TranslatorContentSiteProfiles",
 	"TranslatorContentViewport",
 	"TranslatorMessages",
 	"TranslatorSelectionPanel",
@@ -147,15 +148,16 @@ async function runPageTranslationSmoke(context, serverOrigin, artifactsDir) {
 			timeoutMessage: "No completed table-cell translation note appeared.",
 		},
 	);
-	const tableCellCounts = await page.locator("#translation-table").evaluate(
-		(table) =>
+	const tableCellCounts = await page
+		.locator("#translation-table")
+		.evaluate((table) =>
 			Array.from(table.querySelectorAll("tr")).map(
 				(row) =>
 					Array.from(row.children).filter((child) =>
 						/^(td|th)$/i.test(child.tagName),
 					).length,
 			),
-	);
+		);
 	assert.deepEqual(
 		tableCellCounts,
 		[2, 2],
@@ -304,7 +306,11 @@ async function runIframeSelectionTranslationSmoke(
 		"Expected no selection panel in the top frame for iframe selections.",
 	);
 
-	await takeScreenshot(page, artifactsDir, "iframe-selection-translation-smoke.png");
+	await takeScreenshot(
+		page,
+		artifactsDir,
+		"iframe-selection-translation-smoke.png",
+	);
 	await page.close();
 }
 
@@ -369,7 +375,10 @@ async function runSelectionFailureSmoke(context, serverOrigin, mockApiServer) {
 				? String(window.getSelection()?.toString() || "")
 				: "",
 		);
-		assert.ok(selectionText.trim(), "Expected selected text for failure smoke.");
+		assert.ok(
+			selectionText.trim(),
+			"Expected selected text for failure smoke.",
+		);
 
 		await assert.rejects(
 			() =>

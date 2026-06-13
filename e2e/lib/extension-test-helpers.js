@@ -17,6 +17,7 @@ const EXTENSION_FILES = [
 	"background.js",
 	"content-viewport.js",
 	"content-selection-panel.js",
+	"content-site-profiles.js",
 	"content-extraction.js",
 	"content.js",
 	"page-translation-session.js",
@@ -379,7 +380,6 @@ async function getMissingWindowGlobals(page, globalNames) {
 async function saveOptions(context, extensionId, config, options = {}) {
 	const page = await context.newPage();
 	const optionsUrl = `chrome-extension://${extensionId}/options.html`;
-	const originPattern = getApiPermissionPattern(config.baseUrl);
 
 	await page.goto(optionsUrl, { waitUntil: "domcontentloaded" });
 	if (options.requiredGlobals) {

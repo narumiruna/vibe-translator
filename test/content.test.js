@@ -47,9 +47,11 @@ global.chrome = {
 
 const {
 	ARTICLE_CONTENT_SELECTOR,
-	DIRECT_NOTE_TARGET_SELECTOR,
 	READABLE_BLOCK_SELECTOR,
 	SOCIAL_TEXT_BLOCK_SELECTOR,
+	_createExtractionDebugState,
+	_finalizeExtractionDebug,
+	_getDebugProfileLabel,
 	_allocateSourceId,
 	_getHighestSourceIdCounter,
 	_getNoteElementTagName,
@@ -68,8 +70,15 @@ const {
 	scoreCandidateBlock,
 	scoreTranslationRoot,
 } = require("../content.js");
-
-const THREADS_TEXT_BLOCK_SELECTOR = 'div[lang]:has(> div > span[dir="auto"])';
+const {
+	createExtractionSelectorsForProfile,
+} = require("../content-extraction.js");
+const {
+	THREADS_TEXT_BLOCK_SELECTOR,
+	X_CURRENT_POST_TEXT_SELECTOR,
+	X_TWEET_TEXT_SELECTOR,
+	resolveSiteProfile,
+} = require("../content-site-profiles.js");
 
 function splitSelector(selector) {
 	return String(selector)
@@ -313,6 +322,14 @@ test("table cell notes use structure-preserving insertion helpers", () => {
 	assert.equal(_shouldAppendNoteInsideTarget({ tagName: "P" }), false);
 });
 
+test("extraction debug exposes a site profile label", () => {
+	const debugInfo = _finalizeExtractionDebug(_createExtractionDebugState());
+
+	assert.equal(debugInfo.profileId, "default");
+	assert.equal(_getDebugProfileLabel(debugInfo), "Profile: default");
+	assert.equal(_getDebugProfileLabel({ profileId: "x" }), "Profile: x");
+});
+
 test("source text snapshots ignore unchanged mutations", () => {
 	const textNode = {
 		nodeType: global.Node.TEXT_NODE,
@@ -404,22 +421,94 @@ test("plain heading blocks keep a positive heading bonus", () => {
 	);
 });
 
+test("default readable selectors exclude site profile social text selectors", () => {
+	assert.equal(READABLE_BLOCK_SELECTOR.includes(X_TWEET_TEXT_SELECTOR), false);
+	assert.equal(
+		READABLE_BLOCK_SELECTOR.includes(X_CURRENT_POST_TEXT_SELECTOR),
+		false,
+	);
+	assert.equal(
+		READABLE_BLOCK_SELECTOR.includes(THREADS_TEXT_BLOCK_SELECTOR),
+		false,
+	);
+	assert.equal(SOCIAL_TEXT_BLOCK_SELECTOR, ":not(*)");
+});
+
 test("X tweet text blocks are readable direct note targets", () => {
-	assert.ok(READABLE_BLOCK_SELECTOR.includes('[data-testid="tweetText"]'));
-	assert.ok(DIRECT_NOTE_TARGET_SELECTOR.includes('[data-testid="tweetText"]'));
+	const xSelectors = createExtractionSelectorsForProfile(
+		resolveSiteProfile("x.com"),
+	);
+
+	assert.ok(xSelectors.READABLE_BLOCK_SELECTOR.includes(X_TWEET_TEXT_SELECTOR));
+	assert.ok(
+		xSelectors.DIRECT_NOTE_TARGET_SELECTOR.includes(X_TWEET_TEXT_SELECTOR),
+	);
 
 	const tweetText = createFakeElement({
-		matchedSelectors: ['[data-testid="tweetText"]'],
+		matchedSelectors: [X_TWEET_TEXT_SELECTOR],
 		tagName: "DIV",
 	});
 
-	assert.ok(scoreCandidateBlock(tweetText, "Short status") >= 40);
+	assert.ok(
+		scoreCandidateBlock(tweetText, "Short status", {
+			socialTextSelector: xSelectors.SOCIAL_TEXT_BLOCK_SELECTOR,
+		}) >= 40,
+	);
+});
+
+test("current X post text blocks are readable direct note targets", () => {
+	const xSelectors = createExtractionSelectorsForProfile(
+		resolveSiteProfile("x.com"),
+	);
+
+	assert.ok(
+		xSelectors.READABLE_BLOCK_SELECTOR.includes(X_CURRENT_POST_TEXT_SELECTOR),
+	);
+	assert.ok(
+		xSelectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
+			X_CURRENT_POST_TEXT_SELECTOR,
+		),
+	);
+	assert.ok(
+		xSelectors.SOCIAL_TEXT_BLOCK_SELECTOR.includes(
+			X_CURRENT_POST_TEXT_SELECTOR,
+		),
+	);
+
+	const tweetText = createFakeElement({
+		matchedSelectors: [X_CURRENT_POST_TEXT_SELECTOR],
+		tagName: "DIV",
+	});
+
+	assert.ok(
+		scoreCandidateBlock(
+			tweetText,
+			"Btw anybody with some Mistral insider info is understanding WTF the company is doing?",
+			{ socialTextSelector: xSelectors.SOCIAL_TEXT_BLOCK_SELECTOR },
+		) >= 40,
+	);
 });
 
 test("Threads language text blocks are readable direct note targets", () => {
-	assert.ok(READABLE_BLOCK_SELECTOR.includes(THREADS_TEXT_BLOCK_SELECTOR));
-	assert.ok(DIRECT_NOTE_TARGET_SELECTOR.includes(THREADS_TEXT_BLOCK_SELECTOR));
-	assert.ok(SOCIAL_TEXT_BLOCK_SELECTOR.includes(THREADS_TEXT_BLOCK_SELECTOR));
+	const threadsSelectors = createExtractionSelectorsForProfile(
+		resolveSiteProfile("threads.net"),
+	);
+
+	assert.ok(
+		threadsSelectors.READABLE_BLOCK_SELECTOR.includes(
+			THREADS_TEXT_BLOCK_SELECTOR,
+		),
+	);
+	assert.ok(
+		threadsSelectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
+			THREADS_TEXT_BLOCK_SELECTOR,
+		),
+	);
+	assert.ok(
+		threadsSelectors.SOCIAL_TEXT_BLOCK_SELECTOR.includes(
+			THREADS_TEXT_BLOCK_SELECTOR,
+		),
+	);
 
 	const threadText = createFakeElement({
 		directBlockChildCount: 1,
@@ -429,7 +518,9 @@ test("Threads language text blocks are readable direct note targets", () => {
 	});
 
 	assert.ok(
-		scoreCandidateBlock(threadText, "佳子様、しっかり見えますね") >= 40,
+		scoreCandidateBlock(threadText, "佳子様、しっかり見えますね", {
+			socialTextSelector: threadsSelectors.SOCIAL_TEXT_BLOCK_SELECTOR,
+		}) >= 40,
 	);
 });
 
@@ -456,6 +547,9 @@ test("social text extraction skips inline translate buttons", () => {
 });
 
 test("perspective scroll containers do not block direct note insertion targets", () => {
+	const threadsSelectors = createExtractionSelectorsForProfile(
+		resolveSiteProfile("threads.net"),
+	);
 	const body = {};
 	const parent = {
 		computedStyle: {
@@ -489,10 +583,10 @@ test("perspective scroll containers do not block direct note insertion targets",
 			visibility: "visible",
 		};
 
-	assert.equal(_isSafeNoteInsertionTarget(threadText), true);
+	assert.equal(_isSafeNoteInsertionTarget(threadText, threadsSelectors), true);
 
 	parent.computedStyle.transform = "matrix(1, 0, 0, 1, 0, 12)";
-	assert.equal(_isSafeNoteInsertionTarget(threadText), false);
+	assert.equal(_isSafeNoteInsertionTarget(threadText, threadsSelectors), false);
 });
 
 test.after(() => {
