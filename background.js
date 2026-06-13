@@ -309,6 +309,7 @@ async function ensureContentScript(tabId, frameId) {
 		files: [
 			"content-viewport.js",
 			"content-selection-panel.js",
+			"content-site-profiles.js",
 			"content-extraction.js",
 			"translator-messages.js",
 			"content.js",

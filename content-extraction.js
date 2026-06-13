@@ -1,4 +1,34 @@
 ((root) => {
+	const SiteProfiles =
+		root.TranslatorContentSiteProfiles ||
+		(typeof require !== "undefined"
+			? require("./content-site-profiles.js")
+			: null);
+	const buildProfileSelectors =
+		SiteProfiles?.buildProfileSelectors ||
+		((defaultSelectors, profileSelectors, fallback = ":not(*)") => {
+			const selectors = [
+				...(Array.isArray(defaultSelectors)
+					? defaultSelectors
+					: [defaultSelectors]),
+				...(Array.isArray(profileSelectors)
+					? profileSelectors
+					: [profileSelectors]),
+			]
+				.map((selector) => String(selector || "").trim())
+				.filter(Boolean);
+
+			return selectors.length > 0 ? selectors.join(", ") : fallback;
+		});
+	const ACTIVE_SITE_PROFILE = SiteProfiles?.getActiveSiteProfile?.(
+		root.location,
+	) || {
+		id: "default",
+		directNoteTargetSelectors: [],
+		socialTextSelectors: [],
+	};
+	const SITE_PROFILE_ID = ACTIVE_SITE_PROFILE.id || "default";
+
 	const ARTICLE_CONTENT_SELECTOR = [
 		"article",
 		'[role="article"]',
@@ -49,25 +79,43 @@
 		".description",
 		".p-novel__summary",
 	].join(", ");
-	const SOCIAL_TEXT_BLOCK_SELECTOR = [
-		'[data-testid="tweetText"]',
-		'div[lang]:has(> div > span[dir="auto"])',
-	].join(", ");
+	const DEFAULT_SOCIAL_TEXT_BLOCK_SELECTORS = [];
 	const DIRECTORY_SECTION_TITLE_SELECTOR = ".p-eplist__chapter-title";
 	const READABLE_LINK_SELECTOR = ".p-eplist__subtitle";
-	const READABLE_BLOCK_SELECTOR = [
-		SEMANTIC_BLOCK_SELECTOR,
-		HEADING_SELECTOR,
-		SUMMARY_BLOCK_SELECTOR,
+
+	function createExtractionSelectorsForProfile(profile = ACTIVE_SITE_PROFILE) {
+		const socialTextSelector = buildProfileSelectors(
+			DEFAULT_SOCIAL_TEXT_BLOCK_SELECTORS,
+			profile?.socialTextSelectors || [],
+		);
+		const directNoteProfileSelector = buildProfileSelectors(
+			[],
+			profile?.directNoteTargetSelectors || [],
+		);
+
+		return {
+			DIRECT_NOTE_TARGET_SELECTOR: [
+				SUMMARY_BLOCK_SELECTOR,
+				directNoteProfileSelector,
+				DIRECTORY_SECTION_TITLE_SELECTOR,
+			].join(", "),
+			READABLE_BLOCK_SELECTOR: [
+				SEMANTIC_BLOCK_SELECTOR,
+				HEADING_SELECTOR,
+				SUMMARY_BLOCK_SELECTOR,
+				socialTextSelector,
+				DIRECTORY_SECTION_TITLE_SELECTOR,
+				READABLE_LINK_SELECTOR,
+			].join(", "),
+			SOCIAL_TEXT_BLOCK_SELECTOR: socialTextSelector,
+		};
+	}
+
+	const {
+		DIRECT_NOTE_TARGET_SELECTOR,
+		READABLE_BLOCK_SELECTOR,
 		SOCIAL_TEXT_BLOCK_SELECTOR,
-		DIRECTORY_SECTION_TITLE_SELECTOR,
-		READABLE_LINK_SELECTOR,
-	].join(", ");
-	const DIRECT_NOTE_TARGET_SELECTOR = [
-		SUMMARY_BLOCK_SELECTOR,
-		SOCIAL_TEXT_BLOCK_SELECTOR,
-		DIRECTORY_SECTION_TITLE_SELECTOR,
-	].join(", ");
+	} = createExtractionSelectorsForProfile(ACTIVE_SITE_PROFILE);
 	const DIRECT_BLOCK_CHILD_SELECTOR = [
 		"article",
 		"aside",
@@ -324,7 +372,9 @@
 		);
 	}
 
-	function scoreCandidateBlock(element, text) {
+	function scoreCandidateBlock(element, text, options = {}) {
+		const socialTextSelector =
+			options.socialTextSelector || SOCIAL_TEXT_BLOCK_SELECTOR;
 		const textLength = text.length;
 		const linkCount = element.querySelectorAll("a").length;
 		const interactiveCount =
@@ -333,7 +383,7 @@
 		const linkDensity = getElementLinkDensity(element, textLength);
 		const isHeading = isHeadingLikeElement(element);
 		const isTitleLink = isReadableTitleLink(element);
-		const isSocialTextBlock = element.matches(SOCIAL_TEXT_BLOCK_SELECTOR);
+		const isSocialTextBlock = element.matches(socialTextSelector);
 		const base = Math.min(320, textLength);
 		const semanticBonus = element.matches(SEMANTIC_BLOCK_SELECTOR) ? 60 : 0;
 		const headingBonus = isHeading ? 140 : 0;
@@ -446,6 +496,7 @@
 		READABLE_BLOCK_SELECTOR,
 		READABLE_LINK_SELECTOR,
 		SEMANTIC_BLOCK_SELECTOR,
+		SITE_PROFILE_ID,
 		SKIP_ANCESTOR_SELECTOR,
 		SOCIAL_TEXT_BLOCK_SELECTOR,
 		SUMMARY_BLOCK_SELECTOR,
@@ -453,6 +504,7 @@
 		TITLE_LIKE_SELECTOR,
 		UNSUPPORTED_ANCESTOR_SELECTOR,
 		UNSUPPORTED_ELEMENT_SELECTOR,
+		createExtractionSelectorsForProfile,
 		detectContentMode,
 		getCandidateElements,
 		getDirectBlockChildCount,

@@ -26,6 +26,7 @@ const TranslatorContentModule = (() => {
 		MATH_SELECTOR,
 		READABLE_BLOCK_SELECTOR,
 		SEMANTIC_BLOCK_SELECTOR,
+		SITE_PROFILE_ID,
 		SKIP_ANCESTOR_SELECTOR,
 		SOCIAL_TEXT_BLOCK_SELECTOR,
 		TERMINAL_LIKE_SELECTOR,
@@ -256,6 +257,7 @@ const TranslatorContentModule = (() => {
 
 	function createExtractionDebugState() {
 		return {
+			profileId: SITE_PROFILE_ID || "default",
 			selectedItems: [],
 			skippedByReason: new Map(),
 			skippedSamples: [],
@@ -301,6 +303,7 @@ const TranslatorContentModule = (() => {
 		}
 
 		return {
+			profileId: debugState.profileId || "default",
 			selectedItems: debugState.selectedItems,
 			skippedByReason: Array.from(debugState.skippedByReason.entries())
 				.sort((left, right) => right[1] - left[1])
@@ -1838,6 +1841,12 @@ const TranslatorContentModule = (() => {
 		});
 	}
 
+	function getDebugProfileLabel(debugInfo) {
+		const profileId = debugInfo?.profileId || SITE_PROFILE_ID || "default";
+
+		return `Profile: ${profileId}`;
+	}
+
 	function renderExtractionDebugPanel(debugInfo) {
 		if (!isDebugInfoEnabled() || !debugInfo) {
 			clearDebugPanel();
@@ -1846,6 +1855,7 @@ const TranslatorContentModule = (() => {
 
 		const panel = getDebugPanel();
 		const title = document.createElement("strong");
+		const profileLabel = document.createElement("span");
 		const selectedTitle = document.createElement("span");
 		const selectedList = document.createElement("ul");
 		const skippedTitle = document.createElement("span");
@@ -1855,6 +1865,8 @@ const TranslatorContentModule = (() => {
 
 		title.setAttribute(ROOT_ATTR, "debug-title");
 		title.textContent = "Translation Debug Info";
+		profileLabel.setAttribute(ROOT_ATTR, "debug-profile");
+		profileLabel.textContent = getDebugProfileLabel(debugInfo);
 		selectedTitle.setAttribute(ROOT_ATTR, "debug-section-title");
 		selectedTitle.textContent = `Queued items (${debugInfo.selectedItems.length})`;
 		selectedList.setAttribute(ROOT_ATTR, "debug-list");
@@ -1891,6 +1903,7 @@ const TranslatorContentModule = (() => {
 		withObserverPaused(() => {
 			panel.replaceChildren();
 			panel.appendChild(title);
+			panel.appendChild(profileLabel);
 
 			if (selectedList.childNodes.length > 0) {
 				panel.appendChild(selectedTitle);
@@ -1909,14 +1922,18 @@ const TranslatorContentModule = (() => {
 		});
 	}
 
-	function getNoteInsertionTarget(element) {
+	function getNoteInsertionTarget(element, selectors = {}) {
+		const readableBlockSelector =
+			selectors.READABLE_BLOCK_SELECTOR || READABLE_BLOCK_SELECTOR;
+		const directNoteTargetSelector =
+			selectors.DIRECT_NOTE_TARGET_SELECTOR || DIRECT_NOTE_TARGET_SELECTOR;
 		let current = element;
 
 		while (current && current !== document.body) {
 			if (
-				current.matches?.(READABLE_BLOCK_SELECTOR) &&
+				current.matches?.(readableBlockSelector) &&
 				(!current.matches("article, main, section, div, body") ||
-					current.matches(DIRECT_NOTE_TARGET_SELECTOR)) &&
+					current.matches(directNoteTargetSelector)) &&
 				!hasUnsafeLayoutContext(current)
 			) {
 				return current;
@@ -1928,8 +1945,8 @@ const TranslatorContentModule = (() => {
 		return null;
 	}
 
-	function _isSafeNoteInsertionTarget(element) {
-		return Boolean(getNoteInsertionTarget(element));
+	function _isSafeNoteInsertionTarget(element, selectors) {
+		return Boolean(getNoteInsertionTarget(element, selectors));
 	}
 
 	function startPageTranslationSession(payload) {
@@ -2404,7 +2421,10 @@ const TranslatorContentModule = (() => {
 			TITLE_LIKE_SELECTOR,
 			UNSUPPORTED_ANCESTOR_SELECTOR,
 			UNSUPPORTED_ELEMENT_SELECTOR,
+			_createExtractionDebugState: createExtractionDebugState,
+			_finalizeExtractionDebug: finalizeExtractionDebug,
 			_isSafeNoteInsertionTarget,
+			_getDebugProfileLabel: getDebugProfileLabel,
 			_getHighestSourceIdCounter: getHighestSourceIdCounter,
 			_getNoteElementTagName: getNoteElementTagName,
 			_allocateSourceId: allocateSourceId,
