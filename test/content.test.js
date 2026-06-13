@@ -60,6 +60,7 @@ const {
 	_resetSourceTextSnapshotsForTest,
 	_shouldAppendNoteInsideTarget,
 	detectContentMode,
+	getSegmentContent,
 	isHeadingLikeElement,
 	isInsideTranslation,
 	isTranslatorOwned,
@@ -67,6 +68,8 @@ const {
 	scoreCandidateBlock,
 	scoreTranslationRoot,
 } = require("../content.js");
+
+const THREADS_TEXT_BLOCK_SELECTOR = 'div[lang]:has(> div > span[dir="auto"])';
 
 function splitSelector(selector) {
 	return String(selector)
@@ -95,12 +98,20 @@ function createFakeElement(options = {}) {
 			},
 		})),
 		closest(selector) {
+			if (this.matches(selector)) {
+				return this;
+			}
+
 			return splitSelector(selector).some((part) => ancestorSelectors.has(part))
 				? {}
 				: null;
 		},
 		matches(selector) {
-			return splitSelector(selector).some((part) => matchedSelectors.has(part));
+			return splitSelector(selector).some(
+				(part) =>
+					matchedSelectors.has(part) ||
+					part.toLowerCase() === String(this.tagName || "").toLowerCase(),
+			);
 		},
 		querySelectorAll(selector) {
 			if (selector === "a") {
@@ -129,6 +140,31 @@ function createFakeElement(options = {}) {
 			return [];
 		},
 	};
+}
+
+function createSerializableText(text) {
+	return {
+		nodeType: Node.TEXT_NODE,
+		textContent: text,
+	};
+}
+
+function createSerializableElement(options = {}) {
+	const element = createFakeElement({
+		matchedSelectors: options.matchedSelectors || [],
+		tagName: options.tagName || "DIV",
+	});
+
+	element.nodeType = Node.ELEMENT_NODE;
+	element.childNodes = options.children || [];
+	element.getAttribute = (name) => options.attributes?.[name] || null;
+	for (const child of element.childNodes) {
+		if (child && child.nodeType === Node.ELEMENT_NODE) {
+			child.parentElement = element;
+		}
+	}
+
+	return element;
 }
 
 test("headline-like selectors are treated as headings", () => {
@@ -233,7 +269,7 @@ test("site-owned translation class is not treated as extension-owned", () => {
 		tagName: "P",
 	});
 	const extensionBlock = createFakeElement({
-		ancestorSelectors: ['[data-ot-role]'],
+		ancestorSelectors: ["[data-ot-role]"],
 		matchedSelectors: ["p"],
 		tagName: "P",
 	});
@@ -369,25 +405,64 @@ test("plain heading blocks keep a positive heading bonus", () => {
 });
 
 test("X tweet text blocks are readable direct note targets", () => {
-	assert.ok(READABLE_BLOCK_SELECTOR.includes(SOCIAL_TEXT_BLOCK_SELECTOR));
-	assert.ok(DIRECT_NOTE_TARGET_SELECTOR.includes(SOCIAL_TEXT_BLOCK_SELECTOR));
+	assert.ok(READABLE_BLOCK_SELECTOR.includes('[data-testid="tweetText"]'));
+	assert.ok(DIRECT_NOTE_TARGET_SELECTOR.includes('[data-testid="tweetText"]'));
 
 	const tweetText = createFakeElement({
-		matchedSelectors: [SOCIAL_TEXT_BLOCK_SELECTOR],
+		matchedSelectors: ['[data-testid="tweetText"]'],
 		tagName: "DIV",
 	});
 
 	assert.ok(scoreCandidateBlock(tweetText, "Short status") >= 40);
 });
 
-test("identity transforms do not block direct note insertion targets", () => {
+test("Threads language text blocks are readable direct note targets", () => {
+	assert.ok(READABLE_BLOCK_SELECTOR.includes(THREADS_TEXT_BLOCK_SELECTOR));
+	assert.ok(DIRECT_NOTE_TARGET_SELECTOR.includes(THREADS_TEXT_BLOCK_SELECTOR));
+	assert.ok(SOCIAL_TEXT_BLOCK_SELECTOR.includes(THREADS_TEXT_BLOCK_SELECTOR));
+
+	const threadText = createFakeElement({
+		directBlockChildCount: 1,
+		interactiveCount: 1,
+		matchedSelectors: [THREADS_TEXT_BLOCK_SELECTOR],
+		tagName: "DIV",
+	});
+
+	assert.ok(
+		scoreCandidateBlock(threadText, "佳子様、しっかり見えますね") >= 40,
+	);
+});
+
+test("social text extraction skips inline translate buttons", () => {
+	const threadText = createSerializableElement({
+		matchedSelectors: [THREADS_TEXT_BLOCK_SELECTOR],
+		children: [
+			createSerializableElement({
+				tagName: "SPAN",
+				children: [createSerializableText("佳子様、しっかり見えますね")],
+			}),
+			createSerializableText("  "),
+			createSerializableElement({
+				matchedSelectors: ['[role="button"]'],
+				children: [createSerializableText("Translate")],
+			}),
+		],
+	});
+
+	assert.equal(
+		getSegmentContent(threadText).text,
+		"佳子様、しっかり見えますね",
+	);
+});
+
+test("perspective scroll containers do not block direct note insertion targets", () => {
 	const body = {};
 	const parent = {
 		computedStyle: {
 			backdropFilter: "none",
 			filter: "none",
 			mixBlendMode: "normal",
-			perspective: "none",
+			perspective: "1px",
 			transform: "matrix(1, 0, 0, 1, 0, 0)",
 		},
 		matches() {
@@ -396,8 +471,8 @@ test("identity transforms do not block direct note insertion targets", () => {
 		parentElement: body,
 		tagName: "DIV",
 	};
-	const tweetText = createFakeElement({
-		matchedSelectors: [SOCIAL_TEXT_BLOCK_SELECTOR],
+	const threadText = createFakeElement({
+		matchedSelectors: [THREADS_TEXT_BLOCK_SELECTOR],
 		parentElement: parent,
 		tagName: "DIV",
 	});
@@ -414,10 +489,10 @@ test("identity transforms do not block direct note insertion targets", () => {
 			visibility: "visible",
 		};
 
-	assert.equal(_isSafeNoteInsertionTarget(tweetText), true);
+	assert.equal(_isSafeNoteInsertionTarget(threadText), true);
 
 	parent.computedStyle.transform = "matrix(1, 0, 0, 1, 0, 12)";
-	assert.equal(_isSafeNoteInsertionTarget(tweetText), false);
+	assert.equal(_isSafeNoteInsertionTarget(threadText), false);
 });
 
 test.after(() => {

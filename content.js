@@ -79,10 +79,7 @@ const TranslatorContentModule = (() => {
 						prefetchViewports,
 					),
 				),
-				topMargin: Math.max(
-					0,
-					normalizeNumberOption(options?.topMargin, 96),
-				),
+				topMargin: Math.max(0, normalizeNumberOption(options?.topMargin, 96)),
 			};
 		},
 		isRectWithinTranslationWindow(rect, options) {
@@ -2110,7 +2107,6 @@ const TranslatorContentModule = (() => {
 
 			if (
 				!isIdentityTransform(style.transform) ||
-				style.perspective !== "none" ||
 				style.filter !== "none" ||
 				style.backdropFilter !== "none" ||
 				style.mixBlendMode !== "normal"
@@ -2417,6 +2413,7 @@ const TranslatorContentModule = (() => {
 			_resetSourceIdCounterForTest: resetSourceIdCounterForTest,
 			_resetSourceTextSnapshotsForTest: resetSourceTextSnapshotsForTest,
 			_shouldAppendNoteInsideTarget: shouldAppendNoteInsideTarget,
+			getSegmentContent,
 			isHeadingLikeElement,
 			isInsideTranslation,
 			isTranslatorOwned,
