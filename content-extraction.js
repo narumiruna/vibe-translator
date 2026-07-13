@@ -25,6 +25,8 @@
 	) || {
 		id: "default",
 		directNoteTargetSelectors: [],
+		proseTextSelectors: [],
+		rootSelectors: [],
 		socialTextSelectors: [],
 	};
 	const SITE_PROFILE_ID = ACTIVE_SITE_PROFILE.id || "default";
@@ -88,6 +90,14 @@
 			DEFAULT_SOCIAL_TEXT_BLOCK_SELECTORS,
 			profile?.socialTextSelectors || [],
 		);
+		const proseTextSelector = buildProfileSelectors(
+			[],
+			profile?.proseTextSelectors || [],
+		);
+		const siteRootSelector = buildProfileSelectors(
+			[],
+			profile?.rootSelectors || [],
+		);
 		const directNoteProfileSelector = buildProfileSelectors(
 			[],
 			profile?.directNoteTargetSelectors || [],
@@ -104,16 +114,21 @@
 				HEADING_SELECTOR,
 				SUMMARY_BLOCK_SELECTOR,
 				socialTextSelector,
+				proseTextSelector,
 				DIRECTORY_SECTION_TITLE_SELECTOR,
 				READABLE_LINK_SELECTOR,
 			].join(", "),
+			PROSE_TEXT_BLOCK_SELECTOR: proseTextSelector,
+			SITE_ROOT_SELECTOR: siteRootSelector,
 			SOCIAL_TEXT_BLOCK_SELECTOR: socialTextSelector,
 		};
 	}
 
 	const {
 		DIRECT_NOTE_TARGET_SELECTOR,
+		PROSE_TEXT_BLOCK_SELECTOR,
 		READABLE_BLOCK_SELECTOR,
+		SITE_ROOT_SELECTOR,
 		SOCIAL_TEXT_BLOCK_SELECTOR,
 	} = createExtractionSelectorsForProfile(ACTIVE_SITE_PROFILE);
 	const DIRECT_BLOCK_CHILD_SELECTOR = [
@@ -493,10 +508,12 @@
 		INTERACTIVE_SELECTOR,
 		MAIN_CONTENT_SELECTOR,
 		MATH_SELECTOR,
+		PROSE_TEXT_BLOCK_SELECTOR,
 		READABLE_BLOCK_SELECTOR,
 		READABLE_LINK_SELECTOR,
 		SEMANTIC_BLOCK_SELECTOR,
 		SITE_PROFILE_ID,
+		SITE_ROOT_SELECTOR,
 		SKIP_ANCESTOR_SELECTOR,
 		SOCIAL_TEXT_BLOCK_SELECTOR,
 		SUMMARY_BLOCK_SELECTOR,

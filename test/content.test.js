@@ -74,6 +74,7 @@ const {
 	createExtractionSelectorsForProfile,
 } = require("../content-extraction.js");
 const {
+	ANTIREZ_PROSE_TEXT_SELECTOR,
 	THREADS_TEXT_BLOCK_SELECTOR,
 	X_CURRENT_POST_TEXT_SELECTOR,
 	X_TWEET_TEXT_SELECTOR,
@@ -432,6 +433,30 @@ test("default readable selectors exclude site profile social text selectors", ()
 		false,
 	);
 	assert.equal(SOCIAL_TEXT_BLOCK_SELECTOR, ":not(*)");
+});
+
+test("Antirez preformatted article prose is readable and supports direct notes", () => {
+	const antirezSelectors = createExtractionSelectorsForProfile(
+		resolveSiteProfile("antirez.com"),
+	);
+
+	assert.equal(resolveSiteProfile("www.antirez.com").id, "antirez");
+	assert.ok(
+		antirezSelectors.READABLE_BLOCK_SELECTOR.includes(
+			ANTIREZ_PROSE_TEXT_SELECTOR,
+		),
+	);
+	assert.ok(
+		antirezSelectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
+			ANTIREZ_PROSE_TEXT_SELECTOR,
+		),
+	);
+	assert.ok(
+		antirezSelectors.PROSE_TEXT_BLOCK_SELECTOR.includes(
+			ANTIREZ_PROSE_TEXT_SELECTOR,
+		),
+	);
+	assert.equal(antirezSelectors.SITE_ROOT_SELECTOR, "#content");
 });
 
 test("X tweet text blocks are readable direct note targets", () => {

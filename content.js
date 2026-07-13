@@ -24,9 +24,11 @@ const TranslatorContentModule = (() => {
 		INLINE_CODE_SELECTOR,
 		MAIN_CONTENT_SELECTOR,
 		MATH_SELECTOR,
+		PROSE_TEXT_BLOCK_SELECTOR,
 		READABLE_BLOCK_SELECTOR,
 		SEMANTIC_BLOCK_SELECTOR,
 		SITE_PROFILE_ID,
+		SITE_ROOT_SELECTOR,
 		SKIP_ANCESTOR_SELECTOR,
 		SOCIAL_TEXT_BLOCK_SELECTOR,
 		TERMINAL_LIKE_SELECTOR,
@@ -828,8 +830,9 @@ const TranslatorContentModule = (() => {
 	const detectContentMode = ExtractionApi.detectContentMode;
 
 	function getTranslationProfile() {
-		const candidates = getRootCandidates();
-		let root = document.body;
+		const siteRoot = document.querySelector(SITE_ROOT_SELECTOR);
+		const candidates = siteRoot ? [] : getRootCandidates();
+		let root = siteRoot || document.body;
 		let bestScore = Number.NEGATIVE_INFINITY;
 		let bestNonBodyRoot = null;
 		let bestNonBodyScore = Number.NEGATIVE_INFINITY;
@@ -1143,7 +1146,7 @@ const TranslatorContentModule = (() => {
 			return `\`${normalizeInlineWhitespace(element.textContent || "")}\``;
 		}
 
-		if (element.matches("pre")) {
+		if (element.matches("pre") && !element.matches(PROSE_TEXT_BLOCK_SELECTOR)) {
 			return `\`${normalizeInlineWhitespace(element.textContent || "")}\``;
 		}
 
@@ -2416,6 +2419,7 @@ const TranslatorContentModule = (() => {
 			ARTICLE_CONTENT_SELECTOR,
 			DIRECT_NOTE_TARGET_SELECTOR,
 			HEADING_SELECTOR,
+			PROSE_TEXT_BLOCK_SELECTOR,
 			READABLE_BLOCK_SELECTOR,
 			SOCIAL_TEXT_BLOCK_SELECTOR,
 			TITLE_LIKE_SELECTOR,

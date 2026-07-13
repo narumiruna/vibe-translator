@@ -75,6 +75,18 @@ function stringifyMessageContent(content) {
 	return String(content || "");
 }
 
+function buildMockTranslationText(text) {
+	const source = String(text || "");
+	const preview = source.slice(0, 48);
+	const trailingPlaceholders = Array.from(
+		new Set(source.match(/__OT_(?:TOKEN|MATH)_\d+__/g) || []),
+	).filter((placeholder) => !preview.includes(placeholder));
+	const suffix =
+		trailingPlaceholders.length > 0 ? ` ${trailingPlaceholders.join(" ")}` : "";
+
+	return `[mock:${preview}${suffix}]`;
+}
+
 function buildMockTranslations(requestPayload) {
 	const input = Array.isArray(requestPayload?.input)
 		? requestPayload.input
@@ -91,7 +103,7 @@ function buildMockTranslations(requestPayload) {
 
 	return sourceItems.map((item) => ({
 		id: String(item.id),
-		translatedText: `[mock:${String(item.text || "").slice(0, 48)}]`,
+		translatedText: buildMockTranslationText(item.text),
 	}));
 }
 
@@ -183,6 +195,7 @@ async function createMockApiServer(options = {}) {
 }
 
 module.exports = {
+	buildMockTranslationText,
 	buildMockTranslations,
 	createMockApiServer,
 	extractJsonObject,

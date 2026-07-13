@@ -78,6 +78,23 @@ test("mock API builds translations for single and batch payloads", () => {
 	);
 });
 
+test("mock API preserves protected placeholders beyond its text preview", () => {
+	const [translation] = buildMockTranslations({
+		input: [
+			{
+				role: "user",
+				content: JSON.stringify({
+					targetLanguage: "台灣正體中文",
+					id: "a",
+					text: `${"Long source text ".repeat(5)}__OT_TOKEN_7__`,
+				}),
+			},
+		],
+	});
+
+	assert.match(translation.translatedText, /__OT_TOKEN_7__/);
+});
+
 test("mock API server exposes models and responses endpoints", async () => {
 	const server = await createMockApiServer();
 

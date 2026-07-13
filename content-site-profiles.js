@@ -1,6 +1,7 @@
 ((root) => {
 	const SAFE_EMPTY_SELECTOR = ":not(*)";
 	const DEFAULT_PROFILE_ID = "default";
+	const ANTIREZ_PROSE_TEXT_SELECTOR = "article.comment > pre";
 	const X_TWEET_TEXT_SELECTOR = '[data-testid="tweetText"]';
 	const X_CURRENT_POST_TEXT_SELECTOR =
 		'article[data-tweet-id] div[dir="auto"].whitespace-pre-wrap:has(> span)';
@@ -9,9 +10,19 @@
 		id: DEFAULT_PROFILE_ID,
 		hosts: Object.freeze([]),
 		socialTextSelectors: Object.freeze([]),
+		proseTextSelectors: Object.freeze([]),
+		rootSelectors: Object.freeze([]),
 		directNoteTargetSelectors: Object.freeze([]),
 	});
 	const SITE_PROFILES = Object.freeze([
+		Object.freeze({
+			id: "antirez",
+			hosts: Object.freeze(["antirez.com", "www.antirez.com"]),
+			socialTextSelectors: Object.freeze([]),
+			proseTextSelectors: Object.freeze([ANTIREZ_PROSE_TEXT_SELECTOR]),
+			rootSelectors: Object.freeze(["#content"]),
+			directNoteTargetSelectors: Object.freeze([ANTIREZ_PROSE_TEXT_SELECTOR]),
+		}),
 		Object.freeze({
 			id: "x",
 			hosts: Object.freeze([
@@ -25,6 +36,8 @@
 				X_TWEET_TEXT_SELECTOR,
 				X_CURRENT_POST_TEXT_SELECTOR,
 			]),
+			proseTextSelectors: Object.freeze([]),
+			rootSelectors: Object.freeze([]),
 			directNoteTargetSelectors: Object.freeze([
 				X_TWEET_TEXT_SELECTOR,
 				X_CURRENT_POST_TEXT_SELECTOR,
@@ -34,6 +47,8 @@
 			id: "threads",
 			hosts: Object.freeze(["threads.net", "www.threads.net"]),
 			socialTextSelectors: Object.freeze([THREADS_TEXT_BLOCK_SELECTOR]),
+			proseTextSelectors: Object.freeze([]),
+			rootSelectors: Object.freeze([]),
 			directNoteTargetSelectors: Object.freeze([THREADS_TEXT_BLOCK_SELECTOR]),
 		}),
 	]);
@@ -88,6 +103,7 @@
 	}
 
 	const api = {
+		ANTIREZ_PROSE_TEXT_SELECTOR,
 		DEFAULT_PROFILE_ID,
 		DEFAULT_SITE_PROFILE,
 		SAFE_EMPTY_SELECTOR,
