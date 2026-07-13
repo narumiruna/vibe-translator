@@ -15,6 +15,7 @@
 - Symptom: X/Twitter post pages show no translatable text or cannot render a note. Cause: tweet bodies may be either `div[data-testid="tweetText"]` or `article[data-tweet-id] div[dir="auto"].whitespace-pre-wrap`, and X may wrap them in an identity CSS transform. Fix: treat tweet text variants as readable direct note targets and allow identity transforms in note insertion checks.
 - Symptom: Threads post pages show no inline page translations. Cause: post bodies are `div[lang]` blocks with `span[dir="auto"]`, include a nested native `Translate` button, and may sit inside a `perspective: 1px` scroll region. Fix: treat those language blocks as social text, skip interactive descendants during extraction, and do not treat ancestor perspective alone as unsafe for note insertion.
 - Symptom: scrolling sometimes does not queue newly visible paragraphs. Cause: element-level `scroll` events from nested overflow containers do not bubble to a normal window listener. Fix: register the window scroll listener in capture mode while keeping it passive.
+- Symptom: third-party comments such as Disqus stay untranslated. Cause: cross-origin iframe DOM is isolated from the top content script and source IDs collide across frame-local sessions. Fix: request only site-profile-declared frame origins, inject per frame, and route extraction/rendering through frame-aware sessions.
 
 ## TASTE
 - Selection translation UI should default to a compact tooltip-sized card; long content can expand, but the default should prefer density over empty space.

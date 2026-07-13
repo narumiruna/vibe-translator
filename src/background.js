@@ -1,5 +1,7 @@
 importScripts(
 	"storage.js",
+	"content-site-profiles.js",
+	"embedded-frames.js",
 	"api-protected-fragments.js",
 	"api-cache.js",
 	"api-chunk-plan.js",
@@ -152,6 +154,7 @@ async function renderPageTranslationUpdates(
 	targetLanguage,
 	translations,
 	settings,
+	frameId,
 ) {
 	if (!translations || translations.length === 0) {
 		return;
@@ -164,10 +167,11 @@ async function renderPageTranslationUpdates(
 			translations,
 			...buildTranslationAppearancePayload(settings),
 		}),
+		getFrameMessageOptions(frameId),
 	);
 }
 
-async function clearPagePlaceholders(tabId, ids) {
+async function clearPagePlaceholders(tabId, ids, frameId) {
 	if (!ids || ids.length === 0) {
 		return;
 	}
@@ -178,6 +182,7 @@ async function clearPagePlaceholders(tabId, ids) {
 			TranslatorMessages.clearPagePlaceholders({
 				ids,
 			}),
+			getFrameMessageOptions(frameId),
 		)
 		.catch(() => {});
 }
@@ -330,6 +335,16 @@ async function sendToast(tabId, message, level) {
 	} catch (_error) {
 		// Ignore toast failures on unsupported pages.
 	}
+}
+
+function discoverEmbeddedPageFrames(tabId, pageUrl) {
+	return TranslatorEmbeddedFrames.discoverEmbeddedFrames({
+		pageUrl,
+		permissions: chrome.permissions,
+		scripting: chrome.scripting,
+		siteProfiles: TranslatorContentSiteProfiles,
+		tabId,
+	});
 }
 
 async function ensureApiPermission(settings) {
@@ -638,19 +653,24 @@ const pageTranslationQueue =
 	TranslatorPageTranslationQueue.createPageTranslationQueue({
 		concurrency: PAGE_TRANSLATION_CONCURRENCY,
 		batchSize: PAGE_TRANSLATION_BATCH_SIZE,
-		processBatch: ({ tabId, sessionId, items }) =>
-			processPageTranslationItemBatch(tabId, sessionId, items),
+		processBatch: ({ tabId, frameId, sessionId, items }) =>
+			processPageTranslationItemBatch(tabId, frameId, sessionId, items),
 		onError(error) {
 			console.error("Failed to process page translation item:", error);
 		},
 	});
 
-function getPageTranslationSession(tabId, sessionId) {
-	return pageTranslationQueue.get(tabId, sessionId);
+function getPageTranslationSession(tabId, sessionId, frameId) {
+	return pageTranslationQueue.get(tabId, sessionId, frameId);
 }
 
-async function processPageTranslationItemBatch(tabId, sessionId, items) {
-	const session = getPageTranslationSession(tabId, sessionId);
+async function processPageTranslationItemBatch(
+	tabId,
+	frameId,
+	sessionId,
+	items,
+) {
+	const session = getPageTranslationSession(tabId, sessionId, frameId);
 
 	const batchItems = (items || []).filter(
 		(item) => item && typeof item.id === "string",
@@ -670,6 +690,7 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 				targetLanguage: session.settings.targetLanguage,
 				...buildTranslationAppearancePayload(session.settings),
 			}),
+			getFrameMessageOptions(frameId),
 		);
 
 		const chunkPlan = TranslatorApi.createRecursiveChunkPlan(batchItems);
@@ -683,7 +704,11 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 					chunkPlan.chunks.length || 1,
 				),
 				onChunkResolved: async ({ translations }) => {
-					const currentSession = getPageTranslationSession(tabId, sessionId);
+					const currentSession = getPageTranslationSession(
+						tabId,
+						sessionId,
+						frameId,
+					);
 
 					if (!currentSession) {
 						return;
@@ -701,6 +726,7 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 							tabId,
 							sessionId,
 							completedTranslations.map((translation) => translation.id),
+							frameId,
 						);
 
 						await renderPageTranslationUpdates(
@@ -708,8 +734,12 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 							currentSession.settings.targetLanguage,
 							completedTranslations,
 							currentSession.settings,
+							frameId,
 						);
-						setBadge(tabId, String(currentSession.translatedIds.size));
+						setBadge(
+							tabId,
+							String(pageTranslationQueue.getTranslatedCount(tabId)),
+						);
 					}
 				},
 			});
@@ -720,7 +750,7 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 		);
 
 		if (incompleteSegmentIds.length > 0) {
-			await clearPagePlaceholders(tabId, incompleteSegmentIds);
+			await clearPagePlaceholders(tabId, incompleteSegmentIds, frameId);
 		}
 
 		if (progressiveResult.failures.length > 0) {
@@ -736,8 +766,10 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 		}
 	} catch (error) {
 		if (isTabMessageDisconnectError(error)) {
-			pageTranslationQueue.remove(tabId);
-			setBadge(tabId, "");
+			pageTranslationQueue.remove(tabId, frameId);
+			const translatedCount = pageTranslationQueue.getTranslatedCount(tabId);
+
+			setBadge(tabId, translatedCount > 0 ? String(translatedCount) : "");
 			return;
 		}
 
@@ -745,8 +777,41 @@ async function processPageTranslationItemBatch(tabId, sessionId, items) {
 	}
 }
 
-async function queuePageTranslationItems(tabId, sessionId, items) {
-	return pageTranslationQueue.enqueue(tabId, sessionId, items);
+async function queuePageTranslationItems(tabId, sessionId, items, frameId) {
+	return pageTranslationQueue.enqueue(tabId, sessionId, items, frameId);
+}
+
+async function startPageTranslationFrame(tabId, frameId, settings) {
+	await ensureContentScript(tabId, frameId);
+	const session = pageTranslationQueue.create(tabId, settings, frameId);
+	const extraction = await chrome.tabs.sendMessage(
+		tabId,
+		TranslatorMessages.startPageTranslationSession({
+			sessionId: session.sessionId,
+			targetLanguage: settings.targetLanguage,
+			...buildTranslationAppearancePayload(settings),
+			...buildDebugPayload(settings),
+		}),
+		getFrameMessageOptions(frameId),
+	);
+
+	if (!extraction || !Array.isArray(extraction.items)) {
+		pageTranslationQueue.remove(tabId, frameId);
+		return { items: [], totalSegments: 0 };
+	}
+
+	if (extraction.items.length > 0) {
+		await queuePageTranslationItems(
+			tabId,
+			session.sessionId,
+			extraction.items,
+			frameId,
+		);
+	} else if (!extraction.totalSegments) {
+		pageTranslationQueue.remove(tabId, frameId);
+	}
+
+	return extraction;
 }
 
 async function translatePage(tab) {
@@ -768,57 +833,50 @@ async function translatePage(tab) {
 		);
 	}
 
-	await ensureContentScript(tab.id);
-	const session = pageTranslationQueue.create(tab.id, settings);
+	pageTranslationQueue.remove(tab.id);
+	const embeddedFrames = await discoverEmbeddedPageFrames(tab.id, tab.url);
+	const frames = [{ frameId: 0, url: tab.url }, ...embeddedFrames];
+	let queuedCount = 0;
+	let totalSegments = 0;
 
-	const extraction = await chrome.tabs.sendMessage(
-		tab.id,
-		TranslatorMessages.startPageTranslationSession({
-			sessionId: session.sessionId,
-			targetLanguage: settings.targetLanguage,
-			...buildTranslationAppearancePayload(settings),
-			...buildDebugPayload(settings),
-		}),
-	);
-
-	if (!extraction || !Array.isArray(extraction.items)) {
-		pageTranslationQueue.remove(tab.id);
-		await sendToast(
-			tab.id,
-			"No translatable text was found on this page.",
-			"info",
-		);
-		setBadge(tab.id, "");
-		return;
-	}
-
-	if (extraction.items.length === 0) {
-		if (extraction.totalSegments > 0) {
-			await sendToast(
+	for (const frame of frames) {
+		try {
+			const extraction = await startPageTranslationFrame(
 				tab.id,
-				"Visible content is already translated. More content will translate as you scroll.",
-				"info",
+				frame.frameId,
+				settings,
 			);
-			setBadge(
-				tab.id,
-				session.translatedIds.size > 0
-					? String(session.translatedIds.size)
-					: "",
-			);
-			return;
+
+			queuedCount += extraction.items.length;
+			totalSegments += Number(extraction.totalSegments) || 0;
+		} catch (error) {
+			pageTranslationQueue.remove(tab.id, frame.frameId);
+
+			if (frame.frameId === 0) {
+				throw error;
+			}
 		}
+	}
 
-		pageTranslationQueue.remove(tab.id);
-		await sendToast(
-			tab.id,
-			"No translatable text was found on this page.",
-			"info",
-		);
-		setBadge(tab.id, "");
+	if (queuedCount > 0) {
 		return;
 	}
 
-	await queuePageTranslationItems(tab.id, session.sessionId, extraction.items);
+	if (totalSegments > 0) {
+		await sendToast(
+			tab.id,
+			"Visible content is already translated. More content will translate as you scroll.",
+			"info",
+		);
+		return;
+	}
+
+	await sendToast(
+		tab.id,
+		"No translatable text was found on this page.",
+		"info",
+	);
+	setBadge(tab.id, "");
 }
 
 async function translateSelection(tabId, selectionText, frameId) {
@@ -937,6 +995,7 @@ async function handleRuntimeMessage(message, sender) {
 		TranslatorMessages.MESSAGE_TYPES.QUEUE_PAGE_TRANSLATION_ITEMS
 	) {
 		const tabId = sender?.tab?.id;
+		const frameId = Number.isInteger(sender?.frameId) ? sender.frameId : 0;
 
 		if (!tabId) {
 			return { ok: false, queued: 0 };
@@ -946,6 +1005,7 @@ async function handleRuntimeMessage(message, sender) {
 			tabId,
 			message.payload?.sessionId,
 			message.payload?.items,
+			frameId,
 		);
 
 		return {

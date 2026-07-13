@@ -34,6 +34,7 @@ const TranslatorContentModule = (() => {
 		READABLE_BLOCK_SELECTOR,
 		SEMANTIC_BLOCK_SELECTOR,
 		SITE_PROFILE_ID,
+		SITE_PROFILE_WINDOWED,
 		SITE_ROOT_SELECTOR,
 		SKIP_ANCESTOR_SELECTOR,
 		SPLIT_PROSE_CONTAINER_SELECTOR,
@@ -933,7 +934,7 @@ const TranslatorContentModule = (() => {
 			root,
 			mode,
 			allowFallback: semanticCount > 0,
-			windowed: mode !== "directory",
+			windowed: SITE_PROFILE_WINDOWED && mode !== "directory",
 		};
 	}
 

@@ -15,6 +15,14 @@ This repository now includes Playwright E2E scripts that load the unpacked Chrom
 9. Verifies the split helper scripts are loaded in the options page, service worker, and injected content page
 10. Saves screenshots in `e2e-artifacts/`
 
+## Antirez Comment Regression Coverage
+
+The Antirez regression opens `https://antirez.com/news/169`, translates the article and its cross-origin Disqus frame, and verifies loaded comment paragraphs receive inline notes:
+
+```bash
+PLAYWRIGHT_MOCK_API=1 npm run e2e:antirez
+```
+
 ## Syosetu Regression Coverage
 
 The repository also includes a dedicated regression script for Syosetu directory pages:
@@ -110,6 +118,10 @@ npm run e2e:mock
 
 ```bash
 npm run e2e:syosetu
+```
+
+```bash
+npm run e2e:antirez
 ```
 
 Or, using the project command wrapper:

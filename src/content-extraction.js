@@ -29,8 +29,10 @@
 		rootSelectors: [],
 		socialTextSelectors: [],
 		splitProseContainerSelectors: [],
+		windowed: true,
 	};
 	const SITE_PROFILE_ID = ACTIVE_SITE_PROFILE.id || "default";
+	const SITE_PROFILE_WINDOWED = ACTIVE_SITE_PROFILE.windowed !== false;
 
 	const ARTICLE_CONTENT_SELECTOR = [
 		"article",
@@ -520,6 +522,7 @@
 		READABLE_LINK_SELECTOR,
 		SEMANTIC_BLOCK_SELECTOR,
 		SITE_PROFILE_ID,
+		SITE_PROFILE_WINDOWED,
 		SITE_ROOT_SELECTOR,
 		SKIP_ANCESTOR_SELECTOR,
 		SPLIT_PROSE_CONTAINER_SELECTOR,

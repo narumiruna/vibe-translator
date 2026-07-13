@@ -4,6 +4,7 @@
 	const ANTIREZ_PROSE_CONTAINER_SELECTOR = "article.comment > pre";
 	const ANTIREZ_PROSE_TEXT_SELECTOR =
 		"article.comment > pre > [data-ot-prose-block]";
+	const DISQUS_COMMENT_TEXT_SELECTOR = '[data-role="message"] p';
 	const X_TWEET_TEXT_SELECTOR = '[data-testid="tweetText"]';
 	const X_CURRENT_POST_TEXT_SELECTOR =
 		'article[data-tweet-id] div[dir="auto"].whitespace-pre-wrap:has(> span)';
@@ -16,6 +17,8 @@
 		rootSelectors: Object.freeze([]),
 		splitProseContainerSelectors: Object.freeze([]),
 		directNoteTargetSelectors: Object.freeze([]),
+		embeddedFramePatterns: Object.freeze([]),
+		windowed: true,
 	});
 	const SITE_PROFILES = Object.freeze([
 		Object.freeze({
@@ -28,6 +31,19 @@
 				ANTIREZ_PROSE_CONTAINER_SELECTOR,
 			]),
 			directNoteTargetSelectors: Object.freeze([ANTIREZ_PROSE_TEXT_SELECTOR]),
+			embeddedFramePatterns: Object.freeze(["https://disqus.com/*"]),
+			windowed: true,
+		}),
+		Object.freeze({
+			id: "disqus",
+			hosts: Object.freeze(["disqus.com"]),
+			socialTextSelectors: Object.freeze([DISQUS_COMMENT_TEXT_SELECTOR]),
+			proseTextSelectors: Object.freeze([]),
+			rootSelectors: Object.freeze(["#posts"]),
+			splitProseContainerSelectors: Object.freeze([]),
+			directNoteTargetSelectors: Object.freeze([DISQUS_COMMENT_TEXT_SELECTOR]),
+			embeddedFramePatterns: Object.freeze([]),
+			windowed: false,
 		}),
 		Object.freeze({
 			id: "x",
@@ -49,6 +65,8 @@
 				X_TWEET_TEXT_SELECTOR,
 				X_CURRENT_POST_TEXT_SELECTOR,
 			]),
+			embeddedFramePatterns: Object.freeze([]),
+			windowed: true,
 		}),
 		Object.freeze({
 			id: "threads",
@@ -58,6 +76,8 @@
 			rootSelectors: Object.freeze([]),
 			splitProseContainerSelectors: Object.freeze([]),
 			directNoteTargetSelectors: Object.freeze([THREADS_TEXT_BLOCK_SELECTOR]),
+			embeddedFramePatterns: Object.freeze([]),
+			windowed: true,
 		}),
 	]);
 
@@ -114,6 +134,7 @@
 		ANTIREZ_PROSE_CONTAINER_SELECTOR,
 		ANTIREZ_PROSE_TEXT_SELECTOR,
 		DEFAULT_PROFILE_ID,
+		DISQUS_COMMENT_TEXT_SELECTOR,
 		DEFAULT_SITE_PROFILE,
 		SAFE_EMPTY_SELECTOR,
 		SITE_PROFILES,

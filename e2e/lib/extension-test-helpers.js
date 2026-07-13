@@ -18,6 +18,7 @@ const EXTENSION_FILES = [
 	"src/content-viewport.js",
 	"src/content-selection-panel.js",
 	"src/content-site-profiles.js",
+	"src/embedded-frames.js",
 	"src/content-extraction.js",
 	"src/content.js",
 	"src/page-translation-session.js",

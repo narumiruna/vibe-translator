@@ -25,6 +25,7 @@ const REQUIRED_BACKGROUND_GLOBALS = [
 	"TranslatorApiCache",
 	"TranslatorApiChunkPlan",
 	"TranslatorApiResponses",
+	"TranslatorEmbeddedFrames",
 	"TranslatorMessages",
 	"TranslatorPageTranslationQueue",
 	"TranslatorProtectedFragments",

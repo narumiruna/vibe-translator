@@ -8,6 +8,7 @@ help:
     @echo "  just check  - Run JavaScript syntax checks and unit tests"
     @echo "  just e2e    - Run Playwright extension smoke tests"
     @echo "  just e2e-mock - Run Playwright extension smoke tests with mock API"
+    @echo "  just e2e-antirez - Run Antirez article and Disqus comment regression test"
     @echo "  just e2e-syosetu - Run Syosetu directory regression test"
     @echo "  just format - Run Biome formatter with writes enabled"
     @echo "  just lint   - Run Biome lint with safe fixes"
@@ -33,6 +34,9 @@ e2e:
 
 e2e-mock:
     @PLAYWRIGHT_MOCK_API=1 node e2e/extension-smoke.js
+
+e2e-antirez:
+    @node e2e/antirez-comments.js
 
 e2e-syosetu:
     @node e2e/syosetu-directory.js

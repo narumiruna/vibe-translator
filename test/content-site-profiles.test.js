@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+	DISQUS_COMMENT_TEXT_SELECTOR,
 	SAFE_EMPTY_SELECTOR,
 	THREADS_TEXT_BLOCK_SELECTOR,
 	X_CURRENT_POST_TEXT_SELECTOR,
@@ -32,6 +33,7 @@ test("resolveSiteProfile matches exact built-in hosts", () => {
 		["www.twitter.com", "x"],
 		["mobile.twitter.com", "x"],
 		["threads.net", "threads"],
+		["disqus.com", "disqus"],
 		["www.threads.net", "threads"],
 		["example.com", "default"],
 		["notx.com", "default"],
@@ -72,6 +74,29 @@ test("default extraction selectors exclude site-only social selectors", () => {
 	assert.equal(
 		selectors.READABLE_BLOCK_SELECTOR.includes(THREADS_TEXT_BLOCK_SELECTOR),
 		false,
+	);
+});
+
+test("Antirez profile declares its Disqus embedded frame", () => {
+	assert.deepEqual(resolveSiteProfile("antirez.com").embeddedFramePatterns, [
+		"https://disqus.com/*",
+	]);
+});
+
+test("Disqus extraction targets comment text without discussion controls", () => {
+	const selectors = createExtractionSelectorsForProfile(
+		resolveSiteProfile("disqus.com"),
+	);
+
+	assert.equal(resolveSiteProfile("disqus.com").windowed, false);
+	assert.equal(selectors.SITE_ROOT_SELECTOR, "#posts");
+	assert.ok(
+		selectors.READABLE_BLOCK_SELECTOR.includes(DISQUS_COMMENT_TEXT_SELECTOR),
+	);
+	assert.ok(
+		selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
+			DISQUS_COMMENT_TEXT_SELECTOR,
+		),
 	);
 });
 

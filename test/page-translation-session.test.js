@@ -127,6 +127,45 @@ test("page translation queue ignores stale session ids", () => {
 	assert.equal(queue.get(3, session.sessionId), session);
 });
 
+test("page translation queue isolates duplicate source ids across frames", async () => {
+	const processed = [];
+	const queue = createPageTranslationQueue({
+		processBatch({ frameId, items }) {
+			processed.push({ frameId, ids: items.map((item) => item.id) });
+		},
+	});
+	const topSession = queue.create(7, {}, 0);
+	const frameSession = queue.create(7, {}, 12);
+
+	assert.deepEqual(
+		queue.enqueue(7, topSession.sessionId, [{ id: "ot-1" }], 0),
+		{
+			queued: 1,
+		},
+	);
+	assert.deepEqual(
+		queue.enqueue(7, frameSession.sessionId, [{ id: "ot-1" }], 12),
+		{ queued: 1 },
+	);
+	await nextTick();
+
+	assert.deepEqual(processed, [
+		{ frameId: 0, ids: ["ot-1"] },
+		{ frameId: 12, ids: ["ot-1"] },
+	]);
+	assert.equal(queue.get(7, topSession.sessionId, 0), topSession);
+	assert.equal(queue.get(7, frameSession.sessionId, 12), frameSession);
+	queue.markTranslated(7, topSession.sessionId, ["ot-1"], 0);
+	queue.markTranslated(7, frameSession.sessionId, ["ot-1", "ot-2"], 12);
+	assert.equal(queue.getTranslatedCount(7), 3);
+
+	queue.remove(7, 12);
+	assert.equal(queue.get(7, frameSession.sessionId, 12), null);
+	assert.equal(queue.get(7, topSession.sessionId, 0), topSession);
+	queue.remove(7);
+	assert.equal(queue.get(7, topSession.sessionId, 0), null);
+});
+
 test("page translation queue records translated ids", () => {
 	const queue = createPageTranslationQueue();
 	const session = queue.create(4, {});

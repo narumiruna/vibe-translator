@@ -29,9 +29,14 @@
 			typeof options.onError === "function" ? options.onError : () => {};
 		const sessions = new Map();
 
-		function create(tabId, settings) {
+		function getSessionKey(tabId, frameId = 0) {
+			return `${tabId}:${frameId}`;
+		}
+
+		function create(tabId, settings, frameId = 0) {
 			const session = {
 				tabId,
+				frameId,
 				sessionId: createSessionId(),
 				settings,
 				pendingItems: [],
@@ -40,31 +45,60 @@
 				inFlightCount: 0,
 			};
 
-			sessions.set(tabId, session);
+			sessions.set(getSessionKey(tabId, frameId), session);
 
 			return session;
 		}
 
-		function get(tabId, sessionId) {
-			const session = sessions.get(tabId);
+		function get(tabId, sessionId, frameId) {
+			if (Number.isInteger(frameId) && frameId >= 0) {
+				const session = sessions.get(getSessionKey(tabId, frameId));
 
-			if (!session) {
-				return null;
+				return !session || (sessionId && session.sessionId !== sessionId)
+					? null
+					: session;
 			}
 
-			if (sessionId && session.sessionId !== sessionId) {
-				return null;
+			if (!sessionId) {
+				return sessions.get(getSessionKey(tabId, 0)) || null;
 			}
 
-			return session;
+			for (const session of sessions.values()) {
+				if (session.tabId === tabId && session.sessionId === sessionId) {
+					return session;
+				}
+			}
+
+			return null;
 		}
 
-		function remove(tabId) {
-			sessions.delete(tabId);
+		function remove(tabId, frameId) {
+			if (Number.isInteger(frameId) && frameId >= 0) {
+				sessions.delete(getSessionKey(tabId, frameId));
+				return;
+			}
+
+			for (const [key, session] of sessions) {
+				if (session.tabId === tabId) {
+					sessions.delete(key);
+				}
+			}
 		}
 
-		function markTranslated(tabId, sessionId, ids) {
-			const session = get(tabId, sessionId);
+		function getTranslatedCount(tabId) {
+			let count = 0;
+
+			for (const session of sessions.values()) {
+				if (session.tabId === tabId) {
+					count += session.translatedIds.size;
+				}
+			}
+
+			return count;
+		}
+
+		function markTranslated(tabId, sessionId, ids, frameId) {
+			const session = get(tabId, sessionId, frameId);
 
 			if (!session) {
 				return 0;
@@ -87,8 +121,8 @@
 			return count;
 		}
 
-		function continueProcessing(tabId, sessionId) {
-			const session = get(tabId, sessionId);
+		function continueProcessing(tabId, sessionId, frameId) {
+			const session = get(tabId, sessionId, frameId);
 
 			if (!session) {
 				return;
@@ -110,6 +144,7 @@
 					.then(() =>
 						processBatch({
 							tabId,
+							frameId: session.frameId,
 							sessionId,
 							items,
 							session,
@@ -118,12 +153,13 @@
 					.catch((error) => {
 						onError(error, {
 							tabId,
+							frameId: session.frameId,
 							sessionId,
 							items,
 						});
 					})
 					.finally(() => {
-						const currentSession = get(tabId, sessionId);
+						const currentSession = get(tabId, sessionId, frameId);
 
 						if (!currentSession) {
 							return;
@@ -138,13 +174,13 @@
 							currentSession.inFlightCount - 1,
 						);
 
-						continueProcessing(tabId, sessionId);
+						continueProcessing(tabId, sessionId, frameId);
 					});
 			}
 		}
 
-		function enqueue(tabId, sessionId, items) {
-			const session = get(tabId, sessionId);
+		function enqueue(tabId, sessionId, items, frameId) {
+			const session = get(tabId, sessionId, frameId);
 
 			if (!session) {
 				return { queued: 0 };
@@ -167,7 +203,7 @@
 
 			if (queuedItems.length > 0) {
 				session.pendingItems = queuedItems.concat(session.pendingItems);
-				continueProcessing(tabId, session.sessionId);
+				continueProcessing(tabId, session.sessionId, session.frameId);
 			}
 
 			return { queued: queuedItems.length };
@@ -177,6 +213,7 @@
 			create,
 			enqueue,
 			get,
+			getTranslatedCount,
 			markTranslated,
 			remove,
 		};
