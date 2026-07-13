@@ -61,6 +61,10 @@ test("getSelectionPanelWidth keeps compact and expanded widths within viewport m
 	assert.equal(getSelectionPanelWidth(1024, false), 280);
 	assert.equal(getSelectionPanelWidth(1024, true), 420);
 	assert.equal(getSelectionPanelWidth(300, true), 276);
+	assert.equal(getSelectionPanelWidth(1024, false, 360), 360);
+	assert.equal(getSelectionPanelWidth(1024, true, 360), 420);
+	assert.equal(getSelectionPanelWidth(1024, false, 480), 480);
+	assert.equal(getSelectionPanelWidth(1024, true, 480), 480);
 });
 
 test("shouldCloseSelectionPanelOnKey only accepts plain Escape", () => {

@@ -7,7 +7,7 @@
 	const SELECTION_PANEL_GAP = 12;
 	const SELECTION_PANEL_COMPACT_WIDTH = 280;
 	const SELECTION_PANEL_EXPANDED_WIDTH = 420;
-	const SELECTION_PANEL_MAX_WIDTH = 420;
+	const SELECTION_PANEL_MAX_WIDTH = 480;
 	const SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT = 132;
 	const SELECTION_PANEL_EXPANDED_MAX_BODY_HEIGHT = 320;
 	const SELECTION_PANEL_MOBILE_BREAKPOINT = 640;
@@ -56,10 +56,18 @@
 		return Math.min(max, Math.max(min, value));
 	}
 
-	function getSelectionPanelWidth(viewportWidth, expanded) {
-		const preferredWidth = expanded
-			? SELECTION_PANEL_EXPANDED_WIDTH
+	function getSelectionPanelWidth(
+		viewportWidth,
+		expanded,
+		compactWidth = SELECTION_PANEL_COMPACT_WIDTH,
+	) {
+		const numericWidth = Number(compactWidth);
+		const normalizedCompactWidth = Number.isFinite(numericWidth)
+			? clampSelectionPanelValue(numericWidth, 240, SELECTION_PANEL_MAX_WIDTH)
 			: SELECTION_PANEL_COMPACT_WIDTH;
+		const preferredWidth = expanded
+			? Math.max(SELECTION_PANEL_EXPANDED_WIDTH, normalizedCompactWidth)
+			: normalizedCompactWidth;
 
 		return Math.min(
 			preferredWidth,
@@ -100,6 +108,7 @@
 					};
 		const state = {
 			positionMode: "near-selection",
+			compactWidth: SELECTION_PANEL_COMPACT_WIDTH,
 			anchorRect: null,
 			expanded: false,
 			keyboardHandlerInstalled: false,
@@ -166,7 +175,11 @@
 			panel.style.maxWidth = "";
 
 			if (viewportWidth > SELECTION_PANEL_MOBILE_BREAKPOINT) {
-				const targetWidth = getSelectionPanelWidth(viewportWidth, isExpanded());
+				const targetWidth = getSelectionPanelWidth(
+					viewportWidth,
+					isExpanded(),
+					state.compactWidth,
+				);
 
 				panel.style.width = `${targetWidth}px`;
 				panel.style.maxWidth = `${targetWidth}px`;
@@ -184,13 +197,14 @@
 				0,
 				viewportWidth - SELECTION_PANEL_MARGIN * 2,
 			);
-			const measuredWidth = panel.offsetWidth || SELECTION_PANEL_MAX_WIDTH;
-			const measuredHeight = panel.offsetHeight || 0;
-			const panelWidth = Math.min(
-				SELECTION_PANEL_MAX_WIDTH,
-				maxPanelWidth,
-				measuredWidth,
+			const targetWidth = getSelectionPanelWidth(
+				viewportWidth,
+				isExpanded(),
+				state.compactWidth,
 			);
+			const measuredWidth = panel.offsetWidth || targetWidth;
+			const measuredHeight = panel.offsetHeight || 0;
+			const panelWidth = Math.min(targetWidth, maxPanelWidth, measuredWidth);
 			const minLeft = SELECTION_PANEL_MARGIN;
 			const maxLeft = Math.max(minLeft, viewportWidth - panelWidth - minLeft);
 			const preferredLeft = Math.min(
@@ -323,6 +337,16 @@
 		}
 
 		function update(payload) {
+			const requestedWidth = Number(
+				payload.translationAppearance?.selection?.widthPx,
+			);
+			state.compactWidth = Number.isFinite(requestedWidth)
+				? clampSelectionPanelValue(
+						requestedWidth,
+						240,
+						SELECTION_PANEL_MAX_WIDTH,
+					)
+				: SELECTION_PANEL_COMPACT_WIDTH;
 			state.positionMode = normalizeSelectionPanelPositionMode(
 				payload.selectionPanelPositionMode,
 			);
@@ -381,6 +405,7 @@
 				selectionAnchor: payload.selectionAnchor,
 				translation: payload.translation,
 				protectedFragments: payload.protectedFragments,
+				translationAppearance: payload.translationAppearance,
 			});
 
 			return { rendered: "floating" };
@@ -395,6 +420,7 @@
 				targetLanguage: payload.targetLanguage,
 				selectionPanelPositionMode: payload.selectionPanelPositionMode,
 				selectionAnchor: payload.selectionAnchor,
+				translationAppearance: payload.translationAppearance,
 			});
 
 			return { rendered: "floating" };

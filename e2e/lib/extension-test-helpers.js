@@ -15,6 +15,7 @@ const REQUEST_TIMEOUT_MS = 120000;
 const EXTENSION_FILES = [
 	"manifest.json",
 	"src/background.js",
+	"src/translation-appearance.js",
 	"src/content-viewport.js",
 	"src/content-selection-panel.js",
 	"src/content-site-profiles.js",
@@ -31,6 +32,7 @@ const EXTENSION_FILES = [
 	"src/translator-messages.js",
 	"src/options.html",
 	"src/options.css",
+	"src/options-appearance.js",
 	"src/options.js",
 ];
 
@@ -398,6 +400,27 @@ async function saveOptions(context, extensionId, config, options = {}) {
 	await page
 		.locator("#selection-panel-position-mode")
 		.selectOption(options.selectionPanelPositionMode || "near-selection");
+
+	if (options.appearancePreset) {
+		await page
+			.locator("#translation-appearance-preset")
+			.selectOption(options.appearancePreset);
+	}
+	for (const [selector, value] of Object.entries(
+		options.appearanceValues || {},
+	)) {
+		const input = page.locator(selector);
+
+		await input.evaluate((element, nextValue) => {
+			if (element.type === "checkbox") {
+				element.checked = Boolean(nextValue);
+			} else {
+				element.value = String(nextValue);
+			}
+			element.dispatchEvent(new Event("input", { bubbles: true }));
+			element.dispatchEvent(new Event("change", { bubbles: true }));
+		}, value);
+	}
 
 	await page.locator("#save-button").click();
 	await waitForText(
