@@ -300,6 +300,26 @@ async function runAppearanceOptionsSmoke(
 		await persistedPage.locator("#selection-width").inputValue(),
 		"360",
 	);
+	await persistedPage.setViewportSize({ width: 390, height: 844 });
+	const mobilePreviewBounds = await persistedPage.evaluate(() => ({
+		viewportWidth: innerWidth,
+		bounds: [
+			"reading-preview",
+			"reading-preview-translation",
+			"selection-appearance-preview",
+		].map((id) => {
+			const element = document.getElementById(id);
+			const rect = element.getBoundingClientRect();
+
+			return { id, left: rect.left, right: rect.right };
+		}),
+	}));
+	for (const bound of mobilePreviewBounds.bounds) {
+		assert.ok(
+			bound.left >= 0 && bound.right <= mobilePreviewBounds.viewportWidth,
+			`${bound.id} must stay inside the 390px options viewport.`,
+		);
+	}
 	await takeScreenshot(
 		persistedPage,
 		artifactsDir,
@@ -663,6 +683,26 @@ async function runSelectionTranslationSmoke(
 	assert.ok(
 		panelText.length > 0,
 		"Expected a non-empty translated selection panel body.",
+	);
+	assert.equal(
+		await panel.evaluate((element) => element.getBoundingClientRect().width),
+		280,
+	);
+	await panel.evaluate((element) => {
+		const body = element.querySelector('[data-ot-role="selection-panel-body"]');
+		const expand = element.querySelector(
+			'[data-ot-role="selection-panel-expand"]',
+		);
+
+		body.textContent = `${body.textContent} `.repeat(5).trim();
+		expand.click();
+	});
+	await waitFor(
+		async () =>
+			(await panel.evaluate(
+				(element) => element.getBoundingClientRect().width,
+			)) === 420,
+		{ timeoutMessage: "Expanded selection panel did not reach 420px." },
 	);
 
 	await takeScreenshot(page, artifactsDir, "selection-translation-smoke.png");

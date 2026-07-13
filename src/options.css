@@ -168,11 +168,13 @@ h1 {
 /* ── Form section groups ────────────────────────────────────────── */
 .form {
 	display: grid;
+	min-width: 0;
 	gap: 0;
 }
 
 /* ── Section groups ────────────────────────────────────────────── */
 .form-section {
+	min-width: 0;
 	padding: 20px 28px;
 	border-bottom: 1px solid var(--separator);
 }
@@ -334,6 +336,7 @@ textarea[readonly] {
 /* ── Appearance panel ──────────────────────────────────────────── */
 .appearance-panel {
 	display: grid;
+	min-width: 0;
 	gap: 16px;
 	padding: 20px;
 	border-radius: 12px;
@@ -418,6 +421,7 @@ textarea[readonly] {
 
 .reading-preview {
 	display: grid;
+	min-width: 0;
 	gap: 16px;
 	max-width: 100%;
 	padding: 18px;
@@ -452,6 +456,11 @@ textarea[readonly] {
 	font-size: 0.6875rem;
 	font-weight: 600;
 	letter-spacing: 0.06em;
+}
+
+.reading-preview-source,
+.reading-preview-translation {
+	min-width: 0;
 }
 
 .reading-preview-translation {
@@ -556,6 +565,7 @@ textarea[readonly] {
 
 .selection-appearance-preview {
 	box-sizing: border-box;
+	min-width: 0;
 	padding: 12px;
 	border: 1px solid var(--separator);
 	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
@@ -757,6 +767,7 @@ button.secondary:hover {
 /* ── Tab panels ────────────────────────────────────────────────── */
 .tab-panel {
 	display: none;
+	min-width: 0;
 }
 
 .tab-panel.active {

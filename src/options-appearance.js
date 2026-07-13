@@ -238,7 +238,7 @@
 			previewLabel.textContent = targetLanguage || "Target language";
 			previewLabel.style.color = inlineColors.labelColor;
 
-			selectionPreview.style.width = `${selection.widthPx}px`;
+			selectionPreview.style.width = `min(${selection.widthPx}px, 100%)`;
 			selectionPreview.style.maxWidth = "100%";
 			selectionPreview.style.borderRadius = `${selection.borderRadiusPx}px`;
 			selectionPreview.style.background = appearanceApi.hexToRgbaColor(
