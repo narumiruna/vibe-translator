@@ -11,7 +11,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 - Large pages are split into batches and translated with bounded parallel requests; oversized blocks are broken down recursively
 - Inline code, file paths, URLs, math expressions, and common technical terms are protected by placeholder substitution so they are never mangled
 - Fully configurable: API key, base URL, model, target language, and prompt templates
-- Translations use a calm bilingual reading card with responsive spacing and dark-mode support
+- Translation appearance is customizable with three presets, safe typography/layout controls, separate light/dark colors, and live contrast feedback
 - Individual domains can be disabled from the options page
 
 ## Project Structure
@@ -22,6 +22,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 | `src/background.js` | Action click, context menus, permission flow, session orchestration |
 | `src/content-viewport.js` | Viewport measurement for progressive page translation |
 | `src/content-selection-panel.js` | Floating selected-text translation panel rendering and positioning |
+| `src/translation-appearance.js` | Appearance presets, validation, contrast calculation, and safe style mappings |
 | `src/content-extraction.js` | Page content selector, scoring, and extraction helper logic |
 | `src/content.js` | DOM extraction, translation rendering, scroll-driven queuing |
 | `src/translator-messages.js` | Shared background/content message types and message builders |
@@ -32,6 +33,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 | `src/api.js` | Translation request caching, retry, and batched request orchestration |
 | `src/storage.js` | Settings validation, normalization, and persistence |
 | `src/options.html/css/js` | Settings page UI |
+| `src/options-appearance.js` | Appearance controls, preset behavior, and live previews |
 | `test/` | Node unit tests |
 | `docs/TESTING.md` | Manual QA checklist |
 
@@ -54,8 +56,13 @@ All settings are on the options page.
 | Target Language | Language to translate into (default: `台灣正體中文`) |
 | System Prompt Template | Full system prompt; supports `{{targetLanguage}}`, `{{itemCount}}`, `{{itemKind}}` |
 | User Prompt Template | Full user prompt; must include `{{sourcePayload}}` |
-| Reading Appearance | Original text remains untouched; translations use a subtle surface and accent rule |
+| Reading Appearance | Calm Reading, Minimal, and High Contrast presets plus font, size, spacing, surface, accent, label, animation, and separate light/dark colors |
+| Selection Panel Appearance | Independent width, font size, line height, radius, opacity, position, and light/dark colors |
 | Disabled Domains | One domain per line; translation is silently skipped on matching hostnames |
+
+The Appearance tab previews changes without saving and warns when translation text/background contrast is below WCAG AA. **Reset Appearance** restores only visual settings. Saved appearance changes apply the next time a page or selection is translated; existing rendered translations are not updated proactively.
+
+Older underline settings are ignored and safely migrate to the Calm Reading appearance. Arbitrary CSS and font names are not accepted.
 
 The options page also shows a live prompt preview and a **Test Connection** button that sends a sample request to confirm the API is reachable.
 
@@ -73,7 +80,7 @@ The extension requests host permission only for the origin derived from your con
 
 1. Highlight text on the page
 2. Right-click the selection and choose **Translate selected text**
-3. The translation appears as an inline note near the selected content
+3. The translation appears in a compact floating panel near the selected content
 
 ## Development
 

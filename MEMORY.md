@@ -19,4 +19,5 @@
 
 ## TASTE
 - Selection translation UI should default to a compact tooltip-sized card; long content can expand, but the default should prefer density over empty space.
-- Inline page translations should look like a formal bilingual reading surface with subtle background and accent, bounded line measure, and no spellcheck-like per-line underlines.
+- Inline page translations should default to a formal bilingual reading surface with subtle background and accent, bounded line measure, and no spellcheck-like per-line underlines.
+- Translation appearance should be deeply customizable through safe presets and validated controls; keep inline reading cards and selection panels independently configurable without arbitrary CSS.

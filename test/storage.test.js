@@ -13,7 +13,6 @@ const {
 	normalizeBaseUrl,
 	normalizeShowTranslationDebugInfo,
 	normalizeSelectionPanelPositionMode,
-	normalizeTranslationAppearance,
 	validateSettings,
 } = require("../src/storage.js");
 
@@ -53,21 +52,9 @@ test("validateSettings merges prompt template defaults", () => {
 		result.settings.userPromptTemplate,
 		DEFAULT_USER_PROMPT_TEMPLATE,
 	);
-	assert.equal(
-		result.settings.translationUnderlineColor,
-		DEFAULT_SETTINGS.translationUnderlineColor,
-	);
-	assert.equal(
-		result.settings.translationUnderlineStyle,
-		DEFAULT_SETTINGS.translationUnderlineStyle,
-	);
-	assert.equal(
-		result.settings.translationUnderlineThickness,
-		DEFAULT_SETTINGS.translationUnderlineThickness,
-	);
-	assert.equal(
-		result.settings.translationUnderlineOffset,
-		DEFAULT_SETTINGS.translationUnderlineOffset,
+	assert.deepEqual(
+		result.settings.translationAppearance,
+		DEFAULT_SETTINGS.translationAppearance,
 	);
 	assert.equal(
 		result.settings.selectionPanelPositionMode,
@@ -83,21 +70,43 @@ test("validateSettings merges prompt template defaults", () => {
 	);
 });
 
-test("normalizeTranslationAppearance clamps and sanitizes underline settings", () => {
+test("validateSettings migrates obsolete underline settings to Calm Reading", () => {
+	const result = validateSettings({
+		apiKey: "sk-demo",
+		baseUrl: "https://example.com/v1",
+		model: "gpt-demo",
+		targetLanguage: "日本語",
+		translationUnderlineColor: "#ff0000",
+		translationUnderlineStyle: "dotted",
+		translationUnderlineThickness: 6,
+		translationUnderlineOffset: 9,
+	});
+
+	assert.equal(result.isValid, true);
 	assert.deepEqual(
-		normalizeTranslationAppearance({
-			translationUnderlineColor: "not-a-color",
-			translationUnderlineStyle: "wavy",
-			translationUnderlineThickness: 99,
-			translationUnderlineOffset: -4,
-		}),
-		{
-			translationUnderlineColor: "#007aff",
-			translationUnderlineStyle: "dashed",
-			translationUnderlineThickness: 6,
-			translationUnderlineOffset: 0,
-		},
+		result.settings.translationAppearance,
+		DEFAULT_SETTINGS.translationAppearance,
 	);
+	assert.equal("translationUnderlineColor" in result.settings, false);
+});
+
+test("validateSettings preserves normalized nested appearance settings", () => {
+	const result = validateSettings({
+		apiKey: "sk-demo",
+		baseUrl: "https://example.com/v1",
+		model: "gpt-demo",
+		targetLanguage: "日本語",
+		translationAppearance: {
+			presetId: "custom",
+			inline: { fontSizePx: 21, accentWidthPx: 0 },
+			selection: { widthPx: 420 },
+		},
+	});
+
+	assert.equal(result.settings.translationAppearance.presetId, "custom");
+	assert.equal(result.settings.translationAppearance.inline.fontSizePx, 21);
+	assert.equal(result.settings.translationAppearance.inline.accentWidthPx, 0);
+	assert.equal(result.settings.translationAppearance.selection.widthPx, 420);
 });
 
 test("validateSettings requires sourcePayload in user prompt template", () => {

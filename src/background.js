@@ -1,4 +1,5 @@
 importScripts(
+	"translation-appearance.js",
 	"storage.js",
 	"content-site-profiles.js",
 	"embedded-frames.js",
@@ -75,15 +76,10 @@ function getScriptTarget(tabId, frameId) {
 }
 
 function buildTranslationAppearancePayload(settings) {
-	const appearance = TranslatorStorage.normalizeTranslationAppearance(settings);
-
 	return {
-		translationAppearance: {
-			underlineColor: appearance.translationUnderlineColor,
-			underlineStyle: appearance.translationUnderlineStyle,
-			underlineThickness: appearance.translationUnderlineThickness,
-			underlineOffset: appearance.translationUnderlineOffset,
-		},
+		translationAppearance: TranslatorAppearance.normalizeTranslationAppearance(
+			settings?.translationAppearance,
+		),
 	};
 }
 
@@ -312,6 +308,7 @@ async function ensureContentScript(tabId, frameId) {
 	await chrome.scripting.executeScript({
 		target: getScriptTarget(tabId, frameId),
 		files: [
+			"src/translation-appearance.js",
 			"src/content-viewport.js",
 			"src/content-selection-panel.js",
 			"src/content-site-profiles.js",

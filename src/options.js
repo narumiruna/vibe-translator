@@ -32,6 +32,18 @@
 	const testDetails = document.getElementById("test-details");
 	const formStatus = document.getElementById("form-status");
 	const testButton = document.getElementById("test-button");
+	const appearanceController =
+		root.TranslatorOptionsAppearance.createAppearanceController({
+			document,
+			appearanceApi: root.TranslatorAppearance,
+			getTargetLanguage: () => targetLanguageInput.value.trim(),
+			onReset: () => {
+				showBanner(
+					"Appearance reset to Calm Reading. Save settings to apply it.",
+					false,
+				);
+			},
+		});
 
 	function getFormSettings() {
 		return {
@@ -40,6 +52,7 @@
 			model: modelInput.value,
 			systemPromptTemplate: systemPromptTemplateInput.value,
 			userPromptTemplate: userPromptTemplateInput.value,
+			translationAppearance: appearanceController.getAppearance(),
 			showTranslationDebugInfo: showTranslationDebugInfoInput.checked,
 			selectionPanelPositionMode: selectionPanelPositionModeInput.value,
 			targetLanguage: targetLanguageInput.value,
@@ -164,6 +177,7 @@
 		targetLanguageInput.value = settings.targetLanguage;
 		systemPromptTemplateInput.value = settings.systemPromptTemplate;
 		userPromptTemplateInput.value = settings.userPromptTemplate;
+		appearanceController.setAppearance(settings.translationAppearance);
 		showTranslationDebugInfoInput.checked = Boolean(
 			settings.showTranslationDebugInfo,
 		);
@@ -272,7 +286,10 @@
 		updatePermissionStatus(baseUrlInput.value).catch(() => {});
 	});
 
-	targetLanguageInput.addEventListener("input", renderPromptPreview);
+	targetLanguageInput.addEventListener("input", () => {
+		renderPromptPreview();
+		appearanceController.renderPreview();
+	});
 	systemPromptTemplateInput.addEventListener("input", renderPromptPreview);
 	userPromptTemplateInput.addEventListener("input", renderPromptPreview);
 	showTranslationDebugInfoInput.addEventListener("input", renderPromptPreview);

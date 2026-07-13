@@ -44,13 +44,15 @@ const TranslatorContentModule = (() => {
 		UNSUPPORTED_ANCESTOR_SELECTOR,
 		UNSUPPORTED_ELEMENT_SELECTOR,
 	} = ExtractionApi;
-	const DEFAULT_TRANSLATION_APPEARANCE = Object.freeze({
-		underlineColor: "#007aff",
-		underlineStyle: "dashed",
-		underlineThickness: 2,
-		underlineOffset: 3,
-	});
-	const SELECTION_PANEL_COMPACT_WIDTH = 280;
+	const AppearanceApi =
+		window.TranslatorAppearance ||
+		(typeof module !== "undefined" && module.exports
+			? require("./translation-appearance.js")
+			: null);
+
+	if (!AppearanceApi) {
+		throw new Error("TranslatorAppearance must load before content.js.");
+	}
 	const SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT = 132;
 	const SELECTION_PANEL_EXPANDED_MAX_BODY_HEIGHT = 320;
 	const PROTECTED_PLACEHOLDER_REGEX = /__OT_(?:TOKEN|MATH)_\d+__/g;
@@ -139,7 +141,7 @@ const TranslatorContentModule = (() => {
 			active: false,
 			sessionId: "",
 		},
-		translationAppearance: { ...DEFAULT_TRANSLATION_APPEARANCE },
+		translationAppearance: AppearanceApi.normalizeTranslationAppearance(),
 		debug: {
 			enabled: false,
 		},
@@ -322,51 +324,44 @@ const TranslatorContentModule = (() => {
 		};
 	}
 
-	function normalizeTranslationAppearance(appearance) {
-		const source = appearance || {};
-		const color = /^#[0-9a-f]{6}$/i.test(
-			String(source.underlineColor || "").trim(),
-		)
-			? String(source.underlineColor).trim().toLowerCase()
-			: DEFAULT_TRANSLATION_APPEARANCE.underlineColor;
-		const style = ["solid", "dashed", "dotted"].includes(
-			String(source.underlineStyle || "")
-				.trim()
-				.toLowerCase(),
-		)
-			? String(source.underlineStyle).trim().toLowerCase()
-			: DEFAULT_TRANSLATION_APPEARANCE.underlineStyle;
-		const thickness = Math.min(
-			6,
-			Math.max(
-				1,
-				Number(source.underlineThickness) ||
-					DEFAULT_TRANSLATION_APPEARANCE.underlineThickness,
-			),
-		);
-		const offset = Math.min(
-			12,
-			Math.max(
-				0,
-				Number(source.underlineOffset) ||
-					DEFAULT_TRANSLATION_APPEARANCE.underlineOffset,
-			),
-		);
-
-		return {
-			underlineColor: color,
-			underlineStyle: style,
-			underlineThickness: thickness,
-			underlineOffset: offset,
-		};
-	}
-
 	function ensureStyles(appearance) {
 		if (appearance) {
 			pageState.translationAppearance =
-				normalizeTranslationAppearance(appearance);
+				AppearanceApi.normalizeTranslationAppearance(appearance);
 		}
 
+		const resolvedAppearance = pageState.translationAppearance;
+		const inlineAppearance = resolvedAppearance.inline;
+		const selectionAppearance = resolvedAppearance.selection;
+		const inlineBackground = inlineAppearance.showBackground
+			? inlineAppearance.light.backgroundColor
+			: "transparent";
+		const inlineDarkBackground = inlineAppearance.showBackground
+			? inlineAppearance.dark.backgroundColor
+			: "transparent";
+		const fadeAnimation = inlineAppearance.enableFadeAnimation
+			? "ot-fade-in 0.18s ease forwards"
+			: "none";
+		const selectionLightBackground = AppearanceApi.hexToRgbaColor(
+			selectionAppearance.light.surfaceColor,
+			selectionAppearance.surfaceOpacityPercent,
+		);
+		const selectionDarkBackground = AppearanceApi.hexToRgbaColor(
+			selectionAppearance.dark.surfaceColor,
+			selectionAppearance.surfaceOpacityPercent,
+		);
+		const selectionLightAccentSoft = AppearanceApi.hexToRgbaColor(
+			selectionAppearance.light.accentColor,
+			10,
+		);
+		const selectionLightAccentHover = AppearanceApi.hexToRgbaColor(
+			selectionAppearance.light.accentColor,
+			16,
+		);
+		const selectionDarkAccentSoft = AppearanceApi.hexToRgbaColor(
+			selectionAppearance.dark.accentColor,
+			16,
+		);
 		let style = document.getElementById(STYLE_ID);
 
 		if (!style) {
@@ -389,23 +384,26 @@ const TranslatorContentModule = (() => {
         overflow: visible;
         float: none;
         clear: both;
-        width: min(100%, 52rem);
+        width: min(100%, ${inlineAppearance.maxWidthPx}px);
         max-width: 100%;
-        margin: 1rem 0 1.5rem;
-        padding: 0.8rem 1rem 0.9rem;
+        margin: ${inlineAppearance.marginTopPx}px 0 ${inlineAppearance.marginBottomPx}px;
+        padding: ${inlineAppearance.paddingVerticalPx}px ${inlineAppearance.paddingHorizontalPx}px;
         border: 0;
-        border-left: 3px solid #4b765c;
-        border-radius: 0 8px 8px 0;
-        font: 400 1rem/1.72 "Noto Serif CJK TC", "Noto Serif TC", "Songti TC", "PMingLiU", Georgia, serif;
+        border-left: ${inlineAppearance.accentWidthPx}px solid ${inlineAppearance.light.accentColor};
+        border-radius: 0 ${inlineAppearance.borderRadiusPx}px ${inlineAppearance.borderRadiusPx}px 0;
+        font-family: ${AppearanceApi.FONT_FAMILY_STACKS[inlineAppearance.fontFamily]};
+        font-size: ${inlineAppearance.fontSizePx}px;
+        font-weight: ${inlineAppearance.fontWeight};
+        line-height: ${inlineAppearance.lineHeight};
         letter-spacing: 0.008em;
-        color: #1f2923;
+        color: ${inlineAppearance.light.textColor};
         text-align: start;
-        background: #f3f8f5;
+        background: ${inlineBackground};
         position: static;
       }
 
       .translation[${ROOT_ATTR}="note"][data-phase="ready"] {
-        animation: ot-fade-in 0.18s ease forwards;
+        animation: ${fadeAnimation};
       }
 
       .translation[${ROOT_ATTR}="note"][data-stale="true"] {
@@ -415,31 +413,31 @@ const TranslatorContentModule = (() => {
 
       @media (prefers-color-scheme: dark) {
         .translation[${ROOT_ATTR}="note"] {
-          border-left-color: #78a987;
-          color: #eef6f0;
-          background: #17231c;
+          border-left-color: ${inlineAppearance.dark.accentColor};
+          color: ${inlineAppearance.dark.textColor};
+          background: ${inlineDarkBackground};
         }
       }
 
       .translation [${ROOT_ATTR}="note-label"] {
         all: initial;
-        display: block;
+        display: ${inlineAppearance.showLabel ? "block" : "none"};
         margin: 0 0 0.4rem;
-        color: #4b765c;
+        color: ${inlineAppearance.light.labelColor};
         font: 600 0.6875rem/1.2 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
         letter-spacing: 0.06em;
       }
 
       @media (prefers-color-scheme: dark) {
         .translation [${ROOT_ATTR}="note-label"] {
-          color: #91b99d;
+          color: ${inlineAppearance.dark.labelColor};
         }
       }
 
       .translation [${ROOT_ATTR}="note-body"] {
         all: initial;
         display: block;
-        max-width: 44em;
+        max-width: 100%;
         margin: 0;
         padding: 0;
         font: inherit;
@@ -515,28 +513,29 @@ const TranslatorContentModule = (() => {
       }
 
       .translation[${ROOT_ATTR}="selection-panel"] {
+        box-sizing: border-box;
         position: fixed;
         right: 16px;
         bottom: 16px;
         z-index: 2147483647;
-        width: min(${SELECTION_PANEL_COMPACT_WIDTH}px, calc(100vw - 24px));
-        max-width: min(420px, calc(100vw - 24px));
+        width: min(${selectionAppearance.widthPx}px, calc(100vw - 24px));
+        max-width: min(${selectionAppearance.widthPx}px, calc(100vw - 24px));
         padding: 10px 12px 12px;
         border: 1px solid rgba(60, 60, 67, 0.14);
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.97);
+        border-radius: ${selectionAppearance.borderRadiusPx}px;
+        background: ${selectionLightBackground};
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.12);
-        color: #1c1c1e;
-        font: 400 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        color: ${selectionAppearance.light.textColor};
+        font: 400 ${selectionAppearance.fontSizePx}px/${selectionAppearance.lineHeight} -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
       }
 
       @media (prefers-color-scheme: dark) {
         .translation[${ROOT_ATTR}="selection-panel"] {
-          background: rgba(28, 28, 30, 0.97);
+          background: ${selectionDarkBackground};
           border-color: rgba(255, 255, 255, 0.1);
-          color: #f5f5f7;
+          color: ${selectionAppearance.dark.textColor};
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 16px 48px rgba(0, 0, 0, 0.4);
         }
       }
@@ -568,7 +567,7 @@ const TranslatorContentModule = (() => {
         margin: 0;
         flex: 1 1 auto;
         min-width: 0;
-        color: #007aff;
+        color: ${selectionAppearance.light.accentColor};
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.04em;
@@ -580,8 +579,8 @@ const TranslatorContentModule = (() => {
 
       .translation [${ROOT_ATTR}="selection-panel-expand"] {
         border: 0;
-        background: rgba(0, 122, 255, 0.1);
-        color: #007aff;
+        background: ${selectionLightAccentSoft};
+        color: ${selectionAppearance.light.accentColor};
         cursor: pointer;
         padding: 3px 8px;
         border-radius: 6px;
@@ -591,7 +590,19 @@ const TranslatorContentModule = (() => {
       }
 
       .translation [${ROOT_ATTR}="selection-panel-expand"]:hover {
-        background: rgba(0, 122, 255, 0.16);
+        background: ${selectionLightAccentHover};
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .translation [${ROOT_ATTR}="selection-panel-title"] {
+          color: ${selectionAppearance.dark.accentColor};
+        }
+
+        .translation [${ROOT_ATTR}="selection-panel-expand"],
+        .translation [${ROOT_ATTR}="selection-panel-expand"]:hover {
+          background: ${selectionDarkAccentSoft};
+          color: ${selectionAppearance.dark.accentColor};
+        }
       }
 
       .translation [${ROOT_ATTR}="selection-panel-close"] {
@@ -630,7 +641,7 @@ const TranslatorContentModule = (() => {
         max-height: ${SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT}px;
         overflow: auto;
         padding-right: 0;
-        color: #3a3a3c;
+        color: ${selectionAppearance.light.textColor};
         white-space: pre-wrap;
         word-break: break-word;
         text-decoration: none;
@@ -638,7 +649,7 @@ const TranslatorContentModule = (() => {
 
       @media (prefers-color-scheme: dark) {
         .translation [${ROOT_ATTR}="selection-panel-body"] {
-          color: #d1d1d6;
+          color: ${selectionAppearance.dark.textColor};
         }
       }
 
@@ -727,9 +738,9 @@ const TranslatorContentModule = (() => {
 
       @media (max-width: 640px) {
         .translation[${ROOT_ATTR}="note"] {
-          margin: 0.85rem 0 1.25rem;
-          padding: 0.72rem 0.82rem 0.8rem;
-          border-radius: 0 7px 7px 0;
+          margin: min(${inlineAppearance.marginTopPx}px, 14px) 0 min(${inlineAppearance.marginBottomPx}px, 20px);
+          padding: min(${inlineAppearance.paddingVerticalPx}px, 12px) min(${inlineAppearance.paddingHorizontalPx}px, 13px);
+          border-radius: 0 min(${inlineAppearance.borderRadiusPx}px, 7px) min(${inlineAppearance.borderRadiusPx}px, 7px) 0;
         }
 
         .translation[${ROOT_ATTR}="selection-panel"] {

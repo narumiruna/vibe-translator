@@ -33,6 +33,12 @@ async function main() {
 			"https://disqus.com/*",
 		]);
 		await saveOptions(runState.context, runState.extensionId, config, {
+			appearancePreset: "high-contrast",
+			appearanceValues: {
+				"#inline-font-size": 20,
+				"#inline-accent-width": 8,
+				"#inline-light-background": "#fff4e6",
+			},
 			runConnectionTest: false,
 		});
 
@@ -75,7 +81,9 @@ async function main() {
 					.locator('[data-ot-role="note"][data-phase="pending"]')
 					.count();
 
-				return sourceCount > 0 && readyCount > 0 && pendingCount === 0
+				return sourceCount > 0 &&
+					readyCount === sourceCount &&
+					pendingCount === 0
 					? { sourceCount, readyCount, pendingCount }
 					: null;
 			},
@@ -93,7 +101,46 @@ async function main() {
 			topReadyCount > 0,
 			"Expected the Antirez article to translate too.",
 		);
-		console.log(JSON.stringify({ ...analysis, topReadyCount }, null, 2));
+		const [topAppearance, commentAppearance] = await Promise.all([
+			page
+				.locator('[data-ot-role="note"][data-phase="ready"]')
+				.first()
+				.evaluate((element) => {
+					const style = getComputedStyle(element);
+
+					return {
+						backgroundColor: style.backgroundColor,
+						borderLeftWidth: style.borderLeftWidth,
+						fontSize: style.fontSize,
+					};
+				}),
+			disqusFrame
+				.locator('[data-ot-role="note"][data-phase="ready"]')
+				.first()
+				.evaluate((element) => {
+					const style = getComputedStyle(element);
+
+					return {
+						backgroundColor: style.backgroundColor,
+						borderLeftWidth: style.borderLeftWidth,
+						fontSize: style.fontSize,
+					};
+				}),
+		]);
+
+		assert.deepEqual(topAppearance, {
+			backgroundColor: "rgb(255, 244, 230)",
+			borderLeftWidth: "8px",
+			fontSize: "20px",
+		});
+		assert.deepEqual(commentAppearance, topAppearance);
+		console.log(
+			JSON.stringify(
+				{ ...analysis, topReadyCount, customAppearance: commentAppearance },
+				null,
+				2,
+			),
+		);
 		await page.close();
 	} finally {
 		await closeExtensionContext(runState);

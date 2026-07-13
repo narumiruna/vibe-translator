@@ -1,4 +1,14 @@
 ((root) => {
+	const AppearanceApi =
+		root.TranslatorAppearance ||
+		(typeof module !== "undefined" && module.exports
+			? require("./translation-appearance.js")
+			: null);
+
+	if (!AppearanceApi) {
+		throw new Error("TranslatorAppearance must load before storage.js.");
+	}
+
 	const STORAGE_KEY = "settings";
 	const LEGACY_DEFAULT_INSTRUCTIONS =
 		"Preserve meaning, tone, and technical accuracy in translation.";
@@ -29,67 +39,11 @@
 		"",
 		"{{sourcePayload}}",
 	].join("\n");
-	const TRANSLATION_UNDERLINE_STYLES = Object.freeze([
-		"solid",
-		"dashed",
-		"dotted",
-	]);
 	const SELECTION_PANEL_POSITION_MODES = Object.freeze([
 		"near-selection",
 		"bottom-right",
 	]);
-	const HEX_COLOR_REGEX = /^#[0-9a-f]{6}$/i;
-
-	function clampNumber(value, min, max, fallback) {
-		const numeric = Number(value);
-
-		if (!Number.isFinite(numeric)) {
-			return fallback;
-		}
-
-		return Math.min(max, Math.max(min, numeric));
-	}
-
-	function normalizeUnderlineColor(value) {
-		const trimmed = String(value || "").trim();
-
-		return HEX_COLOR_REGEX.test(trimmed) ? trimmed.toLowerCase() : "#007aff";
-	}
-
-	function normalizeUnderlineStyle(value) {
-		const normalized = String(value || "")
-			.trim()
-			.toLowerCase();
-
-		return TRANSLATION_UNDERLINE_STYLES.includes(normalized)
-			? normalized
-			: "dashed";
-	}
-
-	function normalizeTranslationAppearance(input) {
-		const source = input || {};
-
-		return {
-			translationUnderlineColor: normalizeUnderlineColor(
-				source.translationUnderlineColor,
-			),
-			translationUnderlineStyle: normalizeUnderlineStyle(
-				source.translationUnderlineStyle,
-			),
-			translationUnderlineThickness: clampNumber(
-				source.translationUnderlineThickness,
-				1,
-				6,
-				2,
-			),
-			translationUnderlineOffset: clampNumber(
-				source.translationUnderlineOffset,
-				0,
-				12,
-				3,
-			),
-		};
-	}
+	const { normalizeTranslationAppearance } = AppearanceApi;
 
 	function normalizeShowTranslationDebugInfo(value) {
 		return Boolean(value);
@@ -146,10 +100,7 @@
 		model: "",
 		systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_TEMPLATE,
 		userPromptTemplate: DEFAULT_USER_PROMPT_TEMPLATE,
-		translationUnderlineColor: "#007aff",
-		translationUnderlineStyle: "dashed",
-		translationUnderlineThickness: 2,
-		translationUnderlineOffset: 3,
+		translationAppearance: AppearanceApi.DEFAULT_TRANSLATION_APPEARANCE,
 		showTranslationDebugInfo: false,
 		selectionPanelPositionMode: "near-selection",
 		targetLanguage: "台灣正體中文",
@@ -206,7 +157,9 @@
 			userPromptTemplate:
 				String(merged.userPromptTemplate || "").trim() ||
 				DEFAULT_SETTINGS.userPromptTemplate,
-			...normalizeTranslationAppearance(merged),
+			translationAppearance: normalizeTranslationAppearance(
+				merged.translationAppearance,
+			),
 			showTranslationDebugInfo: normalizeShowTranslationDebugInfo(
 				merged.showTranslationDebugInfo,
 			),
@@ -304,7 +257,6 @@
 		DEFAULT_SETTINGS,
 		DEFAULT_SYSTEM_PROMPT_TEMPLATE,
 		SELECTION_PANEL_POSITION_MODES,
-		TRANSLATION_UNDERLINE_STYLES,
 		DEFAULT_USER_PROMPT_TEMPLATE,
 		LEGACY_DEFAULT_INSTRUCTIONS,
 		STORAGE_KEY,
