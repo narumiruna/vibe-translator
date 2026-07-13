@@ -18,6 +18,10 @@ const TranslatorContentModule = (() => {
 	const PREFETCH_VIEWPORTS = 2;
 	const VISIBLE_TRANSLATION_FLUSH_DELAY_MS = 200;
 	const OBSERVER_DEBOUNCE_MS = 200;
+	const SCROLL_LISTENER_OPTIONS = Object.freeze({
+		capture: true,
+		passive: true,
+	});
 	const ExtractionApi = window.TranslatorContentExtraction;
 	const {
 		ARTICLE_CONTENT_SELECTOR,
@@ -1521,7 +1525,7 @@ const TranslatorContentModule = (() => {
 			() => {
 				scheduleVisiblePageTranslation();
 			},
-			{ passive: true },
+			SCROLL_LISTENER_OPTIONS,
 		);
 		window.addEventListener("resize", () => {
 			scheduleVisiblePageTranslation();
@@ -2497,6 +2501,7 @@ const TranslatorContentModule = (() => {
 			_rememberSourceText: rememberSourceText,
 			_resetSourceIdCounterForTest: resetSourceIdCounterForTest,
 			_resetSourceTextSnapshotsForTest: resetSourceTextSnapshotsForTest,
+			_SCROLL_LISTENER_OPTIONS: SCROLL_LISTENER_OPTIONS,
 			_shouldAppendNoteInsideTarget: shouldAppendNoteInsideTarget,
 			_splitProseContainer: splitProseContainer,
 			getSegmentContent,

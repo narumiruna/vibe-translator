@@ -10,9 +10,10 @@ This repository now includes Playwright E2E scripts that load the unpacked Chrom
 4. Runs **Test Connection**
 5. Opens `test/fixture-page.html`
 6. Triggers full-page translation from the background service worker
-7. Triggers selected-text translation from the background service worker
-8. Verifies the split helper scripts are loaded in the options page, service worker, and injected content page
-9. Saves screenshots in `e2e-artifacts/`
+7. Scrolls a nested overflow container and verifies newly visible text is queued
+8. Triggers selected-text translation from the background service worker
+9. Verifies the split helper scripts are loaded in the options page, service worker, and injected content page
+10. Saves screenshots in `e2e-artifacts/`
 
 ## Syosetu Regression Coverage
 

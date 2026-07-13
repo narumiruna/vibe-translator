@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nested Scroll Translation Fixture</title>
+    <style>
+      body {
+        margin: 0;
+        font: 16px/1.5 system-ui, sans-serif;
+      }
+
+      main {
+        padding: 24px;
+      }
+
+      #scroll-region {
+        height: 320px;
+        overflow-y: auto;
+        border: 1px solid #999;
+        padding: 16px;
+      }
+
+      #deep-source {
+        margin-top: 3200px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Nested scroll translation test</h1>
+      <p id="visible-source">This paragraph starts in the visible translation window.</p>
+      <section id="scroll-region">
+        <p>Scroll this nested region to reveal more article content.</p>
+        <p id="deep-source">This deeply nested paragraph should translate after its container scrolls.</p>
+      </section>
+    </main>
+  </body>
+</html>

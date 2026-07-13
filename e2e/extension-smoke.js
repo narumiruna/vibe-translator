@@ -17,6 +17,7 @@ const {
 } = require("./lib/extension-test-helpers");
 
 const FIXTURE_PATH = "/test/fixture-page.html";
+const NESTED_SCROLL_FIXTURE_PATH = "/test/nested-scroll-page.html";
 const PARTIAL_FAILURE_FIXTURE_PATH = "/test/partial-failure-page.html";
 const SELECTION_FAILURE_FIXTURE_PATH = "/test/selection-failure-page.html";
 const REQUIRED_BACKGROUND_GLOBALS = [
@@ -165,6 +166,52 @@ async function runPageTranslationSmoke(context, serverOrigin, artifactsDir) {
 	);
 
 	await takeScreenshot(page, artifactsDir, "page-translation-smoke.png");
+	await page.close();
+}
+
+async function runNestedScrollPageTranslationSmoke(context, serverOrigin) {
+	const page = await context.newPage();
+
+	await page.goto(`${serverOrigin}${NESTED_SCROLL_FIXTURE_PATH}`, {
+		waitUntil: "domcontentloaded",
+	});
+	await page.bringToFront();
+	await callBackground(context, "translatePage", { pageUrl: page.url() });
+
+	await waitFor(
+		async () =>
+			(await page
+				.locator('#visible-source + [data-ot-role="note"][data-phase="ready"]')
+				.count()) > 0,
+		{
+			timeoutMs: REQUEST_TIMEOUT_MS,
+			timeoutMessage:
+				"Visible nested-scroll fixture content did not translate.",
+		},
+	);
+	assert.equal(
+		await page
+			.locator('#deep-source + [data-ot-role="note"][data-phase="ready"]')
+			.count(),
+		0,
+		"Expected deep nested-scroll content to stay outside the initial translation window.",
+	);
+
+	await page.locator("#scroll-region").evaluate((element) => {
+		element.scrollTop = element.scrollHeight;
+	});
+
+	await waitFor(
+		async () =>
+			(await page
+				.locator('#deep-source + [data-ot-role="note"][data-phase="ready"]')
+				.count()) > 0,
+		{
+			timeoutMs: 6000,
+			timeoutMessage:
+				"Nested scrolling did not queue the newly visible paragraph.",
+		},
+	);
 	await page.close();
 }
 
@@ -432,6 +479,9 @@ async function main() {
 			config.artifactsDir,
 		);
 		console.log("Page translation smoke passed.");
+
+		await runNestedScrollPageTranslationSmoke(runState.context, server.origin);
+		console.log("Nested scroll page translation smoke passed.");
 
 		await runSelectionTranslationSmoke(
 			runState.context,

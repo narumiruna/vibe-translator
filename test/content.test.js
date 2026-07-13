@@ -60,6 +60,7 @@ const {
 	_rememberSourceText,
 	_resetSourceIdCounterForTest,
 	_resetSourceTextSnapshotsForTest,
+	_SCROLL_LISTENER_OPTIONS,
 	_shouldAppendNoteInsideTarget,
 	detectContentMode,
 	getSegmentContent,
@@ -574,6 +575,13 @@ test("social text extraction skips inline translate buttons", () => {
 		getSegmentContent(threadText).text,
 		"佳子様、しっかり見えますね",
 	);
+});
+
+test("scroll listener captures nested scrolling containers", () => {
+	assert.deepEqual(_SCROLL_LISTENER_OPTIONS, {
+		capture: true,
+		passive: true,
+	});
 });
 
 test("perspective scroll containers do not block direct note insertion targets", () => {
