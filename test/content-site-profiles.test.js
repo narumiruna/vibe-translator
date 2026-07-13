@@ -10,10 +10,10 @@ const {
 	getActiveSiteProfile,
 	normalizeHostname,
 	resolveSiteProfile,
-} = require("../content-site-profiles.js");
+} = require("../src/content-site-profiles.js");
 const {
 	createExtractionSelectorsForProfile,
-} = require("../content-extraction.js");
+} = require("../src/content-extraction.js");
 
 test("normalizeHostname lowercases and strips trailing dots", () => {
 	assert.equal(normalizeHostname(" WWW.X.COM. "), "www.x.com");

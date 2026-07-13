@@ -22,21 +22,7 @@ lint:
     @biome lint --write --files-ignore-unknown=true .
 
 check:
-    @node --check background.js
-    @node --check content-viewport.js
-    @node --check content-selection-panel.js
-    @node --check content-site-profiles.js
-    @node --check content-extraction.js
-    @node --check content.js
-    @node --check page-translation-session.js
-    @node --check storage.js
-    @node --check api-protected-fragments.js
-    @node --check api-cache.js
-    @node --check api-chunk-plan.js
-    @node --check api-responses.js
-    @node --check api.js
-    @node --check translator-messages.js
-    @node --check options.js
+    @for file in src/*.js; do node --check "$file"; done
     @just test
 
 test:
@@ -52,34 +38,14 @@ e2e-syosetu:
     @node e2e/syosetu-directory.js
 
 zip:
-    @version="$$(grep -o '"version": "[^"]*"' manifest.json | cut -d'"' -f4)"; \
-    zip_name="chrome-translator-$$version.zip"; \
-    if [[ -e "$$zip_name" ]]; then \
-      echo "Error: $$zip_name already exists. Run 'just clean' first."; \
+    @version="$(grep -o '"version": "[^"]*"' manifest.json | cut -d'"' -f4)"; \
+    zip_name="chrome-translator-$version.zip"; \
+    if [[ -e "$zip_name" ]]; then \
+      echo "Error: $zip_name already exists. Run 'just clean' first."; \
       exit 1; \
     fi; \
-    zip "$$zip_name" \
-      manifest.json \
-      background.js \
-      content-viewport.js \
-      content-selection-panel.js \
-      content-site-profiles.js \
-      content-extraction.js \
-      content.js \
-      page-translation-session.js \
-      storage.js \
-      api-protected-fragments.js \
-      api-cache.js \
-      api-chunk-plan.js \
-      api-responses.js \
-      api.js \
-      translator-messages.js \
-      options.html \
-      options.css \
-      options.js \
-      README.md \
-      docs/TESTING.md; \
-    echo "Created $$zip_name"
+    python3 scripts/package-extension.py "$zip_name"; \
+    echo "Created $zip_name"
 
 clean:
     @rm -f chrome-translator-*.zip

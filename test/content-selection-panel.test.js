@@ -7,7 +7,7 @@ const {
 	normalizeSelectionAnchorRect,
 	normalizeSelectionPanelPositionMode,
 	shouldCloseSelectionPanelOnKey,
-} = require("../content-selection-panel.js");
+} = require("../src/content-selection-panel.js");
 
 test("normalizeSelectionPanelPositionMode falls back to near-selection", () => {
 	assert.equal(

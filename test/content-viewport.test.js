@@ -7,7 +7,7 @@ const {
 	isRectWithinTranslationWindow,
 	normalizeViewportOptions,
 	selectWindowCandidates,
-} = require("../content-viewport.js");
+} = require("../src/content-viewport.js");
 
 test("normalizeViewportOptions fills defaults", () => {
 	assert.deepEqual(normalizeViewportOptions({ viewportHeight: 720 }), {

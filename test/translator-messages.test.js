@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const TranslatorMessages = require("../translator-messages.js");
+const TranslatorMessages = require("../src/translator-messages.js");
 
 test("message builders use shared message types", () => {
 	assert.deepEqual(TranslatorMessages.ping(), {

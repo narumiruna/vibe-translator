@@ -1,14 +1,14 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-require("../api-protected-fragments.js");
+require("../src/api-protected-fragments.js");
 
 const {
 	buildResponsesRequest,
 	buildTranslationInput,
 	extractOutputText,
 	parseTranslationResponse,
-} = require("../api-responses.js");
+} = require("../src/api-responses.js");
 
 function buildSettings(overrides = {}) {
 	return {

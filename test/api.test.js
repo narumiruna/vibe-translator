@@ -1,10 +1,10 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-require("../api-protected-fragments.js");
-require("../api-cache.js");
-require("../api-chunk-plan.js");
-const { validateTranslationCoverage } = require("../api-responses.js");
+require("../src/api-protected-fragments.js");
+require("../src/api-cache.js");
+require("../src/api-chunk-plan.js");
+const { validateTranslationCoverage } = require("../src/api-responses.js");
 
 const {
 	buildResponsesRequest,
@@ -25,7 +25,7 @@ const {
 	splitTextRecursively,
 	unmaskProtectedFragments,
 	validateProtectedFragments,
-} = require("../api.js");
+} = require("../src/api.js");
 
 function buildSettings(overrides) {
 	return {

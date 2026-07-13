@@ -15,7 +15,7 @@ const {
 	normalizeSelectionPanelPositionMode,
 	normalizeTranslationAppearance,
 	validateSettings,
-} = require("../storage.js");
+} = require("../src/storage.js");
 
 test("normalizeBaseUrl trims trailing slash", () => {
 	assert.equal(

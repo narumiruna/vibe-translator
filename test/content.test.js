@@ -15,8 +15,8 @@ global.Node = {
 
 global.window = {
 	__OPENAI_TRANSLATOR_CONTENT__: false,
-	TranslatorContentExtraction: require("../content-extraction.js"),
-	TranslatorMessages: require("../translator-messages.js"),
+	TranslatorContentExtraction: require("../src/content-extraction.js"),
+	TranslatorMessages: require("../src/translator-messages.js"),
 	clearTimeout,
 	getComputedStyle() {
 		return {
@@ -69,10 +69,10 @@ const {
 	isUnsupportedElement,
 	scoreCandidateBlock,
 	scoreTranslationRoot,
-} = require("../content.js");
+} = require("../src/content.js");
 const {
 	createExtractionSelectorsForProfile,
-} = require("../content-extraction.js");
+} = require("../src/content-extraction.js");
 const {
 	ANTIREZ_PROSE_CONTAINER_SELECTOR,
 	ANTIREZ_PROSE_TEXT_SELECTOR,
@@ -80,7 +80,7 @@ const {
 	X_CURRENT_POST_TEXT_SELECTOR,
 	X_TWEET_TEXT_SELECTOR,
 	resolveSiteProfile,
-} = require("../content-site-profiles.js");
+} = require("../src/content-site-profiles.js");
 
 function splitSelector(selector) {
 	return String(selector)

@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { createTranslationCache } = require("../api-cache.js");
+const { createTranslationCache } = require("../src/api-cache.js");
 
 function buildSettings(overrides = {}) {
 	return {

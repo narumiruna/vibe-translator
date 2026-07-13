@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository is a plain Manifest V3 Chrome extension with a small file set at the repo root. Core runtime files are `background.js` (action, context menus, permissions, orchestration), `content.js` (DOM extraction and inline bilingual rendering), `api.js` (OpenAI-compatible request logic and chunking), and `storage.js` (settings validation and persistence). Options UI lives in `options.html`, `options.css`, and `options.js`. Tests are in `test/`, with manual QA notes in `docs/TESTING.md`.
+This repository is a plain Manifest V3 Chrome extension. Shipped source lives in `src/`: `background.js` handles actions, context menus, permissions, and orchestration; `content.js` handles DOM extraction and inline bilingual rendering; `api.js` handles OpenAI-compatible requests and chunking; and `storage.js` handles settings validation and persistence. The options UI is `src/options.html`, `src/options.css`, and `src/options.js`. Tests are in `test/`, with manual QA notes in `docs/TESTING.md`.
 
 ## Build, Test, and Development Commands
 

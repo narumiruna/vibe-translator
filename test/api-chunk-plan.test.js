@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-require("../api-protected-fragments.js");
+require("../src/api-protected-fragments.js");
 
 const {
 	chunkTranslationItems,
@@ -10,7 +10,7 @@ const {
 	createRecursiveChunkPlan,
 	mergeRecursiveTranslations,
 	splitTextRecursively,
-} = require("../api-chunk-plan.js");
+} = require("../src/api-chunk-plan.js");
 
 test("chunk plan chunks items by character limit", () => {
 	const chunks = chunkTranslationItems(

@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
 	createPageTranslationQueue,
-} = require("../page-translation-session.js");
+} = require("../src/page-translation-session.js");
 
 function nextTick() {
 	return new Promise((resolve) => setTimeout(resolve, 0));

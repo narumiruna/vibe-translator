@@ -307,12 +307,12 @@ async function ensureContentScript(tabId, frameId) {
 	await chrome.scripting.executeScript({
 		target: getScriptTarget(tabId, frameId),
 		files: [
-			"content-viewport.js",
-			"content-selection-panel.js",
-			"content-site-profiles.js",
-			"content-extraction.js",
-			"translator-messages.js",
-			"content.js",
+			"src/content-viewport.js",
+			"src/content-selection-panel.js",
+			"src/content-site-profiles.js",
+			"src/content-extraction.js",
+			"src/translator-messages.js",
+			"src/content.js",
 		],
 	});
 }

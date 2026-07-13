@@ -5,7 +5,7 @@ const {
 	maskProtectedFragments,
 	unmaskProtectedFragments,
 	validateProtectedFragments,
-} = require("../api-protected-fragments.js");
+} = require("../src/api-protected-fragments.js");
 
 test("protected fragment masking preserves code paths urls and tech terms", () => {
 	const masked = maskProtectedFragments(

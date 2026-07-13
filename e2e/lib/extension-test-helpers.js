@@ -14,23 +14,23 @@ const DEFAULT_ARTIFACTS_DIR = path.join(ROOT_DIR, "e2e-artifacts");
 const REQUEST_TIMEOUT_MS = 120000;
 const EXTENSION_FILES = [
 	"manifest.json",
-	"background.js",
-	"content-viewport.js",
-	"content-selection-panel.js",
-	"content-site-profiles.js",
-	"content-extraction.js",
-	"content.js",
-	"page-translation-session.js",
-	"storage.js",
-	"api-protected-fragments.js",
-	"api-cache.js",
-	"api-chunk-plan.js",
-	"api-responses.js",
-	"api.js",
-	"translator-messages.js",
-	"options.html",
-	"options.css",
-	"options.js",
+	"src/background.js",
+	"src/content-viewport.js",
+	"src/content-selection-panel.js",
+	"src/content-site-profiles.js",
+	"src/content-extraction.js",
+	"src/content.js",
+	"src/page-translation-session.js",
+	"src/storage.js",
+	"src/api-protected-fragments.js",
+	"src/api-cache.js",
+	"src/api-chunk-plan.js",
+	"src/api-responses.js",
+	"src/api.js",
+	"src/translator-messages.js",
+	"src/options.html",
+	"src/options.css",
+	"src/options.js",
 ];
 
 function loadDotEnv(filePath) {
@@ -379,7 +379,7 @@ async function getMissingWindowGlobals(page, globalNames) {
 
 async function saveOptions(context, extensionId, config, options = {}) {
 	const page = await context.newPage();
-	const optionsUrl = `chrome-extension://${extensionId}/options.html`;
+	const optionsUrl = `chrome-extension://${extensionId}/src/options.html`;
 
 	await page.goto(optionsUrl, { waitUntil: "domcontentloaded" });
 	if (options.requiredGlobals) {

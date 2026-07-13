@@ -6,10 +6,10 @@
 	"permissions": ["activeTab", "contextMenus", "scripting", "storage"],
 	"optional_host_permissions": ["http://*/*", "https://*/*"],
 	"background": {
-		"service_worker": "background.js"
+		"service_worker": "src/background.js"
 	},
 	"action": {
 		"default_title": "Translate this page"
 	},
-	"options_page": "options.html"
+	"options_page": "src/options.html"
 }

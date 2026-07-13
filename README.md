@@ -19,19 +19,19 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 | File | Purpose |
 |---|---|
 | `manifest.json` | Manifest V3 configuration |
-| `background.js` | Action click, context menus, permission flow, session orchestration |
-| `content-viewport.js` | Viewport measurement for progressive page translation |
-| `content-selection-panel.js` | Floating selected-text translation panel rendering and positioning |
-| `content-extraction.js` | Page content selector, scoring, and extraction helper logic |
-| `content.js` | DOM extraction, translation rendering, scroll-driven queuing |
-| `translator-messages.js` | Shared background/content message types and message builders |
-| `api-protected-fragments.js` | Placeholder masking and protected fragment validation |
-| `api-cache.js` | Translation cache keying and LRU cache helpers |
-| `api-chunk-plan.js` | Chunk planning, recursive split, and progressive merge helpers |
-| `api-responses.js` | Responses API prompt rendering, request building, and response parsing |
-| `api.js` | Translation request caching, retry, and batched request orchestration |
-| `storage.js` | Settings validation, normalization, and persistence |
-| `options.html/css/js` | Settings page UI |
+| `src/background.js` | Action click, context menus, permission flow, session orchestration |
+| `src/content-viewport.js` | Viewport measurement for progressive page translation |
+| `src/content-selection-panel.js` | Floating selected-text translation panel rendering and positioning |
+| `src/content-extraction.js` | Page content selector, scoring, and extraction helper logic |
+| `src/content.js` | DOM extraction, translation rendering, scroll-driven queuing |
+| `src/translator-messages.js` | Shared background/content message types and message builders |
+| `src/api-protected-fragments.js` | Placeholder masking and protected fragment validation |
+| `src/api-cache.js` | Translation cache keying and LRU cache helpers |
+| `src/api-chunk-plan.js` | Chunk planning, recursive split, and progressive merge helpers |
+| `src/api-responses.js` | Responses API prompt rendering, request building, and response parsing |
+| `src/api.js` | Translation request caching, retry, and batched request orchestration |
+| `src/storage.js` | Settings validation, normalization, and persistence |
+| `src/options.html/css/js` | Settings page UI |
 | `test/` | Node unit tests |
 | `docs/TESTING.md` | Manual QA checklist |
 
