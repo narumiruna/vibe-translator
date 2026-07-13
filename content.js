@@ -13,6 +13,8 @@ const TranslatorContentModule = (() => {
 	const QUEUED_ATTR = "data-ot-queued";
 	const ROOT_ATTR = "data-ot-role";
 	const STYLE_ID = "ot-translator-style";
+	const PROSE_BLOCK_ATTR = "data-ot-prose-block";
+	const PROSE_SPLIT_ATTR = "data-ot-prose-split";
 	const PREFETCH_VIEWPORTS = 2;
 	const VISIBLE_TRANSLATION_FLUSH_DELAY_MS = 200;
 	const OBSERVER_DEBOUNCE_MS = 200;
@@ -30,6 +32,7 @@ const TranslatorContentModule = (() => {
 		SITE_PROFILE_ID,
 		SITE_ROOT_SELECTOR,
 		SKIP_ANCESTOR_SELECTOR,
+		SPLIT_PROSE_CONTAINER_SELECTOR,
 		SOCIAL_TEXT_BLOCK_SELECTOR,
 		TERMINAL_LIKE_SELECTOR,
 		TITLE_LIKE_SELECTOR,
@@ -828,6 +831,63 @@ const TranslatorContentModule = (() => {
 	}
 
 	const detectContentMode = ExtractionApi.detectContentMode;
+
+	function splitProseContainer(container) {
+		if (!container || container.hasAttribute(PROSE_SPLIT_ATTR)) {
+			return;
+		}
+
+		const originalNodes = Array.from(container.childNodes);
+		const output = document.createDocumentFragment();
+		let block = document.createElement("span");
+
+		block.setAttribute(PROSE_BLOCK_ATTR, "");
+
+		function flushBlock() {
+			if (!normalizeSegmentText(block.textContent || "")) {
+				return;
+			}
+
+			output.appendChild(block);
+			block = document.createElement("span");
+			block.setAttribute(PROSE_BLOCK_ATTR, "");
+		}
+
+		for (const node of originalNodes) {
+			if (node.nodeType !== Node.TEXT_NODE) {
+				block.appendChild(node);
+				continue;
+			}
+
+			for (const part of String(node.textContent || "").split(
+				/(\n[ \t]*\n+)/,
+			)) {
+				if (!part) {
+					continue;
+				}
+
+				if (/^\n[ \t]*\n+$/u.test(part)) {
+					flushBlock();
+					output.appendChild(document.createTextNode(part));
+					continue;
+				}
+
+				block.appendChild(document.createTextNode(part));
+			}
+		}
+
+		flushBlock();
+		container.replaceChildren(output);
+		container.setAttribute(PROSE_SPLIT_ATTR, "true");
+	}
+
+	function prepareSplitProseContainers() {
+		for (const container of document.querySelectorAll(
+			SPLIT_PROSE_CONTAINER_SELECTOR,
+		)) {
+			splitProseContainer(container);
+		}
+	}
 
 	function getTranslationProfile() {
 		const siteRoot = document.querySelector(SITE_ROOT_SELECTOR);
@@ -1695,6 +1755,7 @@ const TranslatorContentModule = (() => {
 	}
 
 	function collectPageItems(options) {
+		prepareSplitProseContainers();
 		ensureStyles();
 		ensureObserver();
 
@@ -2437,6 +2498,7 @@ const TranslatorContentModule = (() => {
 			_resetSourceIdCounterForTest: resetSourceIdCounterForTest,
 			_resetSourceTextSnapshotsForTest: resetSourceTextSnapshotsForTest,
 			_shouldAppendNoteInsideTarget: shouldAppendNoteInsideTarget,
+			_splitProseContainer: splitProseContainer,
 			getSegmentContent,
 			isHeadingLikeElement,
 			isInsideTranslation,

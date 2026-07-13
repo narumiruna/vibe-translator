@@ -28,6 +28,7 @@
 		proseTextSelectors: [],
 		rootSelectors: [],
 		socialTextSelectors: [],
+		splitProseContainerSelectors: [],
 	};
 	const SITE_PROFILE_ID = ACTIVE_SITE_PROFILE.id || "default";
 
@@ -98,6 +99,10 @@
 			[],
 			profile?.rootSelectors || [],
 		);
+		const splitProseContainerSelector = buildProfileSelectors(
+			[],
+			profile?.splitProseContainerSelectors || [],
+		);
 		const directNoteProfileSelector = buildProfileSelectors(
 			[],
 			profile?.directNoteTargetSelectors || [],
@@ -121,6 +126,7 @@
 			PROSE_TEXT_BLOCK_SELECTOR: proseTextSelector,
 			SITE_ROOT_SELECTOR: siteRootSelector,
 			SOCIAL_TEXT_BLOCK_SELECTOR: socialTextSelector,
+			SPLIT_PROSE_CONTAINER_SELECTOR: splitProseContainerSelector,
 		};
 	}
 
@@ -130,6 +136,7 @@
 		READABLE_BLOCK_SELECTOR,
 		SITE_ROOT_SELECTOR,
 		SOCIAL_TEXT_BLOCK_SELECTOR,
+		SPLIT_PROSE_CONTAINER_SELECTOR,
 	} = createExtractionSelectorsForProfile(ACTIVE_SITE_PROFILE);
 	const DIRECT_BLOCK_CHILD_SELECTOR = [
 		"article",
@@ -515,6 +522,7 @@
 		SITE_PROFILE_ID,
 		SITE_ROOT_SELECTOR,
 		SKIP_ANCESTOR_SELECTOR,
+		SPLIT_PROSE_CONTAINER_SELECTOR,
 		SOCIAL_TEXT_BLOCK_SELECTOR,
 		SUMMARY_BLOCK_SELECTOR,
 		TERMINAL_LIKE_SELECTOR,
