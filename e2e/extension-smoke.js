@@ -133,6 +133,45 @@ async function runPageTranslationSmoke(context, serverOrigin, artifactsDir) {
 		noteBodyText.length > 0,
 		"Expected a non-empty translated note body.",
 	);
+	const noteAppearance = await firstNote.evaluate((note) => {
+		const noteStyle = getComputedStyle(note);
+		const body = note.querySelector('[data-ot-role="note-body"]');
+		const bodyStyle = body ? getComputedStyle(body) : null;
+
+		return {
+			backgroundColor: noteStyle.backgroundColor,
+			borderLeftWidth: noteStyle.borderLeftWidth,
+			textDecorationLine: bodyStyle?.textDecorationLine || "",
+		};
+	});
+
+	assert.notEqual(
+		noteAppearance.backgroundColor,
+		"rgba(0, 0, 0, 0)",
+		"Expected translations to use a distinct reading surface.",
+	);
+	assert.equal(noteAppearance.borderLeftWidth, "3px");
+	assert.equal(noteAppearance.textDecorationLine, "none");
+	assert.match(
+		(
+			(await firstNote.locator('[data-ot-role="note-label"]').textContent()) ||
+			""
+		).trim(),
+		/\S/,
+		"Expected a restrained target-language label.",
+	);
+	await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+	const darkAppearance = await firstNote.evaluate((note) => {
+		const style = getComputedStyle(note);
+
+		return {
+			animationName: style.animationName,
+			backgroundColor: style.backgroundColor,
+		};
+	});
+
+	assert.equal(darkAppearance.backgroundColor, "rgb(23, 35, 28)");
+	assert.equal(darkAppearance.animationName, "none");
 	await expectVisibleText(
 		page,
 		/This fixture page exists for manual testing\./,

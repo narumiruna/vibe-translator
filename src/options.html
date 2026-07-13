@@ -117,55 +117,21 @@
                 </label>
               </section>
 
-              <section class="appearance-panel" aria-labelledby="appearance-title">
+              <section class="appearance-panel" aria-labelledby="reading-style-title">
                 <div class="appearance-panel-header">
-                  <h3 id="appearance-title">Translation Underline</h3>
-                  <p class="field-note">Adjusts the color, style, thickness, and offset of underlines on translated text.</p>
+                  <h3 id="reading-style-title">Bilingual Reading</h3>
+                  <p class="field-note">Original text stays untouched. Each translation appears below it on a calm reading surface.</p>
                 </div>
 
-                <div class="appearance-grid">
-                  <label class="field">
-                    <span>Color</span>
-                    <input id="translation-underline-color" name="translationUnderlineColor" type="color" />
-                  </label>
-
-                  <label class="field">
-                    <span>Style</span>
-                    <select id="translation-underline-style" name="translationUnderlineStyle">
-                      <option value="solid">Solid</option>
-                      <option value="dashed">Dashed</option>
-                      <option value="dotted">Dotted</option>
-                    </select>
-                  </label>
-
-                  <label class="field">
-                    <span>Thickness (px)</span>
-                    <input
-                      id="translation-underline-thickness"
-                      name="translationUnderlineThickness"
-                      type="number"
-                      min="1"
-                      max="6"
-                      step="1"
-                    />
-                  </label>
-
-                  <label class="field">
-                    <span>Offset (px)</span>
-                    <input
-                      id="translation-underline-offset"
-                      name="translationUnderlineOffset"
-                      type="number"
-                      min="0"
-                      max="12"
-                      step="1"
-                    />
-                  </label>
-                </div>
-
-                <div class="appearance-sample" aria-live="polite">
-                  <span class="appearance-sample-label">Live preview</span>
-                  <span id="translation-appearance-preview" class="appearance-sample-text">Translated text preview</span>
+                <div class="reading-preview">
+                  <div class="reading-preview-source">
+                    <span class="reading-preview-label">Original</span>
+                    <p>Why do I keep announcing how future programming will change?</p>
+                  </div>
+                  <div class="reading-preview-translation">
+                    <span class="reading-preview-label">台灣正體中文</span>
+                    <p>我為什麼不斷談論未來的程式設計將如何改變？</p>
+                  </div>
                 </div>
               </section>
             </section>

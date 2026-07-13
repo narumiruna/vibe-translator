@@ -11,7 +11,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 - Large pages are split into batches and translated with bounded parallel requests; oversized blocks are broken down recursively
 - Inline code, file paths, URLs, math expressions, and common technical terms are protected by placeholder substitution so they are never mangled
 - Fully configurable: API key, base URL, model, target language, and prompt templates
-- Translation underline appearance (color, style, thickness, offset) is adjustable
+- Translations use a calm bilingual reading card with responsive spacing and dark-mode support
 - Individual domains can be disabled from the options page
 
 ## Project Structure
@@ -54,7 +54,7 @@ All settings are on the options page.
 | Target Language | Language to translate into (default: `台灣正體中文`) |
 | System Prompt Template | Full system prompt; supports `{{targetLanguage}}`, `{{itemCount}}`, `{{itemKind}}` |
 | User Prompt Template | Full user prompt; must include `{{sourcePayload}}` |
-| Translation Appearance | Underline color, style (`solid`/`dashed`/`dotted`), thickness, and offset |
+| Reading Appearance | Original text remains untouched; translations use a subtle surface and accent rule |
 | Disabled Domains | One domain per line; translation is silently skipped on matching hostnames |
 
 The options page also shows a live prompt preview and a **Test Connection** button that sends a sample request to confirm the API is reachable.

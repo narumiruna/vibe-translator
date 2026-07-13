@@ -367,7 +367,6 @@ const TranslatorContentModule = (() => {
 				normalizeTranslationAppearance(appearance);
 		}
 
-		const resolvedAppearance = pageState.translationAppearance;
 		let style = document.getElementById(STYLE_ID);
 
 		if (!style) {
@@ -390,14 +389,18 @@ const TranslatorContentModule = (() => {
         overflow: visible;
         float: none;
         clear: both;
+        width: min(100%, 52rem);
         max-width: 100%;
-        margin: 0.18rem 0 0.82rem;
-        padding: 0 0 0 0.08rem;
-        font: 400 0.92em/1.62 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-        letter-spacing: 0.005em;
-        color: #5f6368;
+        margin: 1rem 0 1.5rem;
+        padding: 0.8rem 1rem 0.9rem;
+        border: 0;
+        border-left: 3px solid #4b765c;
+        border-radius: 0 8px 8px 0;
+        font: 400 1rem/1.72 "Noto Serif CJK TC", "Noto Serif TC", "Songti TC", "PMingLiU", Georgia, serif;
+        letter-spacing: 0.008em;
+        color: #1f2923;
         text-align: start;
-        background: transparent;
+        background: #f3f8f5;
         position: static;
       }
 
@@ -412,25 +415,37 @@ const TranslatorContentModule = (() => {
 
       @media (prefers-color-scheme: dark) {
         .translation[${ROOT_ATTR}="note"] {
-          color: #b8b8be;
+          border-left-color: #78a987;
+          color: #eef6f0;
+          background: #17231c;
+        }
+      }
+
+      .translation [${ROOT_ATTR}="note-label"] {
+        all: initial;
+        display: block;
+        margin: 0 0 0.4rem;
+        color: #4b765c;
+        font: 600 0.6875rem/1.2 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        letter-spacing: 0.06em;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .translation [${ROOT_ATTR}="note-label"] {
+          color: #91b99d;
         }
       }
 
       .translation [${ROOT_ATTR}="note-body"] {
         all: initial;
         display: block;
-        max-width: min(100%, 72ch);
-        margin-top: 0.08rem;
+        max-width: 44em;
+        margin: 0;
         padding: 0;
         font: inherit;
-        line-height: 1.64;
         color: inherit;
-        opacity: 0.96;
-        text-decoration-line: underline;
-        text-decoration-color: ${resolvedAppearance.underlineColor};
-        text-decoration-style: ${resolvedAppearance.underlineStyle};
-        text-decoration-thickness: ${resolvedAppearance.underlineThickness}px;
-        text-underline-offset: ${resolvedAppearance.underlineOffset}px;
+        opacity: 1;
+        text-decoration: none;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         word-break: normal;
@@ -441,13 +456,13 @@ const TranslatorContentModule = (() => {
         min-height: 1.2em;
         color: transparent;
         border-radius: 6px;
-        text-decoration-color: transparent;
+        text-decoration: none;
         background:
           linear-gradient(
             90deg,
-            rgba(60, 60, 67, 0.07) 0%,
-            rgba(255, 255, 255, 0.7) 50%,
-            rgba(60, 60, 67, 0.07) 100%
+            rgba(79, 125, 98, 0.08) 0%,
+            rgba(255, 255, 255, 0.76) 50%,
+            rgba(79, 125, 98, 0.08) 100%
           );
         background-size: 200% 100%;
         animation: ot-shimmer 1.2s linear infinite;
@@ -618,11 +633,7 @@ const TranslatorContentModule = (() => {
         color: #3a3a3c;
         white-space: pre-wrap;
         word-break: break-word;
-        text-decoration-line: underline;
-        text-decoration-color: ${resolvedAppearance.underlineColor};
-        text-decoration-style: ${resolvedAppearance.underlineStyle};
-        text-decoration-thickness: ${resolvedAppearance.underlineThickness}px;
-        text-underline-offset: ${resolvedAppearance.underlineOffset}px;
+        text-decoration: none;
       }
 
       @media (prefers-color-scheme: dark) {
@@ -715,6 +726,12 @@ const TranslatorContentModule = (() => {
       }
 
       @media (max-width: 640px) {
+        .translation[${ROOT_ATTR}="note"] {
+          margin: 0.85rem 0 1.25rem;
+          padding: 0.72rem 0.82rem 0.8rem;
+          border-radius: 0 7px 7px 0;
+        }
+
         .translation[${ROOT_ATTR}="selection-panel"] {
           right: 10px;
           left: 10px;
@@ -729,6 +746,14 @@ const TranslatorContentModule = (() => {
           bottom: 10px;
           width: auto;
           max-width: none;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .translation[${ROOT_ATTR}="note"][data-phase="ready"],
+        .translation [${ROOT_ATTR}="note-body"][data-state="pending"],
+        .translation [${ROOT_ATTR}="selection-panel-body"][data-state="pending"] {
+          animation: none;
         }
       }
 
@@ -1864,13 +1889,16 @@ const TranslatorContentModule = (() => {
 	function buildNote(sourceElement, id) {
 		const tagName = getNoteElementTagName(sourceElement);
 		const note = document.createElement(tagName);
+		const label = document.createElement("span");
 		const body = document.createElement("span");
 
 		note.classList.add("translation");
 		note.setAttribute(ROOT_ATTR, "note");
 		note.setAttribute(NOTE_ATTR, id);
+		label.setAttribute(ROOT_ATTR, "note-label");
 		body.setAttribute(ROOT_ATTR, "note-body");
 		body.setAttribute("data-state", "ready");
+		note.appendChild(label);
 		note.appendChild(body);
 
 		return note;
@@ -2036,10 +2064,12 @@ const TranslatorContentModule = (() => {
 	}
 
 	function setNotePending(note, targetLanguage) {
+		const label = note.querySelector(`[${ROOT_ATTR}="note-label"]`);
 		const body = note.querySelector(`[${ROOT_ATTR}="note-body"]`);
 
 		note.setAttribute("data-phase", "pending");
 		note.setAttribute("data-lang", targetLanguage);
+		label.textContent = targetLanguage;
 		body.setAttribute("data-state", "pending");
 		body.replaceChildren(document.createTextNode(" "));
 	}
@@ -2116,11 +2146,13 @@ const TranslatorContentModule = (() => {
 
 		const existingNote = getExistingNoteForSource(element, id);
 		const note = existingNote || buildNote(element, id);
+		const label = note.querySelector(`[${ROOT_ATTR}="note-label"]`);
 		const body = note.querySelector(`[${ROOT_ATTR}="note-body"]`);
 
 		withObserverPaused(() => {
 			note.setAttribute("data-phase", "ready");
 			note.setAttribute("data-lang", targetLanguage);
+			label.textContent = targetLanguage;
 			body.setAttribute("data-state", "ready");
 			body.replaceChildren();
 			appendFormattedText(body, translation, protectedFragments);

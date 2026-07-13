@@ -18,7 +18,7 @@
 7. Edit the user prompt template and confirm the user preview updates immediately
 8. Click **Reset System Template** and confirm the template and preview return to the default value
 9. Click **Reset User Template** and confirm the template and preview return to the default value
-10. Change the underline color, style, thickness, and offset and confirm the live sample updates immediately
+10. Confirm the **Bilingual Reading** preview uses a subtle surface and left accent without underlines
 11. Change **Selection Translation Panel** to **Near selected text**, save, reload the options page, and confirm the selection is preserved
 12. Change **Selection Translation Panel** to **Bottom-right corner**, save, reload the options page, and confirm the selection is preserved
 13. Save disabled domains using mixed case and comma or newline separators, reload the page, and confirm they are normalized to lowercase hostnames with one hostname per line
@@ -32,7 +32,7 @@
 5. Confirm each completed translation is inserted after the source block instead of replacing the original text
 6. Confirm headings remain headings, list items remain list items, and table cells remain table cells
 7. On `test/fixture-page.html`, confirm table-cell translations render inside cells and do not add extra table columns
-8. Confirm translations use the saved underline appearance settings
+8. Confirm translations use a subtle reading surface, left accent, bounded line width, and no text underline
 9. Confirm the action badge changes from empty to a numeric count as page translations complete
 10. Scroll downward and confirm newly visible blocks are queued and translated automatically
 11. Right-click a blank area and choose **Translate entire page** again
@@ -48,7 +48,7 @@
 5. Confirm the panel first shows a pending shimmer state and then the translated text
 6. Confirm the original page content stays unchanged
 7. Confirm the panel title includes the current target language
-8. Confirm the translated text uses the saved underline appearance settings
+8. Confirm the translated text is readable without spellcheck-like underlines
 9. Click the panel close button and confirm the panel is removed
 10. Run selection translation again and confirm the panel can be reopened normally
 11. Confirm the action badge shows `TR` after a successful selection translation

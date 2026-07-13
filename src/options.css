@@ -352,31 +352,57 @@ textarea[readonly] {
 	letter-spacing: -0.01em;
 }
 
-.appearance-grid {
+.reading-preview {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-	gap: 12px;
-}
-
-.appearance-sample {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 10px;
-	align-items: center;
-	padding: 12px 16px;
-	border-radius: 10px;
-	background: var(--panel);
+	gap: 16px;
+	max-width: 52rem;
+	padding: 18px;
 	border: 1px solid var(--separator);
+	border-radius: 12px;
+	background: var(--panel);
 }
 
-.appearance-sample-label {
+.reading-preview p {
+	margin: 6px 0 0;
+	font-size: 1rem;
+	line-height: 1.7;
+}
+
+.reading-preview-source {
 	color: var(--muted);
-	font-size: 0.8125rem;
-	font-weight: 500;
 }
 
-.appearance-sample-text {
-	text-decoration-line: underline;
+.reading-preview-translation {
+	padding: 14px 16px 15px;
+	border-left: 3px solid #4b765c;
+	border-radius: 0 8px 8px 0;
+	background: #f3f8f5;
+	color: #1f2923;
+	font-family:
+		"Noto Serif CJK TC", "Noto Serif TC", "Songti TC", "PMingLiU", Georgia,
+		serif;
+}
+
+.reading-preview-label {
+	color: #4b765c;
+	font:
+		600 0.6875rem / 1.2 -apple-system,
+		BlinkMacSystemFont,
+		system-ui,
+		sans-serif;
+	letter-spacing: 0.06em;
+}
+
+@media (prefers-color-scheme: dark) {
+	.reading-preview-translation {
+		border-left-color: #78a987;
+		background: #17231c;
+		color: #eef6f0;
+	}
+
+	.reading-preview-label {
+		color: #91b99d;
+	}
 }
 
 /* ── Status cards ──────────────────────────────────────────────── */
@@ -606,7 +632,7 @@ button.secondary:hover {
 		width: 100%;
 	}
 
-	.appearance-grid {
-		grid-template-columns: 1fr;
+	.reading-preview {
+		padding: 14px;
 	}
 }
