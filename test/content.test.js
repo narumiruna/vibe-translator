@@ -584,6 +584,52 @@ test("scroll listener captures nested scrolling containers", () => {
 	});
 });
 
+test("X virtualized feed transforms do not block tweet note insertion", () => {
+	const xSelectors = createExtractionSelectorsForProfile(
+		resolveSiteProfile("x.com"),
+	);
+	const body = {};
+	const parent = {
+		computedStyle: {
+			backdropFilter: "none",
+			filter: "none",
+			mixBlendMode: "normal",
+			perspective: "none",
+			transform: "matrix(1, 0, 0, 1, 0, 640)",
+		},
+		matches() {
+			return false;
+		},
+		parentElement: body,
+		tagName: "DIV",
+	};
+	const tweetText = createFakeElement({
+		matchedSelectors: [X_TWEET_TEXT_SELECTOR],
+		parentElement: parent,
+		tagName: "DIV",
+	});
+
+	global.document.body = body;
+	global.window.getComputedStyle = (element) =>
+		element.computedStyle || {
+			backdropFilter: "none",
+			display: "block",
+			filter: "none",
+			mixBlendMode: "normal",
+			perspective: "none",
+			transform: "none",
+			visibility: "visible",
+		};
+
+	assert.equal(
+		_isSafeNoteInsertionTarget(tweetText, {
+			...xSelectors,
+			SITE_PROFILE_ID: "x",
+		}),
+		true,
+	);
+});
+
 test("perspective scroll containers do not block direct note insertion targets", () => {
 	const threadsSelectors = createExtractionSelectorsForProfile(
 		resolveSiteProfile("threads.net"),

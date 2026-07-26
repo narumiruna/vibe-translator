@@ -2035,14 +2035,19 @@ const TranslatorContentModule = (() => {
 			selectors.READABLE_BLOCK_SELECTOR || READABLE_BLOCK_SELECTOR;
 		const directNoteTargetSelector =
 			selectors.DIRECT_NOTE_TARGET_SELECTOR || DIRECT_NOTE_TARGET_SELECTOR;
+		const siteProfileId = selectors.SITE_PROFILE_ID || SITE_PROFILE_ID;
 		let current = element;
 
 		while (current && current !== document.body) {
+			const isDirectNoteTarget = current.matches?.(directNoteTargetSelector);
+
 			if (
 				current.matches?.(readableBlockSelector) &&
 				(!current.matches("article, main, section, div, body") ||
-					current.matches(directNoteTargetSelector)) &&
-				!hasUnsafeLayoutContext(current)
+					isDirectNoteTarget) &&
+				!hasUnsafeLayoutContext(current, {
+					allowAncestorTransforms: siteProfileId === "x" && isDirectNoteTarget,
+				})
 			) {
 				return current;
 			}
@@ -2224,7 +2229,7 @@ const TranslatorContentModule = (() => {
 		);
 	}
 
-	function hasUnsafeLayoutContext(element) {
+	function hasUnsafeLayoutContext(element, options = {}) {
 		let current = element;
 
 		while (current && current !== document.body) {
@@ -2233,9 +2238,12 @@ const TranslatorContentModule = (() => {
 			}
 
 			const style = window.getComputedStyle(current);
+			const unsafeTransform =
+				!isIdentityTransform(style.transform) &&
+				!(options.allowAncestorTransforms && current !== element);
 
 			if (
-				!isIdentityTransform(style.transform) ||
+				unsafeTransform ||
 				style.filter !== "none" ||
 				style.backdropFilter !== "none" ||
 				style.mixBlendMode !== "normal"

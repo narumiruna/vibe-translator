@@ -104,8 +104,14 @@ test("X extraction stays rooted at the scrolling post feed", () => {
 	const profile = resolveSiteProfile("x.com");
 	const selectors = createExtractionSelectorsForProfile(profile);
 
-	assert.deepEqual(profile.rootSelectors, ["main"]);
-	assert.equal(selectors.SITE_ROOT_SELECTOR, "main");
+	assert.deepEqual(profile.rootSelectors, [
+		'[data-testid="primaryColumn"]',
+		'main:not(:has([data-testid="primaryColumn"]))',
+	]);
+	assert.equal(
+		selectors.SITE_ROOT_SELECTOR,
+		'[data-testid="primaryColumn"], main:not(:has([data-testid="primaryColumn"]))',
+	);
 });
 
 test("X extraction selectors include X post text direct note targets", () => {
