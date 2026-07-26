@@ -100,6 +100,14 @@ test("Disqus extraction targets comment text without discussion controls", () =>
 	);
 });
 
+test("X extraction stays rooted at the scrolling post feed", () => {
+	const profile = resolveSiteProfile("x.com");
+	const selectors = createExtractionSelectorsForProfile(profile);
+
+	assert.deepEqual(profile.rootSelectors, ["main"]);
+	assert.equal(selectors.SITE_ROOT_SELECTOR, "main");
+});
+
 test("X extraction selectors include X post text direct note targets", () => {
 	const selectors = createExtractionSelectorsForProfile(
 		resolveSiteProfile("x.com"),

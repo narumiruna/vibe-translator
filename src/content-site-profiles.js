@@ -59,7 +59,7 @@
 				X_CURRENT_POST_TEXT_SELECTOR,
 			]),
 			proseTextSelectors: Object.freeze([]),
-			rootSelectors: Object.freeze([]),
+			rootSelectors: Object.freeze(["main"]),
 			splitProseContainerSelectors: Object.freeze([]),
 			directNoteTargetSelectors: Object.freeze([
 				X_TWEET_TEXT_SELECTOR,
