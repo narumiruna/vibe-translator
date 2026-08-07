@@ -7,6 +7,7 @@ const {
 	TRANSLATION_APPEARANCE_PRESETS,
 	calculateContrastRatio,
 	createTranslationAppearancePreset,
+	getContrastingTextColor,
 	normalizeTranslationAppearance,
 } = require("../src/translation-appearance.js");
 
@@ -206,6 +207,13 @@ test("partial custom appearance fills missing nested values without mutating inp
 	assert.equal(normalized.inline.lineHeight, 1.72);
 	assert.equal(normalized.selection.widthPx, 320);
 	assert.equal(normalized.selection.light.surfaceColor, "#ffffff");
+});
+
+test("getContrastingTextColor chooses the stronger black or white contrast", () => {
+	assert.equal(getContrastingTextColor("#000000"), "#ffffff");
+	assert.equal(getContrastingTextColor("#ffffff"), "#000000");
+	assert.equal(getContrastingTextColor("#007aff"), "#000000");
+	assert.equal(getContrastingTextColor("invalid"), "#000000");
 });
 
 test("calculateContrastRatio validates colors and returns WCAG ratios", () => {

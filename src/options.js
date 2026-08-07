@@ -31,19 +31,43 @@
 	const testStatus = document.getElementById("test-status");
 	const testDetails = document.getElementById("test-details");
 	const formStatus = document.getElementById("form-status");
+	const saveButton = document.getElementById("save-button");
+	const saveState = document.getElementById("save-state");
+	const previewStatus = document.getElementById("appearance-preview-status");
 	const testButton = document.getElementById("test-button");
+	let settingsLoaded = false;
 	const appearanceController =
 		root.TranslatorOptionsAppearance.createAppearanceController({
 			document,
 			appearanceApi: root.TranslatorAppearance,
 			getTargetLanguage: () => targetLanguageInput.value.trim(),
 			onReset: () => {
+				markUnsaved();
 				showBanner(
 					"Appearance reset to Calm Reading. Save settings to apply it.",
 					false,
 				);
 			},
 		});
+
+	function setUnsavedState(hasUnsavedChanges) {
+		saveState.classList.toggle(
+			"has-unsaved-changes",
+			Boolean(hasUnsavedChanges),
+		);
+		saveState.textContent = hasUnsavedChanges
+			? "Unsaved changes — preview only until saved."
+			: "No unsaved changes.";
+		previewStatus.textContent = hasUnsavedChanges
+			? "Preview only — save settings to apply these changes."
+			: "Saved appearance preview.";
+	}
+
+	function markUnsaved() {
+		if (settingsLoaded) {
+			setUnsavedState(true);
+		}
+	}
 
 	function getFormSettings() {
 		return {
@@ -128,6 +152,7 @@
 	function resetSystemPrompt() {
 		systemPromptTemplateInput.value =
 			TranslatorStorage.DEFAULT_SETTINGS.systemPromptTemplate;
+		markUnsaved();
 		renderPromptPreview();
 		showBanner("System prompt template reset to the default value.", false);
 	}
@@ -135,6 +160,7 @@
 	function resetUserPrompt() {
 		userPromptTemplateInput.value =
 			TranslatorStorage.DEFAULT_SETTINGS.userPromptTemplate;
+		markUnsaved();
 		renderPromptPreview();
 		showBanner("User prompt template reset to the default value.", false);
 	}
@@ -188,6 +214,8 @@
 		disabledDomainsInput.value = settings.disabledDomains || "";
 		renderPromptPreview();
 		await updatePermissionStatus(settings.baseUrl);
+		settingsLoaded = true;
+		setUnsavedState(false);
 	}
 
 	async function handleSave(event) {
@@ -207,6 +235,7 @@
 		);
 		await TranslatorStorage.saveSettings(validation.settings);
 		await updatePermissionStatus(validation.settings.baseUrl);
+		setUnsavedState(false);
 		showBanner(
 			permissionGranted
 				? "Settings saved and API origin permission granted."
@@ -269,10 +298,19 @@
 		showBanner("Connection test succeeded.", false);
 	}
 
+	form.addEventListener("input", markUnsaved);
+	form.addEventListener("change", markUnsaved);
 	form.addEventListener("submit", (event) => {
-		handleSave(event).catch((error) => {
-			showBanner(error.message, true);
-		});
+		saveButton.disabled = true;
+		saveButton.textContent = "Saving…";
+		handleSave(event)
+			.catch((error) => {
+				showBanner(error.message, true);
+			})
+			.finally(() => {
+				saveButton.disabled = false;
+				saveButton.textContent = "Save Settings";
+			});
 	});
 
 	testButton.addEventListener("click", () => {

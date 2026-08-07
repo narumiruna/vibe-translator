@@ -19,6 +19,12 @@ const PAGE_TRANSLATION_CONCURRENCY = 5;
 const PAGE_TRANSLATION_BATCH_SIZE = 8;
 
 let contextMenusSetupPromise = null;
+let selectionRequestSequence = 0;
+
+function createSelectionRequestId() {
+	selectionRequestSequence += 1;
+	return `selection-${Date.now()}-${selectionRequestSequence}`;
+}
 
 function isSupportedPage(url) {
 	return /^https?:\/\//i.test(String(url || ""));
@@ -178,20 +184,6 @@ async function clearPagePlaceholders(tabId, ids, frameId) {
 			TranslatorMessages.clearPagePlaceholders({
 				ids,
 			}),
-			getFrameMessageOptions(frameId),
-		)
-		.catch(() => {});
-}
-
-async function clearSelectionTranslation(tabId, frameId) {
-	if (!tabId) {
-		return;
-	}
-
-	await chrome.tabs
-		.sendMessage(
-			tabId,
-			TranslatorMessages.clearSelectionTranslation(),
 			getFrameMessageOptions(frameId),
 		)
 		.catch(() => {});
@@ -876,7 +868,7 @@ async function translatePage(tab) {
 	setBadge(tab.id, "");
 }
 
-async function translateSelection(tabId, selectionText, frameId) {
+async function translateSelection(tabId, selectionText, frameId, options = {}) {
 	if (!tabId) {
 		throw new Error("Missing tab id.");
 	}
@@ -891,7 +883,9 @@ async function translateSelection(tabId, selectionText, frameId) {
 	const tab = await chrome.tabs.get(tabId);
 
 	if (tab && isDomainDisabled(tab.url, settings)) {
-		throw new Error("Translation is disabled for this domain.");
+		throw new Error(
+			"Translation is disabled for this domain. Remove it from Disabled Domains in Settings to continue.",
+		);
 	}
 
 	const hasPermission = await ensureApiPermission(settings);
@@ -905,16 +899,21 @@ async function translateSelection(tabId, selectionText, frameId) {
 	await ensureContentScript(tabId, frameId);
 	const selectionAnchor =
 		settings.selectionPanelPositionMode === "near-selection"
-			? await getSelectionAnchor(tabId, frameId, text)
+			? options.selectionAnchor ||
+				(await getSelectionAnchor(tabId, frameId, text))
 			: null;
 	const frameMessageOptions = getFrameMessageOptions(frameId);
+	const requestId = createSelectionRequestId();
+	const panelPayload = {
+		requestId,
+		sourceText: text,
+		targetLanguage: settings.targetLanguage,
+		...buildTranslationAppearancePayload(settings),
+		...buildSelectionPanelPayload(settings, selectionAnchor),
+	};
 	await chrome.tabs.sendMessage(
 		tabId,
-		TranslatorMessages.renderSelectionPlaceholder({
-			targetLanguage: settings.targetLanguage,
-			...buildTranslationAppearancePayload(settings),
-			...buildSelectionPanelPayload(settings, selectionAnchor),
-		}),
+		TranslatorMessages.renderSelectionPlaceholder(panelPayload),
 		frameMessageOptions,
 	);
 
@@ -937,29 +936,56 @@ async function translateSelection(tabId, selectionText, frameId) {
 			throw new Error("The API did not return a translation.");
 		}
 
-		await chrome.tabs.sendMessage(
+		const renderResult = await chrome.tabs.sendMessage(
 			tabId,
 			TranslatorMessages.renderSelectionTranslation({
-				sourceText: text,
-				targetLanguage: settings.targetLanguage,
-				...buildTranslationAppearancePayload(settings),
-				...buildSelectionPanelPayload(settings, selectionAnchor),
+				...panelPayload,
 				translation,
 				protectedFragments: translations[0]?.protectedFragments || [],
 			}),
 			frameMessageOptions,
 		);
-		await sendToast(tabId, "Selected text translated.", "success");
-		setBadge(tabId, "TR");
+		if (renderResult?.rendered === "floating") {
+			setBadge(tabId, "TR");
+		}
+		return { ok: true, requestId };
 	} catch (error) {
-		await clearSelectionTranslation(tabId, frameId);
-		throw error;
+		const renderResult = await chrome.tabs.sendMessage(
+			tabId,
+			TranslatorMessages.renderSelectionError({
+				...panelPayload,
+				error:
+					String(error?.message || "").trim() ||
+					"The translation could not be completed. Try again.",
+			}),
+			frameMessageOptions,
+		);
+		if (renderResult?.rendered === "floating") {
+			setBadge(tabId, "!");
+		}
+		return { ok: false, error: error.message, requestId };
 	}
 }
 
 async function handleRuntimeMessage(message, sender) {
 	if (!message || typeof message !== "object") {
 		return { ok: false };
+	}
+
+	if (
+		message.type ===
+		TranslatorMessages.MESSAGE_TYPES.RETRY_SELECTION_TRANSLATION
+	) {
+		if (!sender.tab?.id) {
+			throw new Error("Selection translation retry requires a browser tab.");
+		}
+
+		return translateSelection(
+			sender.tab.id,
+			message.payload?.sourceText,
+			sender.frameId,
+			{ selectionAnchor: message.payload?.selectionAnchor },
+		);
 	}
 
 	if (message.type === TranslatorMessages.MESSAGE_TYPES.TEST_CONNECTION) {

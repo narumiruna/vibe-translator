@@ -27,4 +27,24 @@ test("message builders use shared message types", () => {
 	assert.deepEqual(TranslatorMessages.clearSelectionTranslation(), {
 		type: TranslatorMessages.MESSAGE_TYPES.CLEAR_SELECTION_TRANSLATION,
 	});
+	assert.deepEqual(
+		TranslatorMessages.renderSelectionError({
+			requestId: "selection-1",
+			error: "Unavailable",
+		}),
+		{
+			type: TranslatorMessages.MESSAGE_TYPES.RENDER_SELECTION_ERROR,
+			payload: {
+				requestId: "selection-1",
+				error: "Unavailable",
+			},
+		},
+	);
+	assert.deepEqual(
+		TranslatorMessages.retrySelectionTranslation({ sourceText: "Hello" }),
+		{
+			type: TranslatorMessages.MESSAGE_TYPES.RETRY_SELECTION_TRANSLATION,
+			payload: { sourceText: "Hello" },
+		},
+	);
 });
