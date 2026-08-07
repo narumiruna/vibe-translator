@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Vibe Translator icon</title>
+  <desc id="desc">Two overlapping translation cards on a blue and violet rounded square.</desc>
+  <defs>
+    <linearGradient id="background" x1="18" y1="14" x2="112" y2="118" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#18A7FF"/>
+      <stop offset="0.48" stop-color="#087DFF"/>
+      <stop offset="1" stop-color="#5B4DE8"/>
+    </linearGradient>
+    <linearGradient id="rearCard" x1="62" y1="57" x2="100" y2="101" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D9F3FF"/>
+      <stop offset="1" stop-color="#B9D7FF"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="6" y="6" width="116" height="116" rx="30" fill="url(#background)"/>
+  <path d="M25 21C42 8 70 7 91 17C61 18 35 33 18 57C17 42 19 29 25 21Z" fill="#FFFFFF" opacity="0.12"/>
+
+  <path d="M57 51C57 43.82 62.82 38 70 38H94C101.18 38 107 43.82 107 51V85C107 92.18 101.18 98 94 98H83L72 108V98H70C62.82 98 57 92.18 57 85V51Z" fill="url(#rearCard)"/>
+  <path d="M74.5 84L82.15 59H87.85L95.5 84H90.24L88.55 78.05H81.32L79.64 84H74.5ZM82.48 73.85H87.4L84.94 65.08L82.48 73.85Z" fill="#126FE8"/>
+
+  <path d="M21 37C21 29.82 26.82 24 34 24H72C79.18 24 85 29.82 85 37V69C85 76.18 79.18 82 72 82H45L33 93V82C26.37 81.49 21 75.95 21 69V37Z" fill="#FFFFFF"/>
+  <path d="M39 42H67M53 35V42M43 50C45.5 59 52.5 66.5 67 72M65 50C61.5 60.5 53.5 67 40 72" fill="none" stroke="#126FE8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

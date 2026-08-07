@@ -19,6 +19,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 | File | Purpose |
 |---|---|
 | `manifest.json` | Manifest V3 configuration |
+| `icons/` | Extension icon source and generated PNG sizes |
 | `src/background.js` | Action click, context menus, permission flow, session orchestration |
 | `src/content-viewport.js` | Viewport measurement for progressive page translation |
 | `src/content-selection-panel.js` | Floating selected-text translation panel rendering and positioning |
@@ -88,6 +89,7 @@ The extension requests host permission only for the origin derived from your con
 
 ```bash
 npm install  # install development dependencies and the Husky Git hook
+npm run icons # regenerate extension icon PNGs from icons/icon.svg
 just check   # syntax check + unit tests
 just test    # unit tests only
 just zip     # build a Chrome Web Store zip

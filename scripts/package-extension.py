@@ -7,6 +7,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE_PATHS = (
     Path("manifest.json"),
+    Path("icons"),
     Path("src"),
     Path("README.md"),
     Path("docs/TESTING.md"),
