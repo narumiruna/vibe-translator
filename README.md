@@ -87,11 +87,14 @@ The extension requests host permission only for the origin derived from your con
 ## Development
 
 ```bash
+npm install  # install development dependencies and the Husky Git hook
 just check   # syntax check + unit tests
 just test    # unit tests only
 just zip     # build a Chrome Web Store zip
 just clean   # remove generated zips
 ```
+
+The Husky pre-commit hook formats, lints, and organizes imports in staged supported files with Biome.
 
 Load the extension from `chrome://extensions/` using **Load unpacked** on this directory.
 

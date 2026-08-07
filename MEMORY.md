@@ -2,7 +2,6 @@
 
 ## GOTCHA
 
-- When the user explicitly specifies a command like `prek install`, run that exact command instead of guessing a similar but different command such as `pre-commit install`.
 - During in-flight page translation, `chrome.tabs.sendMessage` can fail when the tab reloads, closes, or loses its content script; treat this as normal session teardown instead of logging a hard error.
 - The sandbox may not have the `just` binary installed even when `/home/runner/work/vibe-translator/vibe-translator/justfile` exists, so run the equivalent `node --check ... && node --test test/*.test.js` commands directly when needed.
 - Symptom: `just` recipes expand `$$name` to a PID plus literal text. Cause: unlike Make, just recipes pass `$name` directly to the shell. Fix: use `$name` and `$(...)` in recipes.
