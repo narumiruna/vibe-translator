@@ -11,7 +11,7 @@
 		"prepare": "husky"
 	},
 	"lint-staged": {
-		"*.{js,jsx,ts,tsx,cjs,cts,mjs,mts,json,jsonc,css,svelte,vue,astro,graphql,gql}": "biome lint --write --files-ignore-unknown=true --no-errors-on-unmatched"
+		"*.{js,jsx,ts,tsx,cjs,cts,mjs,mts,json,jsonc,css,svelte,vue,astro,graphql,gql}": "biome check --write --files-ignore-unknown=true --no-errors-on-unmatched"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.9",

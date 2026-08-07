@@ -218,10 +218,7 @@ test("getSettings returns migrated and normalized stored settings", async () => 
 		assert.equal(settings.targetLanguage, "日本語");
 		assert.match(settings.systemPromptTemplate, /^Translate carefully\./);
 		assert.equal(settings.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
-		assert.equal(
-			settings.disabledDomains,
-			"example.com\ndocs.example.com",
-		);
+		assert.equal(settings.disabledDomains, "example.com\ndocs.example.com");
 	} finally {
 		global.chrome = originalChrome;
 	}

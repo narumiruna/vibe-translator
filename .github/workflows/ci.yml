@@ -24,8 +24,8 @@ jobs:
         with:
           version: 2.4.9
 
-      - name: Run Biome lint
-        run: biome lint
+      - name: Run Biome checks
+        run: biome ci
 
       - name: Run check
         run: npm run check

@@ -94,7 +94,7 @@ just zip     # build a Chrome Web Store zip
 just clean   # remove generated zips
 ```
 
-The Husky pre-commit hook runs Biome lint with safe fixes on staged supported files.
+The Husky pre-commit hook formats, lints, and organizes imports in staged supported files with Biome.
 
 Load the extension from `chrome://extensions/` using **Load unpacked** on this directory.
 
