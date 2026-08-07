@@ -5,7 +5,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 ## Features
 
 - Click the extension icon or right-click a page and choose **Translate entire page**
-- Select text, right-click, and choose **Translate selected text**
+- Select text, right-click, and choose **Translate selected text**; a compact status panel shows progress, the target language, and the result
 - Translations are injected as sibling blocks — the original text is never removed
 - Visible content translates first; more is queued as you scroll
 - Large pages are split into batches and translated with bounded parallel requests; oversized blocks are broken down recursively
@@ -60,7 +60,7 @@ All settings are on the options page.
 | Selection Panel Appearance | Independent width, font size, line height, radius, opacity, position, and light/dark colors |
 | Disabled Domains | One domain per line; translation is silently skipped on matching hostnames |
 
-The Appearance tab previews changes without saving and warns when translation text/background contrast is below WCAG AA. **Reset Appearance** restores only visual settings. Saved appearance changes apply the next time a page or selection is translated; existing rendered translations are not updated proactively.
+The Appearance tab previews changes without saving and warns when translation text/background contrast is below WCAG AA. An unsaved-state label distinguishes previewed values from applied settings. **Reset Appearance** changes only the preview until **Save Settings** is used. Saved appearance changes apply the next time a page or selection is translated; existing rendered translations are not updated proactively.
 
 Older underline settings are ignored and safely migrate to the Calm Reading appearance. Arbitrary CSS and font names are not accepted.
 
@@ -80,7 +80,9 @@ The extension requests host permission only for the origin derived from your con
 
 1. Highlight text on the page
 2. Right-click the selection and choose **Translate selected text**
-3. The translation appears in a compact floating panel near the selected content
+3. A compact floating panel near the selected content shows the target language and translation progress
+4. Read the result, use **Show more** for long translations, or dismiss the panel with its close button or `Escape`
+5. If an initiated request fails, use **Try again** in the panel; dismissing a pending panel keeps its eventual result hidden
 
 ## Development
 

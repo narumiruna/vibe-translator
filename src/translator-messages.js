@@ -10,8 +10,10 @@
 		RENDER_PAGE_PLACEHOLDERS: "render-page-placeholders",
 		RENDER_PAGE_TRANSLATION_UPDATES: "render-page-translation-updates",
 		RENDER_PAGE_TRANSLATIONS: "render-page-translations",
+		RENDER_SELECTION_ERROR: "render-selection-error",
 		RENDER_SELECTION_PLACEHOLDER: "render-selection-placeholder",
 		RENDER_SELECTION_TRANSLATION: "render-selection-translation",
+		RETRY_SELECTION_TRANSLATION: "retry-selection-translation",
 		SHOW_TOAST: "show-toast",
 		START_PAGE_TRANSLATION_SESSION: "start-page-translation-session",
 		TEST_CONNECTION: "test-connection",
@@ -54,11 +56,17 @@
 				payload,
 			);
 		},
+		renderSelectionError(payload) {
+			return createMessage(MESSAGE_TYPES.RENDER_SELECTION_ERROR, payload);
+		},
 		renderSelectionPlaceholder(payload) {
 			return createMessage(MESSAGE_TYPES.RENDER_SELECTION_PLACEHOLDER, payload);
 		},
 		renderSelectionTranslation(payload) {
 			return createMessage(MESSAGE_TYPES.RENDER_SELECTION_TRANSLATION, payload);
+		},
+		retrySelectionTranslation(payload) {
+			return createMessage(MESSAGE_TYPES.RETRY_SELECTION_TRANSLATION, payload);
 		},
 		showToast(payload) {
 			return createMessage(MESSAGE_TYPES.SHOW_TOAST, payload);

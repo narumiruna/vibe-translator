@@ -18,14 +18,14 @@
 7. Edit the user prompt template and confirm the user preview updates immediately
 8. Click **Reset System Template** and confirm the template and preview return to the default value
 9. Click **Reset User Template** and confirm the template and preview return to the default value
-10. Select **Calm Reading**, **Minimal**, and **High Contrast** and confirm every related inline control and the live preview update
+10. Select **Calm Reading**, **Minimal**, and **High Contrast** and confirm every related inline control and the live preview update; confirm the save bar reports unsaved preview changes
 11. Change any Typography, Layout, or color field and confirm the preset changes to **Custom**
 12. Toggle the Light/Dark preview and confirm each mode uses its independent saved colors
 13. Set text and background to the same color and confirm a WCAG warning appears without blocking Save
 14. Disable the translation background and confirm the contrast status says host-page contrast cannot be verified
 15. Customize the selection panel width, typography, radius, opacity, and colors and confirm its independent preview updates
 16. Click **Reset Appearance** and confirm only appearance controls return to Calm Reading; API, prompts, target language, and disabled domains remain unchanged
-17. Save custom appearance settings, reload options, and confirm every inline and selection value persists
+17. Save custom appearance settings, confirm the save bar reports no unsaved changes, reload options, and confirm every inline and selection value persists
 18. Change **Selection Panel** to **Near selected text**, save, reload, and confirm the selection is preserved
 19. Change **Selection Panel** to **Bottom-right corner**, save, reload, and confirm the selection is preserved
 20. Save disabled domains using mixed case and comma or newline separators, reload the page, and confirm they are normalized to lowercase hostnames with one hostname per line
@@ -55,15 +55,19 @@
 2. Right-click the selected text
 3. Choose **Translate selected text**
 4. With **Selection Translation Panel** set to **Near selected text**, confirm a floating selection translation panel appears near the selected text and stays within the viewport
-5. Confirm the panel first shows a pending shimmer state and then the translated text
-6. Confirm the original page content stays unchanged
-7. Confirm the panel title includes the current target language
+5. Confirm the panel first shows `Translating to …` with a three-line shimmer state and then atomically replaces it with translated text
+6. Confirm the short `Translation` title, full target-language chip, and close control remain visible without ambiguous truncation
+7. Confirm the original page content stays unchanged and no redundant success toast appears
 8. Confirm the panel uses its independent saved width, font size, line height, radius, opacity, and active light/dark colors rather than inline-card spacing or fonts
-9. Click the panel close button and confirm the panel is removed
-10. Run selection translation again and confirm the panel can be reopened normally
-11. Confirm the action badge shows `TR` after a successful selection translation
-12. Switch **Selection Panel** to **Bottom-right corner** and confirm the panel opens near the bottom-right instead
-13. Select text inside the iframe on `test/fixture-page.html` and confirm the panel appears inside that iframe, not in the top page, with the same panel-specific appearance
+9. Use a long result and confirm **Show more**/**Show less** changes only panel height, never its configured width
+10. Resize to a 320px viewport and confirm the panel reflows inside the viewport without horizontal overflow
+11. Use Tab to confirm visible controls have a focus indicator, then press `Escape` and confirm the panel is removed
+12. Dismiss a panel while it is still translating and confirm the completed result does not reopen it
+13. Run selection translation again and confirm the panel can be reopened normally
+14. Confirm the action badge shows `TR` after a successful selection translation
+15. Switch **Selection Panel** to **Bottom-right corner** and confirm the panel opens near the bottom-right instead
+16. Select text inside the iframe on `test/fixture-page.html` and confirm the panel appears inside that iframe, not in the top page, with the same panel-specific appearance
+17. Enable reduced motion and confirm panel entrance and shimmer animations are disabled
 
 ## Protected fragments
 
@@ -109,5 +113,7 @@
 5. Click **Test Connection**, deny the API origin permission request, and confirm the options page shows a permission-related error state
 6. Deny API origin permission during page or selection translation and confirm an error toast is shown on the page
 7. Simulate one failed page-translation API chunk and confirm successful translations remain while a partial-failure toast is shown
-8. Simulate a selected-text API failure and confirm the pending selection panel is removed or replaced by an error state
-9. Open `chrome://extensions/` and confirm translation is rejected safely without injecting UI
+8. Simulate a selected-text API failure after loading starts and confirm the same panel shows an actionable alert with **Try again**
+9. Restore the API, click **Try again**, and confirm the control is disabled during loading and the panel reaches the ready state
+10. Trigger two selection requests in quick succession and confirm a late result from the older request cannot replace the newer result or badge state
+11. Open `chrome://extensions/` and confirm translation is rejected safely without injecting UI

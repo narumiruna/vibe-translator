@@ -6,8 +6,185 @@ const {
 	getSelectionPanelWidth,
 	normalizeSelectionAnchorRect,
 	normalizeSelectionPanelPositionMode,
+	normalizeSelectionRequestId,
 	shouldCloseSelectionPanelOnKey,
 } = require("../src/content-selection-panel.js");
+
+class FakeClassList {
+	constructor() {
+		this.values = new Set();
+	}
+
+	add(...values) {
+		for (const value of values) {
+			this.values.add(value);
+		}
+	}
+}
+
+class FakeElement {
+	constructor(tagName) {
+		this.tagName = tagName.toUpperCase();
+		this.attributes = {};
+		this.children = [];
+		this.classList = new FakeClassList();
+		this.eventListeners = new Map();
+		this.hidden = false;
+		this.parentNode = null;
+		this.style = {};
+		this._textContent = "";
+		this.clientHeight = 80;
+		this.clientWidth = 256;
+		this.offsetHeight = 160;
+		this.offsetWidth = 280;
+		this.scrollHeight = 80;
+		this.scrollWidth = 256;
+	}
+
+	addEventListener(type, listener) {
+		this.eventListeners.set(type, listener);
+	}
+
+	appendChild(child) {
+		child.parentNode = this;
+		this.children.push(child);
+		return child;
+	}
+
+	click() {
+		this.eventListeners.get("click")?.({ currentTarget: this });
+	}
+
+	getAttribute(name) {
+		return this.attributes[name] ?? null;
+	}
+
+	querySelector(selector) {
+		const match = selector.match(/^\[([^=]+)="([^"]+)"\]$/);
+
+		if (!match) {
+			return null;
+		}
+
+		const [, name, value] = match;
+		const queue = [...this.children];
+
+		while (queue.length > 0) {
+			const child = queue.shift();
+
+			if (child.getAttribute?.(name) === value) {
+				return child;
+			}
+
+			queue.push(...(child.children || []));
+		}
+
+		return null;
+	}
+
+	querySelectorAll(selector) {
+		if (selector === "br") {
+			return [];
+		}
+
+		return [];
+	}
+
+	remove() {
+		if (this.parentNode) {
+			this.parentNode.children = this.parentNode.children.filter(
+				(child) => child !== this,
+			);
+			this.parentNode = null;
+		}
+	}
+
+	replaceChildren(...children) {
+		this.children = [];
+		this._textContent = "";
+
+		for (const child of children) {
+			this.appendChild(child);
+		}
+	}
+
+	setAttribute(name, value) {
+		this.attributes[name] = String(value);
+	}
+
+	get textContent() {
+		return this.children.length > 0
+			? this.children.map((child) => child.textContent).join("")
+			: this._textContent;
+	}
+
+	set textContent(value) {
+		this.children = [];
+		this._textContent = String(value);
+	}
+}
+
+function createRendererHarness(options = {}) {
+	const documentElement = new FakeElement("html");
+	const body = new FakeElement("body");
+	const listeners = new Map();
+	const viewportListeners = new Map();
+
+	documentElement.clientHeight = 600;
+	documentElement.clientWidth = 800;
+	documentElement.appendChild(body);
+
+	const document = {
+		body,
+		documentElement,
+		addEventListener(type, listener) {
+			listeners.set(type, listener);
+		},
+		createElement(tagName) {
+			return new FakeElement(tagName);
+		},
+		createTextNode(text) {
+			const node = new FakeElement("#text");
+
+			node.textContent = text;
+			return node;
+		},
+		querySelector(selector) {
+			return documentElement.querySelector(selector);
+		},
+	};
+	const retries = [];
+	const window = {
+		innerHeight: 600,
+		innerWidth: 800,
+		addEventListener(type, listener) {
+			viewportListeners.set(type, listener);
+		},
+	};
+	const renderer = createSelectionPanelRenderer({
+		document,
+		window,
+		appendFormattedText(container, text) {
+			container.textContent = text;
+		},
+		onRetry(payload) {
+			retries.push(payload);
+		},
+		withObserverPaused(callback) {
+			return callback();
+		},
+		...options,
+	});
+
+	return {
+		document,
+		listeners,
+		renderer,
+		retries,
+		viewportListeners,
+		window,
+	};
+}
 
 test("normalizeSelectionPanelPositionMode falls back to near-selection", () => {
 	assert.equal(
@@ -57,14 +234,20 @@ test("normalizeSelectionAnchorRect requires finite rectangle values", () => {
 	);
 });
 
-test("getSelectionPanelWidth keeps compact and expanded widths within viewport margins", () => {
+test("getSelectionPanelWidth keeps one stable width within viewport margins", () => {
 	assert.equal(getSelectionPanelWidth(1024, false), 280);
-	assert.equal(getSelectionPanelWidth(1024, true), 420);
+	assert.equal(getSelectionPanelWidth(1024, true), 280);
 	assert.equal(getSelectionPanelWidth(300, true), 276);
 	assert.equal(getSelectionPanelWidth(1024, false, 360), 360);
-	assert.equal(getSelectionPanelWidth(1024, true, 360), 420);
+	assert.equal(getSelectionPanelWidth(1024, true, 360), 360);
 	assert.equal(getSelectionPanelWidth(1024, false, 480), 480);
 	assert.equal(getSelectionPanelWidth(1024, true, 480), 480);
+});
+
+test("normalizeSelectionRequestId trims valid ids and rejects empty ids", () => {
+	assert.equal(normalizeSelectionRequestId(" request-1 "), "request-1");
+	assert.equal(normalizeSelectionRequestId(""), "");
+	assert.equal(normalizeSelectionRequestId(null), "");
 });
 
 test("shouldCloseSelectionPanelOnKey only accepts plain Escape", () => {
@@ -91,9 +274,7 @@ test("selection panel renderer close reports cleared panels", () => {
 	const renderer = createSelectionPanelRenderer({
 		document: {
 			querySelector(selector) {
-				return selector === '[data-ot-role="selection-panel"]'
-					? panel
-					: null;
+				return selector === '[data-ot-role="selection-panel"]' ? panel : null;
 			},
 		},
 		window: {},
@@ -104,6 +285,134 @@ test("selection panel renderer close reports cleared panels", () => {
 
 	assert.deepEqual(renderer.close(), { cleared: 1 });
 	assert.equal(removed, true);
+});
+
+test("selection panel renderer ignores stale and dismissed request results", () => {
+	const { document, renderer } = createRendererHarness();
+
+	renderer.renderPlaceholder({
+		requestId: "request-a",
+		sourceText: "Alpha",
+		targetLanguage: "台灣正體中文",
+	});
+	const panel = document.querySelector('[data-ot-role="selection-panel"]');
+	const body = panel.querySelector('[data-ot-role="selection-panel-body"]');
+
+	assert.equal(panel.getAttribute("data-state"), "loading");
+	assert.equal(body.getAttribute("role"), "status");
+	assert.deepEqual(
+		renderer.renderTranslation({
+			requestId: "request-b",
+			translation: "Stale result",
+		}),
+		{ rendered: "stale" },
+	);
+	assert.equal(body.getAttribute("data-state"), "pending");
+
+	renderer.close();
+	assert.deepEqual(
+		renderer.renderTranslation({
+			requestId: "request-a",
+			translation: "Dismissed result",
+		}),
+		{ rendered: "dismissed" },
+	);
+	assert.equal(
+		document.querySelector('[data-ot-role="selection-panel"]'),
+		null,
+	);
+});
+
+test("selection panel renderer exposes an actionable error and explicit retry", () => {
+	const { document, renderer, retries } = createRendererHarness();
+	const payload = {
+		requestId: "request-a",
+		selectionAnchor: { top: 10, right: 90, bottom: 30, left: 20 },
+		sourceText: "Alpha",
+		targetLanguage: "台灣正體中文",
+	};
+
+	renderer.renderPlaceholder(payload);
+	assert.deepEqual(
+		renderer.renderError({
+			...payload,
+			error: "The translation service is unavailable.",
+		}),
+		{ rendered: "floating" },
+	);
+
+	const panel = document.querySelector('[data-ot-role="selection-panel"]');
+	const body = panel.querySelector('[data-ot-role="selection-panel-body"]');
+	const retry = panel.querySelector('[data-ot-role="selection-panel-retry"]');
+
+	assert.equal(panel.getAttribute("data-state"), "error");
+	assert.equal(body.getAttribute("role"), "alert");
+	assert.match(body.textContent, /translation service is unavailable/i);
+	assert.equal(retry.hidden, false);
+
+	retry.click();
+	assert.equal(retry.disabled, true);
+	assert.deepEqual(retries, [
+		{
+			selectionAnchor: payload.selectionAnchor,
+			sourceText: "Alpha",
+			targetLanguage: "台灣正體中文",
+		},
+	]);
+});
+
+test("selection panel expansion keeps the configured width stable", () => {
+	const { document, renderer } = createRendererHarness();
+
+	renderer.renderPlaceholder({
+		requestId: "request-a",
+		targetLanguage: "日本語",
+		translationAppearance: { selection: { widthPx: 360 } },
+	});
+	const panel = document.querySelector('[data-ot-role="selection-panel"]');
+	const body = panel.querySelector('[data-ot-role="selection-panel-body"]');
+
+	body.scrollHeight = 240;
+	renderer.renderTranslation({
+		requestId: "request-a",
+		targetLanguage: "日本語",
+		translation: "A long translated result that needs more vertical room.",
+		translationAppearance: { selection: { widthPx: 360 } },
+	});
+	const expand = panel.querySelector('[data-ot-role="selection-panel-expand"]');
+
+	assert.equal(panel.style.width, "360px");
+	assert.equal(expand.hidden, false);
+	expand.click();
+	assert.equal(panel.style.width, "360px");
+	assert.equal(panel.getAttribute("data-expanded"), "true");
+	assert.equal(expand.textContent, "Show less");
+});
+
+test("selection panel reflows from an anchored desktop position on resize", () => {
+	const { document, renderer, viewportListeners, window } =
+		createRendererHarness();
+
+	renderer.renderPlaceholder({
+		requestId: "request-a",
+		selectionAnchor: {
+			top: 100,
+			right: 240,
+			bottom: 120,
+			left: 120,
+			width: 120,
+			height: 20,
+		},
+		targetLanguage: "日本語",
+	});
+	const panel = document.querySelector('[data-ot-role="selection-panel"]');
+
+	assert.notEqual(panel.style.left, "");
+	window.innerWidth = 320;
+	document.documentElement.clientWidth = 320;
+	viewportListeners.get("resize")();
+	assert.equal(panel.style.left, "");
+	assert.equal(panel.style.width, "");
 });
 
 test("selection panel renderer measures reused content in collapsed state", () => {
@@ -172,9 +481,7 @@ test("selection panel renderer measures reused content in collapsed state", () =
 		document: {
 			documentElement: { clientHeight: 600, clientWidth: 800 },
 			querySelector(selector) {
-				return selector === '[data-ot-role="selection-panel"]'
-					? panel
-					: null;
+				return selector === '[data-ot-role="selection-panel"]' ? panel : null;
 			},
 		},
 		window: { innerHeight: 600, innerWidth: 800 },

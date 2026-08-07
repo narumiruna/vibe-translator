@@ -110,6 +110,7 @@ function buildMockTranslations(requestPayload) {
 async function createMockApiServer(options = {}) {
 	const state = {
 		failOnTextIncludes: options.failOnTextIncludes || "",
+		responseDelayMs: Number(options.responseDelayMs) || 0,
 	};
 	const server = http.createServer(async (request, response) => {
 		const requestUrl = new URL(request.url || "/", "http://127.0.0.1");
@@ -129,6 +130,12 @@ async function createMockApiServer(options = {}) {
 				requestPayload = JSON.parse(await readRequestBody(request));
 			} catch (_error) {
 				requestPayload = {};
+			}
+
+			if (state.responseDelayMs > 0) {
+				await new Promise((resolve) => {
+					setTimeout(resolve, state.responseDelayMs);
+				});
 			}
 
 			if (
@@ -179,6 +186,9 @@ async function createMockApiServer(options = {}) {
 		baseUrl: `http://127.0.0.1:${port}/v1`,
 		setFailOnTextIncludes(value) {
 			state.failOnTextIncludes = String(value || "");
+		},
+		setResponseDelayMs(value) {
+			state.responseDelayMs = Math.max(0, Number(value) || 0);
 		},
 		close: () =>
 			new Promise((resolve, reject) => {

@@ -242,10 +242,18 @@
                   </div>
                 </details>
 
-                <div id="selection-appearance-preview" class="selection-appearance-preview">
-                  <span id="selection-preview-title">Selected Text Translation · 台灣正體中文</span>
+                <div id="selection-appearance-preview" class="selection-appearance-preview" role="img" aria-label="Selection translation panel preview">
+                  <div class="selection-preview-header">
+                    <div class="selection-preview-identity">
+                      <span class="selection-preview-icon" aria-hidden="true">文</span>
+                      <strong id="selection-preview-title">Translation</strong>
+                      <span id="selection-preview-language" class="selection-preview-language">台灣正體中文</span>
+                    </div>
+                    <span class="selection-preview-close" aria-hidden="true">×</span>
+                  </div>
                   <p>這是一段簡短的選取文字翻譯預覽。</p>
                 </div>
+                <p id="appearance-preview-status" class="field-note preview-only-note">Preview only — save settings to apply these changes.</p>
               </section>
             </section>
 
@@ -354,6 +362,7 @@
 
           <!-- ── Sticky save bar ───────────────────────────────────── -->
           <div class="save-bar">
+            <p id="save-state" class="save-state" aria-live="polite">No unsaved changes.</p>
             <div class="save-bar-actions">
               <button id="save-button" type="submit">Save Settings</button>
               <button id="test-button" type="button" class="secondary">Test Connection</button>

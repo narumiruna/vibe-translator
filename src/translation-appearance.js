@@ -418,6 +418,17 @@
 		return Math.round(((lighter + 0.05) / (darker + 0.05)) * 100) / 100;
 	}
 
+	function getContrastingTextColor(backgroundColor) {
+		const blackContrast = calculateContrastRatio("#000000", backgroundColor);
+		const whiteContrast = calculateContrastRatio("#ffffff", backgroundColor);
+
+		if (blackContrast === null || whiteContrast === null) {
+			return "#000000";
+		}
+
+		return whiteContrast > blackContrast ? "#ffffff" : "#000000";
+	}
+
 	function hexToRgbaColor(hexColor, opacityPercent) {
 		const normalized = normalizeColor(hexColor, "#ffffff");
 		const channels = [1, 3, 5].map((offset) =>
@@ -437,6 +448,7 @@
 		TRANSLATION_APPEARANCE_PRESETS,
 		calculateContrastRatio,
 		createTranslationAppearancePreset,
+		getContrastingTextColor,
 		hexToRgbaColor,
 		normalizeTranslationAppearance,
 	};

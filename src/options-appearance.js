@@ -66,6 +66,12 @@
 		const contrastStatus = doc.getElementById("appearance-contrast-status");
 		const selectionPreview = doc.getElementById("selection-appearance-preview");
 		const selectionPreviewTitle = doc.getElementById("selection-preview-title");
+		const selectionPreviewLanguage = doc.getElementById(
+			"selection-preview-language",
+		);
+		const selectionPreviewIcon = selectionPreview.querySelector(
+			".selection-preview-icon",
+		);
 		const resetButton = doc.getElementById("reset-appearance-button");
 		const themeButtons = Array.from(
 			doc.querySelectorAll("[data-appearance-theme]"),
@@ -248,8 +254,16 @@
 			selectionPreview.style.color = selectionColors.textColor;
 			selectionPreview.style.fontSize = `${selection.fontSizePx}px`;
 			selectionPreview.style.lineHeight = String(selection.lineHeight);
-			selectionPreviewTitle.style.color = selectionColors.accentColor;
-			selectionPreviewTitle.textContent = `Selected Text Translation · ${targetLanguage || "Target language"}`;
+			selectionPreviewTitle.style.color = selectionColors.textColor;
+			selectionPreviewTitle.textContent = "Translation";
+			selectionPreviewLanguage.style.color = selectionColors.textColor;
+			selectionPreviewLanguage.textContent =
+				targetLanguage || "Target language";
+			selectionPreviewIcon.style.background = appearanceApi.hexToRgbaColor(
+				selectionColors.accentColor,
+				previewTheme === "dark" ? 16 : 10,
+			);
+			selectionPreviewIcon.style.color = selectionColors.accentColor;
 			renderContrast(appearance);
 		}
 

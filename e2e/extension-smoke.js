@@ -179,6 +179,18 @@ async function runAppearanceOptionsSmoke(
 			timeoutMessage: "Default appearance did not load.",
 		},
 	);
+	assert.match(
+		(await page.locator("#save-state").textContent()) || "",
+		/No unsaved changes/i,
+	);
+	assert.equal(
+		(await page.locator("#selection-preview-title").textContent()) || "",
+		"Translation",
+	);
+	assert.equal(
+		(await page.locator("#selection-preview-language").textContent()) || "",
+		config.targetLanguage,
+	);
 	const unrelatedSettingsBeforeReset = await page.evaluate(() =>
 		Object.fromEntries(
 			[
@@ -202,6 +214,10 @@ async function runAppearanceOptionsSmoke(
 				.evaluate((element) => getComputedStyle(element).backgroundColor)) ===
 				"rgba(0, 0, 0, 0)",
 		{ timeoutMessage: "Minimal preset did not update the live preview." },
+	);
+	assert.match(
+		(await page.locator("#save-state").textContent()) || "",
+		/Unsaved changes/i,
 	);
 	assert.equal(await page.locator("#inline-accent-width").inputValue(), "1");
 	assert.equal(await page.locator("#inline-show-label").isChecked(), false);
@@ -242,6 +258,10 @@ async function runAppearanceOptionsSmoke(
 			),
 		{ timeoutMessage: "Low-contrast appearance should remain saveable." },
 	);
+	assert.match(
+		(await page.locator("#save-state").textContent()) || "",
+		/No unsaved changes/i,
+	);
 	await page.locator('[data-appearance-theme="dark"]').click();
 	assert.equal(
 		await page
@@ -256,6 +276,10 @@ async function runAppearanceOptionsSmoke(
 		"calm-reading",
 	);
 	assert.equal(await page.locator("#inline-font-size").inputValue(), "16");
+	assert.match(
+		(await page.locator("#save-state").textContent()) || "",
+		/Unsaved changes/i,
+	);
 	assert.deepEqual(
 		await page.evaluate(() =>
 			Object.fromEntries(
@@ -459,7 +483,7 @@ async function runCustomAppearanceRuntimeSmoke(
 	assert.equal(panelStyle.fontSize, "16px");
 	assert.equal(panelStyle.lineHeight, "25.6px");
 	assert.equal(panelStyle.width, "360px");
-	assert.equal(panelStyle.titleColor, "rgb(102, 204, 255)");
+	assert.equal(panelStyle.titleColor, "rgb(248, 249, 250)");
 	assert.match(
 		(await panel.textContent()) || "",
 		new RegExp(escapeRegExp(targetLanguage)),
@@ -630,6 +654,7 @@ async function runSelectionTranslationSmoke(
 	serverOrigin,
 	targetLanguage,
 	artifactsDir,
+	mockApiServer,
 ) {
 	const page = await context.newPage();
 
@@ -649,13 +674,28 @@ async function runSelectionTranslationSmoke(
 		"Expected selected text before triggering selection translation.",
 	);
 
-	await callBackground(context, "translateSelection", {
+	if (mockApiServer) {
+		mockApiServer.setResponseDelayMs(220);
+	}
+	const translationPromise = callBackground(context, "translateSelection", {
 		pageUrl: page.url(),
 		selectionText,
 	});
-
 	const panel = page.locator('[data-ot-role="selection-panel"]');
 	const panelBody = panel.locator('[data-ot-role="selection-panel-body"]');
+
+	await waitFor(async () => (await panel.count()) > 0, {
+		timeoutMs: REQUEST_TIMEOUT_MS,
+		timeoutMessage: "Selection translation panel did not appear.",
+	});
+	if (mockApiServer) {
+		await waitFor(
+			async () => (await panel.getAttribute("data-state")) === "loading",
+			{ timeoutMessage: "Selection panel did not expose its loading state." },
+		);
+	}
+	await translationPromise;
+	mockApiServer?.setResponseDelayMs(0);
 
 	await waitFor(async () => (await panel.count()) > 0, {
 		timeoutMs: REQUEST_TIMEOUT_MS,
@@ -677,9 +717,16 @@ async function runSelectionTranslationSmoke(
 		(await panel
 			.locator('[data-ot-role="selection-panel-title"]')
 			.textContent()) || "";
+	const panelLanguage =
+		(await panel
+			.locator('[data-ot-role="selection-panel-language"]')
+			.textContent()) || "";
 	const panelText = ((await panelBody.textContent()) || "").trim();
 
-	assert.match(panelTitle, new RegExp(escapeRegExp(targetLanguage)));
+	assert.equal(panelTitle, "Translation");
+	assert.match(panelLanguage, new RegExp(escapeRegExp(targetLanguage)));
+	assert.equal(await panel.getAttribute("role"), "region");
+	assert.equal(await panelBody.getAttribute("role"), "status");
 	assert.ok(
 		panelText.length > 0,
 		"Expected a non-empty translated selection panel body.",
@@ -688,6 +735,9 @@ async function runSelectionTranslationSmoke(
 		await panel.evaluate((element) => element.getBoundingClientRect().width),
 		280,
 	);
+	const collapsedWidth = await panel.evaluate(
+		(element) => element.getBoundingClientRect().width,
+	);
 	await panel.evaluate((element) => {
 		const body = element.querySelector('[data-ot-role="selection-panel-body"]');
 		const expand = element.querySelector(
@@ -695,17 +745,70 @@ async function runSelectionTranslationSmoke(
 		);
 
 		body.textContent = `${body.textContent} `.repeat(5).trim();
+		expand.hidden = false;
+		expand.parentElement.hidden = false;
 		expand.click();
 	});
 	await waitFor(
-		async () =>
-			(await panel.evaluate(
-				(element) => element.getBoundingClientRect().width,
-			)) === 420,
-		{ timeoutMessage: "Expanded selection panel did not reach 420px." },
+		async () => (await panel.getAttribute("data-expanded")) === "true",
+		{ timeoutMessage: "Selection panel did not expand." },
+	);
+	assert.equal(
+		await panel.evaluate((element) => element.getBoundingClientRect().width),
+		collapsedWidth,
+		"Expected expansion to keep a stable panel width.",
 	);
 
 	await takeScreenshot(page, artifactsDir, "selection-translation-smoke.png");
+	await page.setViewportSize({ width: 320, height: 640 });
+	await waitFor(
+		async () => {
+			const bounds = await panel.evaluate((element) => {
+				const rect = element.getBoundingClientRect();
+				return { left: rect.left, right: rect.right };
+			});
+			return bounds.left >= 0 && bounds.right <= 320;
+		},
+		{ timeoutMessage: "Selection panel overflowed the narrow viewport." },
+	);
+
+	await takeScreenshot(
+		page,
+		artifactsDir,
+		"selection-translation-mobile-smoke.png",
+	);
+
+	if (mockApiServer) {
+		await page.evaluate(() => {
+			const paragraph = document.createElement("p");
+			paragraph.id = "dismiss-selection-text";
+			paragraph.textContent =
+				"Dismiss this unique pending translation before it completes.";
+			document.body.appendChild(paragraph);
+		});
+		await page.locator("#dismiss-selection-text").selectText();
+		const dismissSelectionText = await page.evaluate(() =>
+			String(window.getSelection()?.toString() || ""),
+		);
+		mockApiServer.setResponseDelayMs(1000);
+		const dismissedTranslation = callBackground(context, "translateSelection", {
+			pageUrl: page.url(),
+			selectionText: dismissSelectionText,
+		});
+		await waitFor(
+			async () => (await panel.getAttribute("data-state")) === "loading",
+			{ timeoutMessage: "Dismiss smoke did not enter loading state." },
+		);
+		await page.keyboard.press("Escape");
+		await dismissedTranslation;
+		mockApiServer.setResponseDelayMs(0);
+		assert.equal(
+			await panel.count(),
+			0,
+			"Expected a dismissed request to stay hidden after completion.",
+		);
+	}
+
 	await page.close();
 }
 
@@ -767,13 +870,13 @@ async function runIframeSelectionTranslationSmoke(
 		},
 	);
 
-	const framePanelTitle =
+	const framePanelLanguage =
 		(await framePanel
-			.locator('[data-ot-role="selection-panel-title"]')
+			.locator('[data-ot-role="selection-panel-language"]')
 			.textContent()) || "";
 	const framePanelText = ((await framePanelBody.textContent()) || "").trim();
 
-	assert.match(framePanelTitle, new RegExp(escapeRegExp(targetLanguage)));
+	assert.match(framePanelLanguage, new RegExp(escapeRegExp(targetLanguage)));
 	assert.ok(
 		framePanelText.length > 0,
 		"Expected a non-empty translated iframe selection panel body.",
@@ -797,12 +900,23 @@ async function runIframeSelectionTranslationSmoke(
 
 		const frameViewportWidth = await frame.evaluate(() => innerWidth);
 
-		assert.deepEqual(framePanelStyle, {
-			backgroundColor: "rgba(255, 244, 230, 0.9)",
-			borderRadius: "4px",
-			fontSize: "16px",
-			outerWidth: Math.min(360, frameViewportWidth - 20),
-		});
+		assert.deepEqual(
+			{
+				backgroundColor: framePanelStyle.backgroundColor,
+				borderRadius: framePanelStyle.borderRadius,
+				fontSize: framePanelStyle.fontSize,
+			},
+			{
+				backgroundColor: "rgba(255, 244, 230, 0.9)",
+				borderRadius: "4px",
+				fontSize: "16px",
+			},
+		);
+		assert.ok(
+			framePanelStyle.outerWidth <= 360 &&
+				framePanelStyle.outerWidth <= frameViewportWidth - 20,
+			"Expected the custom iframe panel width to stay viewport-safe.",
+		);
 	}
 
 	await takeScreenshot(
@@ -879,18 +993,30 @@ async function runSelectionFailureSmoke(context, serverOrigin, mockApiServer) {
 			"Expected selected text for failure smoke.",
 		);
 
-		await assert.rejects(
-			() =>
-				callBackground(context, "translateSelection", {
-					pageUrl: page.url(),
-					selectionText,
-				}),
+		await callBackground(context, "translateSelection", {
+			pageUrl: page.url(),
+			selectionText,
+		});
+		const panel = page.locator('[data-ot-role="selection-panel"]');
+		const panelBody = panel.locator('[data-ot-role="selection-panel-body"]');
+		const retryButton = panel.locator('[data-ot-role="selection-panel-retry"]');
+
+		assert.equal(await panel.getAttribute("data-state"), "error");
+		assert.equal(await panelBody.getAttribute("role"), "alert");
+		assert.match(
+			(await panelBody.textContent()) || "",
 			/Mock translation failure/,
 		);
-		assert.equal(
-			await page.locator('[data-ot-role="selection-panel"]').count(),
-			0,
-			"Expected failed selection translation to clear the pending panel.",
+		assert.equal(await retryButton.isVisible(), true);
+
+		mockApiServer.setFailOnTextIncludes("");
+		await retryButton.click();
+		await waitFor(
+			async () => (await panel.getAttribute("data-state")) === "ready",
+			{
+				timeoutMs: REQUEST_TIMEOUT_MS,
+				timeoutMessage: "Selection translation retry did not succeed.",
+			},
 		);
 	} finally {
 		mockApiServer.setFailOnTextIncludes("");
@@ -940,6 +1066,7 @@ async function main() {
 			server.origin,
 			config.targetLanguage,
 			config.artifactsDir,
+			mockApiServer,
 		);
 		console.log("Selection translation smoke passed.");
 

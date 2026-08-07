@@ -362,6 +362,12 @@ const TranslatorContentModule = (() => {
 			selectionAppearance.dark.accentColor,
 			16,
 		);
+		const selectionLightAccentText = AppearanceApi.getContrastingTextColor(
+			selectionAppearance.light.accentColor,
+		);
+		const selectionDarkAccentText = AppearanceApi.getContrastingTextColor(
+			selectionAppearance.dark.accentColor,
+		);
 		let style = document.getElementById(STYLE_ID);
 
 		if (!style) {
@@ -513,167 +519,248 @@ const TranslatorContentModule = (() => {
       }
 
       .translation[${ROOT_ATTR}="selection-panel"] {
+        all: initial;
         box-sizing: border-box;
         position: fixed;
         right: 16px;
         bottom: 16px;
         z-index: 2147483647;
+        display: block;
         width: min(${selectionAppearance.widthPx}px, calc(100vw - 24px));
         max-width: min(${selectionAppearance.widthPx}px, calc(100vw - 24px));
-        padding: 10px 12px 12px;
-        border: 1px solid rgba(60, 60, 67, 0.14);
+        padding: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(60, 60, 67, 0.12);
         border-radius: ${selectionAppearance.borderRadiusPx}px;
         background: ${selectionLightBackground};
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.12);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 18px 52px rgba(0, 0, 0, 0.14);
         color: ${selectionAppearance.light.textColor};
-        font: 400 ${selectionAppearance.fontSizePx}px/${selectionAppearance.lineHeight} -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        font: 400 ${selectionAppearance.fontSizePx}px/${selectionAppearance.lineHeight} -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", system-ui, sans-serif;
+        text-align: start;
+        color-scheme: light dark;
+        isolation: isolate;
+        backdrop-filter: blur(24px) saturate(1.15);
+        -webkit-backdrop-filter: blur(24px) saturate(1.15);
+        animation: ot-panel-in 0.16s ease-out;
+      }
+
+      .translation[${ROOT_ATTR}="selection-panel"] *,
+      .translation[${ROOT_ATTR}="selection-panel"] *::before,
+      .translation[${ROOT_ATTR}="selection-panel"] *::after {
+        box-sizing: border-box;
+      }
+
+      .translation[${ROOT_ATTR}="selection-panel"] [hidden] {
+        display: none !important;
       }
 
       @media (prefers-color-scheme: dark) {
         .translation[${ROOT_ATTR}="selection-panel"] {
           background: ${selectionDarkBackground};
-          border-color: rgba(255, 255, 255, 0.1);
+          border-color: rgba(255, 255, 255, 0.11);
           color: ${selectionAppearance.dark.textColor};
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 16px 48px rgba(0, 0, 0, 0.4);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.34), 0 20px 56px rgba(0, 0, 0, 0.44);
         }
       }
 
       .translation [${ROOT_ATTR}="selection-panel-header"] {
+        all: initial;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
-        margin-bottom: 7px;
-        padding-bottom: 7px;
-        border-bottom: 1px solid rgba(60, 60, 67, 0.1);
+        gap: 10px;
+        min-width: 0;
+        margin: 0 0 12px;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", system-ui, sans-serif;
       }
 
-      @media (prefers-color-scheme: dark) {
-        .translation [${ROOT_ATTR}="selection-panel-header"] {
-          border-bottom-color: rgba(255, 255, 255, 0.08);
-        }
-      }
-
-      .translation [${ROOT_ATTR}="selection-panel-actions"] {
-        display: inline-flex;
+      .translation [${ROOT_ATTR}="selection-panel-identity"] {
+        all: initial;
+        display: flex;
+        flex: 1 1 auto;
         align-items: center;
-        gap: 4px;
+        gap: 7px;
+        min-width: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", system-ui, sans-serif;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-icon"] {
+        all: initial;
+        display: inline-flex;
         flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: ${selectionLightAccentSoft};
+        color: ${selectionAppearance.light.accentColor};
+        font: 650 12px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
       }
 
       .translation [${ROOT_ATTR}="selection-panel-title"] {
-        margin: 0;
-        flex: 1 1 auto;
+        all: initial;
+        flex: 0 1 auto;
         min-width: 0;
-        color: ${selectionAppearance.light.accentColor};
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        margin: 0;
+        color: ${selectionAppearance.light.textColor};
+        font: 650 13px/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        letter-spacing: -0.01em;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-language"] {
+        all: initial;
+        display: inline-flex;
+        flex: 0 1 auto;
+        align-items: center;
+        min-width: 0;
+        padding: 4px 7px;
+        border: 1px solid rgba(60, 60, 67, 0.1);
+        border-radius: 999px;
+        background: rgba(60, 60, 67, 0.055);
+        color: ${selectionAppearance.light.textColor};
+        font: 550 11px/1.25 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", system-ui, sans-serif;
+        overflow-wrap: anywhere;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-close"] {
+        all: initial;
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        margin: -2px -3px -2px 0;
+        border: 0;
+        border-radius: 9px;
+        background: transparent;
+        color: #6c6c70;
+        cursor: pointer;
+        font: 450 19px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        transition: background 0.14s ease, color 0.14s ease;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-close"]:hover {
+        background: rgba(60, 60, 67, 0.09);
+        color: #2c2c2e;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-close"]:focus-visible,
+      .translation [${ROOT_ATTR}="selection-panel-expand"]:focus-visible,
+      .translation [${ROOT_ATTR}="selection-panel-retry"]:focus-visible {
+        outline: 3px solid ${selectionLightAccentSoft};
+        outline-offset: 2px;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-body"] {
+        all: initial;
+        display: block;
+        max-height: ${SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT}px;
+        overflow: auto;
+        margin: 0;
+        padding: 0 2px 0 0;
+        color: ${selectionAppearance.light.textColor};
+        font: 400 ${selectionAppearance.fontSizePx}px/${selectionAppearance.lineHeight} -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", system-ui, sans-serif;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: normal;
+        text-decoration: none;
+        scrollbar-width: thin;
+      }
+
+      .translation[${ROOT_ATTR}="selection-panel"][data-expanded="true"] [${ROOT_ATTR}="selection-panel-body"] {
+        max-height: min(${SELECTION_PANEL_EXPANDED_MAX_BODY_HEIGHT}px, calc(100vh - 120px));
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-status"] {
+        all: initial;
+        display: block;
+        margin: 0 0 11px;
+        color: ${selectionAppearance.light.textColor};
+        font: 500 12px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", system-ui, sans-serif;
+        opacity: 0.72;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-skeleton"] {
+        all: initial;
+        display: grid;
+        gap: 8px;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-skeleton"] > span {
+        all: initial;
+        display: block;
+        width: 100%;
+        height: 10px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(60, 60, 67, 0.07) 0%, rgba(255, 255, 255, 0.72) 50%, rgba(60, 60, 67, 0.07) 100%);
+        background-size: 200% 100%;
+        animation: ot-shimmer 1.2s linear infinite;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-skeleton"] > span:nth-child(2) {
+        width: 88%;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-skeleton"] > span:nth-child(3) {
+        width: 64%;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-error-message"] {
+        all: initial;
+        display: block;
+        margin: 0;
+        color: ${selectionAppearance.light.textColor};
+        font: 400 ${selectionAppearance.fontSizePx}px/${selectionAppearance.lineHeight} -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", system-ui, sans-serif;
+        overflow-wrap: anywhere;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-footer"] {
+        all: initial;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        margin: 12px 0 0;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+      }
+
+      .translation [${ROOT_ATTR}="selection-panel-expand"],
+      .translation [${ROOT_ATTR}="selection-panel-retry"] {
+        all: initial;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 6px 10px;
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+        font: 620 12px/1.3 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
       }
 
       .translation [${ROOT_ATTR}="selection-panel-expand"] {
-        border: 0;
         background: ${selectionLightAccentSoft};
-        color: ${selectionAppearance.light.accentColor};
-        cursor: pointer;
-        padding: 3px 8px;
-        border-radius: 6px;
-        font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-        letter-spacing: 0.02em;
-        transition: background 0.15s;
+        color: ${selectionAppearance.light.textColor};
       }
 
       .translation [${ROOT_ATTR}="selection-panel-expand"]:hover {
         background: ${selectionLightAccentHover};
       }
 
-      @media (prefers-color-scheme: dark) {
-        .translation [${ROOT_ATTR}="selection-panel-title"] {
-          color: ${selectionAppearance.dark.accentColor};
-        }
-
-        .translation [${ROOT_ATTR}="selection-panel-expand"],
-        .translation [${ROOT_ATTR}="selection-panel-expand"]:hover {
-          background: ${selectionDarkAccentSoft};
-          color: ${selectionAppearance.dark.accentColor};
-        }
+      .translation [${ROOT_ATTR}="selection-panel-retry"] {
+        background: ${selectionAppearance.light.accentColor};
+        color: ${selectionLightAccentText};
       }
 
-      .translation [${ROOT_ATTR}="selection-panel-close"] {
-        border: 0;
-        background: rgba(60, 60, 67, 0.08);
-        color: #6c6c70;
-        cursor: pointer;
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font: 500 15px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-        transition: background 0.15s;
-      }
-
-      .translation [${ROOT_ATTR}="selection-panel-close"]:hover {
-        background: rgba(60, 60, 67, 0.14);
-        color: #3a3a3c;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        .translation [${ROOT_ATTR}="selection-panel-close"] {
-          background: rgba(255, 255, 255, 0.1);
-          color: #98989d;
-        }
-        .translation [${ROOT_ATTR}="selection-panel-close"]:hover {
-          background: rgba(255, 255, 255, 0.16);
-          color: #ebebf5;
-        }
-      }
-
-      .translation [${ROOT_ATTR}="selection-panel-body"] {
-        display: block;
-        max-height: ${SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT}px;
-        overflow: auto;
-        padding-right: 0;
-        color: ${selectionAppearance.light.textColor};
-        white-space: pre-wrap;
-        word-break: break-word;
-        text-decoration: none;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        .translation [${ROOT_ATTR}="selection-panel-body"] {
-          color: ${selectionAppearance.dark.textColor};
-        }
-      }
-
-      .translation[${ROOT_ATTR}="selection-panel"][data-expanded="true"] [${ROOT_ATTR}="selection-panel-body"] {
-        max-height: min(${SELECTION_PANEL_EXPANDED_MAX_BODY_HEIGHT}px, calc(100vh - 48px));
-      }
-
-      .translation [${ROOT_ATTR}="selection-panel-body"][data-state="pending"] {
-        min-height: 2.4em;
-        color: transparent;
-        border-radius: 8px;
-        text-decoration-color: transparent;
-        background:
-          linear-gradient(
-            90deg,
-            rgba(60, 60, 67, 0.07) 0%,
-            rgba(255, 255, 255, 0.7) 50%,
-            rgba(60, 60, 67, 0.07) 100%
-          );
-        background-size: 200% 100%;
-        animation: ot-shimmer 1.2s linear infinite;
+      .translation [${ROOT_ATTR}="selection-panel-retry"]:disabled {
+        cursor: default;
+        opacity: 0.55;
       }
 
       .translation [${ROOT_ATTR}="selection-panel-body"] code {
+        all: initial;
         display: inline;
         padding: 0.08em 0.34em;
         border-radius: 5px;
@@ -681,6 +768,72 @@ const TranslatorContentModule = (() => {
         color: #3a3a3c;
         text-decoration: none;
         font: 0.92em/1.4 ui-monospace, "SF Mono", "SFMono-Regular", Menlo, monospace;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .translation [${ROOT_ATTR}="selection-panel-icon"],
+        .translation [${ROOT_ATTR}="selection-panel-expand"] {
+          background: ${selectionDarkAccentSoft};
+        }
+
+        .translation [${ROOT_ATTR}="selection-panel-icon"] {
+          color: ${selectionAppearance.dark.accentColor};
+        }
+
+        .translation [${ROOT_ATTR}="selection-panel-expand"] {
+          color: ${selectionAppearance.dark.textColor};
+        }
+
+        .translation [${ROOT_ATTR}="selection-panel-title"],
+        .translation [${ROOT_ATTR}="selection-panel-language"],
+        .translation [${ROOT_ATTR}="selection-panel-body"],
+        .translation [${ROOT_ATTR}="selection-panel-status"],
+        .translation [${ROOT_ATTR}="selection-panel-error-message"] {
+          color: ${selectionAppearance.dark.textColor};
+        }
+
+        .translation [${ROOT_ATTR}="selection-panel-language"] {
+          border-color: rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.07);
+        }
+
+        .translation [${ROOT_ATTR}="selection-panel-close"] {
+          color: #aeaeb2;
+        }
+
+        .translation [${ROOT_ATTR}="selection-panel-close"]:hover {
+          background: rgba(255, 255, 255, 0.1);
+          color: #f2f2f7;
+        }
+
+        .translation [${ROOT_ATTR}="selection-panel-close"]:focus-visible,
+        .translation [${ROOT_ATTR}="selection-panel-expand"]:focus-visible,
+        .translation [${ROOT_ATTR}="selection-panel-retry"]:focus-visible {
+          outline-color: ${selectionDarkAccentSoft};
+        }
+
+        .translation [${ROOT_ATTR}="selection-panel-retry"] {
+          background: ${selectionAppearance.dark.accentColor};
+          color: ${selectionDarkAccentText};
+        }
+
+        .translation [${ROOT_ATTR}="selection-panel-body"] code {
+          background: rgba(255, 255, 255, 0.11);
+          color: #f2f2f7;
+        }
+      }
+
+      @media (pointer: coarse) {
+        .translation [${ROOT_ATTR}="selection-panel-close"] {
+          width: 44px;
+          height: 44px;
+          margin-block: -8px;
+        }
+
+        .translation [${ROOT_ATTR}="selection-panel-expand"],
+        .translation [${ROOT_ATTR}="selection-panel-retry"] {
+          min-height: 44px;
+        }
       }
 
       .translation[${ROOT_ATTR}="debug-panel"] {
@@ -762,8 +915,9 @@ const TranslatorContentModule = (() => {
 
       @media (prefers-reduced-motion: reduce) {
         .translation[${ROOT_ATTR}="note"][data-phase="ready"],
+        .translation[${ROOT_ATTR}="selection-panel"],
         .translation [${ROOT_ATTR}="note-body"][data-state="pending"],
-        .translation [${ROOT_ATTR}="selection-panel-body"][data-state="pending"] {
+        .translation [${ROOT_ATTR}="selection-panel-skeleton"] > span {
           animation: none;
         }
       }
@@ -775,6 +929,18 @@ const TranslatorContentModule = (() => {
 
         100% {
           background-position: -200% 0;
+        }
+      }
+
+      @keyframes ot-panel-in {
+        from {
+          opacity: 0;
+          transform: translateY(3px) scale(0.99);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
         }
       }
 
@@ -2330,9 +2496,24 @@ const TranslatorContentModule = (() => {
 				appendFormattedText,
 				ensureObserver,
 				ensureStyles,
+				onRetry(payload) {
+					chrome.runtime
+						.sendMessage(
+							window.TranslatorMessages.retrySelectionTranslation(payload),
+						)
+						.catch(() => {});
+				},
 				withObserverPaused,
 			})
 		: null;
+
+	function renderSelectionError(payload) {
+		if (!selectionPanelRenderer) {
+			return { rendered: "unavailable" };
+		}
+
+		return selectionPanelRenderer.renderError(payload);
+	}
 
 	function renderSelectionTranslation(payload) {
 		if (!selectionPanelRenderer) {
@@ -2476,6 +2657,14 @@ const TranslatorContentModule = (() => {
 			sendResponse({
 				ok: true,
 				...renderPagePlaceholders(message.payload || {}),
+			});
+			return;
+		}
+
+		if (message.type === MessageTypes.RENDER_SELECTION_ERROR) {
+			sendResponse({
+				ok: true,
+				...renderSelectionError(message.payload || {}),
 			});
 			return;
 		}
