@@ -7,9 +7,16 @@
 		"e2e:smoke": "node e2e/extension-smoke.js",
 		"e2e:mock": "PLAYWRIGHT_MOCK_API=1 node e2e/extension-smoke.js",
 		"e2e:antirez": "node e2e/antirez-comments.js",
-		"e2e:syosetu": "node e2e/syosetu-directory.js"
+		"e2e:syosetu": "node e2e/syosetu-directory.js",
+		"prepare": "husky"
+	},
+	"lint-staged": {
+		"*.{js,jsx,ts,tsx,cjs,cts,mjs,mts,json,jsonc,css,svelte,vue,astro,graphql,gql}": "biome lint --write --files-ignore-unknown=true --no-errors-on-unmatched"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "2.4.9",
+		"husky": "9.1.7",
+		"lint-staged": "17.3.0",
 		"playwright": "1.57.0"
 	}
 }
