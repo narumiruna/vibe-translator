@@ -4,6 +4,8 @@ const assert = require("node:assert/strict");
 const {
 	DISQUS_COMMENT_TEXT_SELECTOR,
 	SAFE_EMPTY_SELECTOR,
+	SCHIIT_ARTICLE_ROOT_SELECTOR,
+	SCHIIT_ARTICLE_TEXT_SELECTOR,
 	THREADS_TEXT_BLOCK_SELECTOR,
 	X_CURRENT_POST_TEXT_SELECTOR,
 	X_TWEET_TEXT_SELECTOR,
@@ -34,6 +36,8 @@ test("resolveSiteProfile matches exact built-in hosts", () => {
 		["mobile.twitter.com", "x"],
 		["threads.net", "threads"],
 		["disqus.com", "disqus"],
+		["schiit.com", "schiit-article"],
+		["www.schiit.com", "schiit-article"],
 		["www.threads.net", "threads"],
 		["example.com", "default"],
 		["notx.com", "default"],
@@ -96,6 +100,24 @@ test("Disqus extraction targets comment text without discussion controls", () =>
 	assert.ok(
 		selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
 			DISQUS_COMMENT_TEXT_SELECTOR,
+		),
+	);
+});
+
+test("Schiit article extraction includes FAQ and guide div text blocks", () => {
+	const profile = resolveSiteProfile("www.schiit.com");
+	const selectors = createExtractionSelectorsForProfile(profile);
+
+	assert.deepEqual(profile.rootSelectors, [SCHIIT_ARTICLE_ROOT_SELECTOR]);
+	assert.equal(selectors.SITE_ROOT_SELECTOR, SCHIIT_ARTICLE_ROOT_SELECTOR);
+	assert.match(SCHIIT_ARTICLE_ROOT_SELECTOR, /body:where\(\.faq, \.guides\)/);
+	assert.match(SCHIIT_ARTICLE_TEXT_SELECTOR, /> \.body > div$/);
+	assert.ok(
+		selectors.READABLE_BLOCK_SELECTOR.includes(SCHIIT_ARTICLE_TEXT_SELECTOR),
+	);
+	assert.ok(
+		selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
+			SCHIIT_ARTICLE_TEXT_SELECTOR,
 		),
 	);
 });

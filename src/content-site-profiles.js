@@ -5,6 +5,9 @@
 	const ANTIREZ_PROSE_TEXT_SELECTOR =
 		"article.comment > pre > [data-ot-prose-block]";
 	const DISQUS_COMMENT_TEXT_SELECTOR = '[data-role="message"] p';
+	const SCHIIT_ARTICLE_ROOT_SELECTOR =
+		"body:where(.faq, .guides) #content-box .product > .pad";
+	const SCHIIT_ARTICLE_TEXT_SELECTOR = `${SCHIIT_ARTICLE_ROOT_SELECTOR} > .body > div`;
 	const X_TWEET_TEXT_SELECTOR = '[data-testid="tweetText"]';
 	const X_CURRENT_POST_TEXT_SELECTOR =
 		'article[data-tweet-id] div[dir="auto"].whitespace-pre-wrap:has(> span)';
@@ -44,6 +47,17 @@
 			directNoteTargetSelectors: Object.freeze([DISQUS_COMMENT_TEXT_SELECTOR]),
 			embeddedFramePatterns: Object.freeze([]),
 			windowed: false,
+		}),
+		Object.freeze({
+			id: "schiit-article",
+			hosts: Object.freeze(["schiit.com", "www.schiit.com"]),
+			socialTextSelectors: Object.freeze([]),
+			proseTextSelectors: Object.freeze([SCHIIT_ARTICLE_TEXT_SELECTOR]),
+			rootSelectors: Object.freeze([SCHIIT_ARTICLE_ROOT_SELECTOR]),
+			splitProseContainerSelectors: Object.freeze([]),
+			directNoteTargetSelectors: Object.freeze([SCHIIT_ARTICLE_TEXT_SELECTOR]),
+			embeddedFramePatterns: Object.freeze([]),
+			windowed: true,
 		}),
 		Object.freeze({
 			id: "x",
@@ -140,6 +154,8 @@
 		DISQUS_COMMENT_TEXT_SELECTOR,
 		DEFAULT_SITE_PROFILE,
 		SAFE_EMPTY_SELECTOR,
+		SCHIIT_ARTICLE_ROOT_SELECTOR,
+		SCHIIT_ARTICLE_TEXT_SELECTOR,
 		SITE_PROFILES,
 		THREADS_TEXT_BLOCK_SELECTOR,
 		X_CURRENT_POST_TEXT_SELECTOR,

@@ -77,6 +77,7 @@ const {
 const {
 	ANTIREZ_PROSE_CONTAINER_SELECTOR,
 	ANTIREZ_PROSE_TEXT_SELECTOR,
+	SCHIIT_ARTICLE_TEXT_SELECTOR,
 	THREADS_TEXT_BLOCK_SELECTOR,
 	X_CURRENT_POST_TEXT_SELECTOR,
 	X_TWEET_TEXT_SELECTOR,
@@ -462,6 +463,19 @@ test("Antirez preformatted article paragraphs are readable direct note targets",
 		antirezSelectors.SPLIT_PROSE_CONTAINER_SELECTOR.includes(
 			ANTIREZ_PROSE_CONTAINER_SELECTOR,
 		),
+	);
+});
+
+test("explicit prose text blocks receive enough score for short FAQ questions", () => {
+	const question = createFakeElement({
+		matchedSelectors: splitSelector(SCHIIT_ARTICLE_TEXT_SELECTOR),
+		tagName: "DIV",
+	});
+
+	assert.ok(
+		scoreCandidateBlock(question, "How do I return something?", {
+			proseTextSelector: SCHIIT_ARTICLE_TEXT_SELECTOR,
+		}) >= 40,
 	);
 });
 

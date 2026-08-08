@@ -399,6 +399,8 @@
 	function scoreCandidateBlock(element, text, options = {}) {
 		const socialTextSelector =
 			options.socialTextSelector || SOCIAL_TEXT_BLOCK_SELECTOR;
+		const proseTextSelector =
+			options.proseTextSelector || PROSE_TEXT_BLOCK_SELECTOR;
 		const textLength = text.length;
 		const linkCount = element.querySelectorAll("a").length;
 		const interactiveCount =
@@ -408,11 +410,13 @@
 		const isHeading = isHeadingLikeElement(element);
 		const isTitleLink = isReadableTitleLink(element);
 		const isSocialTextBlock = element.matches(socialTextSelector);
+		const isProseTextBlock = element.matches(proseTextSelector);
 		const base = Math.min(320, textLength);
 		const semanticBonus = element.matches(SEMANTIC_BLOCK_SELECTOR) ? 60 : 0;
 		const headingBonus = isHeading ? 140 : 0;
 		const summaryBonus = element.matches(SUMMARY_BLOCK_SELECTOR) ? 140 : 0;
 		const socialTextBonus = isSocialTextBlock ? 160 : 0;
+		const proseTextBonus = isProseTextBlock ? 160 : 0;
 		const readableLinkBonus = isTitleLink ? 320 : 0;
 		const linkPenalty =
 			isHeading || isTitleLink ? linkDensity * 60 : linkDensity * 280;
@@ -425,6 +429,7 @@
 			headingBonus +
 			summaryBonus +
 			socialTextBonus +
+			proseTextBonus +
 			readableLinkBonus -
 			linkPenalty -
 			linkCountPenalty -
