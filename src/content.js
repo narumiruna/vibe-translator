@@ -2973,9 +2973,45 @@ const TranslatorContentModule = (() => {
 		const translationMap = new Map(
 			(payload.translations || []).map((item) => [item.id, item]),
 		);
+		const reboundSources = new Set();
 		let rendered = 0;
+		let rebound = 0;
 		let stale = 0;
 		let missingTarget = 0;
+
+		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
+			const captionRoot = document.querySelector(SITE_ROOT_SELECTOR);
+			const captionSources = Array.from(
+				captionRoot?.querySelectorAll(DIRECT_NOTE_TARGET_SELECTOR) || [],
+			);
+
+			for (const translationItem of payload.translations || []) {
+				if (
+					document.querySelector(`[${SOURCE_ATTR}="${translationItem.id}"]`)
+				) {
+					continue;
+				}
+
+				const matchingSource = SubtitleApi.findMatchingSubtitleSource(
+					ACTIVE_SITE_PROFILE,
+					captionSources,
+					translationItem.sourceText,
+					(source) => getSegmentContent(source).text,
+					reboundSources,
+				);
+
+				if (!matchingSource) {
+					missingTarget += 1;
+					continue;
+				}
+
+				matchingSource.setAttribute(SOURCE_ATTR, translationItem.id);
+				matchingSource.setAttribute(QUEUED_ATTR, "true");
+				rememberSourceText(matchingSource, translationItem.sourceText);
+				reboundSources.add(matchingSource);
+				rebound += 1;
+			}
+		}
 
 		for (const element of document.querySelectorAll(`[${SOURCE_ATTR}]`)) {
 			const id = element.getAttribute(SOURCE_ATTR);
@@ -3012,7 +3048,7 @@ const TranslatorContentModule = (() => {
 		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
 			recordYoutubeDiagnostic(
 				"render",
-				`Received ${translationMap.size} translation(s); rendered ${rendered}; stale ${stale}; missing target ${missingTarget}`,
+				`Received ${translationMap.size} translation(s); rendered ${rendered}; rebound ${rebound}; stale ${stale}; missing target ${missingTarget}`,
 				{ show: stale > 0 || missingTarget > 0 },
 			);
 		}

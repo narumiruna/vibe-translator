@@ -56,6 +56,32 @@
 		return profile?.presentation === SUBTITLE_PRESENTATION;
 	}
 
+	function findMatchingSubtitleSource(
+		profile,
+		sources,
+		sourceText,
+		getSourceText,
+		excludedSources = new Set(),
+	) {
+		if (!isSubtitleProfile(profile) || !sourceText) {
+			return null;
+		}
+
+		for (const source of sources || []) {
+			if (
+				!source ||
+				excludedSources.has(source) ||
+				getSourceText?.(source) !== sourceText
+			) {
+				continue;
+			}
+
+			return source;
+		}
+
+		return null;
+	}
+
 	function getMeaningfulCharacterMinimum(profile) {
 		return isSubtitleProfile(profile) ? 1 : 2;
 	}
@@ -213,6 +239,7 @@
 		SUBTITLE_PRESENTATION_ATTR,
 		SUBTITLE_REPLACED_ATTR,
 		YOUTUBE_CAPTION_SEGMENT_SELECTOR,
+		findMatchingSubtitleSource,
 		getMeaningfulCharacterMinimum,
 		getSegmentKind,
 		isSubtitleProfile,

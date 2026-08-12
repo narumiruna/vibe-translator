@@ -206,13 +206,16 @@ async function main() {
 			const replacement = source?.cloneNode(true);
 
 			if (source && replacement) {
+				source.remove();
 				replacement.removeAttribute("data-ot-source-id");
 				replacement.removeAttribute("data-ot-queued");
 				replacement.removeAttribute("data-translated");
 				replacement.removeAttribute("data-ot-translated");
 				replacement.removeAttribute("data-ot-subtitle-replaced");
 				replacement.textContent = text;
-				source.replaceWith(replacement);
+				document
+					.querySelector("#ytp-caption-window-container .caption-visual-line")
+					?.appendChild(replacement);
 			}
 		}, CURRENT_CAPTION);
 		await waitFor(
@@ -242,6 +245,31 @@ async function main() {
 			});
 		});
 		await waitFor(
+			async () => Boolean(await source.getAttribute("data-ot-source-id")),
+			{
+				timeoutMessage: "The changed cue was not queued before replacement.",
+			},
+		);
+		await page.evaluate(() => {
+			const source = document.querySelector(
+				"#ytp-caption-window-container .ytp-caption-segment",
+			);
+			const replacement = source?.cloneNode(true);
+
+			if (source && replacement) {
+				for (const attribute of [
+					"data-ot-source-id",
+					"data-ot-queued",
+					"data-translated",
+					"data-ot-translated",
+					"data-ot-subtitle-replaced",
+				]) {
+					replacement.removeAttribute(attribute);
+				}
+				source.replaceWith(replacement);
+			}
+		});
+		await waitFor(
 			async () => (await control.getAttribute("data-state")) === "active",
 			{
 				timeoutMs: REQUEST_TIMEOUT_MS,
@@ -268,7 +296,8 @@ async function main() {
 				return (
 					/api-start|Requesting 1 caption translation/.test(text) &&
 					/api-success|API returned/.test(text) &&
-					/render|rendered 1/.test(text)
+					/render|rendered 1/.test(text) &&
+					/rebound 1/.test(text)
 				);
 			},
 			{

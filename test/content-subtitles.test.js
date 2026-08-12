@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+	findMatchingSubtitleSource,
 	getMeaningfulCharacterMinimum,
 	getSegmentKind,
 	isSubtitleProfile,
@@ -189,6 +190,41 @@ test("detached subtitle sources remove notes left behind by native cue replaceme
 			sourceAttribute: "data-ot-source-id",
 		}),
 		0,
+	);
+});
+
+test("detached subtitle results rebind only to an identical visible source", () => {
+	const oldSource = { text: "Old cue" };
+	const matchingSource = { text: "Current cue" };
+	const otherSource = { text: "Other cue" };
+
+	assert.equal(
+		findMatchingSubtitleSource(
+			youtubeProfile,
+			[oldSource, matchingSource, otherSource],
+			"Current cue",
+			(source) => source.text,
+			new Set([oldSource]),
+		),
+		matchingSource,
+	);
+	assert.equal(
+		findMatchingSubtitleSource(
+			youtubeProfile,
+			[oldSource, otherSource],
+			"Current cue",
+			(source) => source.text,
+		),
+		null,
+	);
+	assert.equal(
+		findMatchingSubtitleSource(
+			defaultProfile,
+			[matchingSource],
+			"Current cue",
+			(source) => source.text,
+		),
+		null,
 	);
 });
 
