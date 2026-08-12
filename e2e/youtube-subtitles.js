@@ -80,17 +80,6 @@ async function stopSuppressingVisibleCaptions(page) {
 	});
 }
 
-async function replaceControlBeforeInteraction(page) {
-	await page.evaluate(() => {
-		document
-			.querySelector(".ytp-subtitles-button")
-			?.setAttribute("aria-pressed", "true");
-		const control = document.querySelector("[data-ot-youtube-control]");
-
-		control?.replaceWith(control.cloneNode(true));
-	});
-}
-
 async function installCaptionTrackMetadata(page) {
 	await page.evaluate(() => {
 		window.ytInitialPlayerResponse = {
@@ -171,7 +160,6 @@ async function main() {
 			(await control.getAttribute("aria-label")) || "",
 			/Translate subtitles with Vibe Translator/,
 		);
-		await replaceControlBeforeInteraction(page);
 		await control.click();
 		await waitFor(
 			async () => (await control.getAttribute("data-state")) !== "idle",

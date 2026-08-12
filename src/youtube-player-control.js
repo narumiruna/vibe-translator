@@ -1,6 +1,7 @@
 ((root) => {
 	const CONTROL_ATTR = "data-ot-youtube-control";
 	const CONTROL_SELECTOR = `[${CONTROL_ATTR}]`;
+	const handledClickEvents = new WeakSet();
 	const playerControlBindings = new WeakMap();
 	const PLAYER_SELECTOR = "#movie_player";
 	const CAPTION_BUTTON_SELECTOR = ".ytp-subtitles-button";
@@ -125,6 +126,17 @@
 		return svg;
 	}
 
+	function handleYoutubePlayerControlClick(event, control, onClick) {
+		if (!event || handledClickEvents.has(event)) {
+			return false;
+		}
+
+		handledClickEvents.add(event);
+		onClick?.(event, control);
+
+		return true;
+	}
+
 	function bindYoutubePlayerControl(documentLike, onClick) {
 		if (!documentLike?.addEventListener) {
 			return false;
@@ -146,7 +158,7 @@
 				const player = documentLike.querySelector?.(PLAYER_SELECTOR);
 
 				if (control && player?.contains?.(control)) {
-					binding.onClick?.(event, control);
+					handleYoutubePlayerControlClick(event, control, binding.onClick);
 				}
 			},
 			true,
@@ -165,6 +177,9 @@
 		button.setAttribute(CONTROL_ATTR, "");
 		button.setAttribute("data-priority", "4");
 		button.appendChild(createControlIcon(documentLike));
+		button.addEventListener("click", (event) => {
+			handleYoutubePlayerControlClick(event, button, options.onClick);
+		});
 		options.applyState?.(button, "idle");
 
 		return button;
@@ -215,6 +230,7 @@
 		createYoutubePlayerControl,
 		findYoutubePlayerControlAnchor,
 		getVisibleYoutubeCaptionText,
+		handleYoutubePlayerControlClick,
 		getYoutubeCaptionTracks,
 		hasAvailableYoutubeCaptionTrack,
 		isYoutubeWatchLocation,

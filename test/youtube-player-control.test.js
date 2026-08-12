@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
 	CONTROL_ATTR,
 	CONTROL_SELECTOR,
+	createYoutubePlayerControl,
 	findYoutubePlayerControlAnchor,
 	getVisibleYoutubeCaptionText,
 	hasAvailableYoutubeCaptionTrack,
@@ -128,6 +129,47 @@ test("YouTube control activates an available auto-generated caption track", () =
 			},
 		},
 	]);
+});
+
+test("the mounted control handles a direct click exactly once", () => {
+	const listeners = [];
+	const attributes = new Map();
+	const button = {
+		addEventListener(type, listener) {
+			listeners.push({ listener, type });
+		},
+		appendChild() {},
+		setAttribute(name, value) {
+			attributes.set(name, value);
+		},
+	};
+	const documentLike = {
+		createElement() {
+			return button;
+		},
+		createElementNS(_namespace, tagName) {
+			return {
+				appendChild() {},
+				setAttribute() {},
+				tagName,
+			};
+		},
+	};
+	let clickCount = 0;
+
+	assert.equal(
+		createYoutubePlayerControl({
+			document: documentLike,
+			onClick() {
+				clickCount += 1;
+			},
+		}),
+		button,
+	);
+	assert.equal(listeners.length, 1);
+	assert.equal(listeners[0].type, "click");
+	listeners[0].listener({});
+	assert.equal(clickCount, 1);
 });
 
 test("delegated clicks survive YouTube replacing the mounted control", () => {
