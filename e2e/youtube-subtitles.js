@@ -190,7 +190,9 @@ async function main() {
 		);
 		await installCaptionFixture(page);
 
-		const source = page.locator("#ytp-caption-window-container .captions-text");
+		const source = page.locator(
+			"#ytp-caption-window-container .ytp-caption-segment",
+		);
 		await waitFor(
 			async () => Boolean(await source.getAttribute("data-ot-source-id")),
 			{
@@ -199,7 +201,7 @@ async function main() {
 		);
 		await page.evaluate((text) => {
 			const source = document.querySelector(
-				"#ytp-caption-window-container .captions-text",
+				"#ytp-caption-window-container .ytp-caption-segment",
 			);
 			const replacement = source?.cloneNode(true);
 
@@ -209,7 +211,7 @@ async function main() {
 				replacement.removeAttribute("data-translated");
 				replacement.removeAttribute("data-ot-translated");
 				replacement.removeAttribute("data-ot-subtitle-replaced");
-				replacement.querySelector(".ytp-caption-segment").textContent = text;
+				replacement.textContent = text;
 				source.replaceWith(replacement);
 			}
 		}, CURRENT_CAPTION);

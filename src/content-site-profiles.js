@@ -13,7 +13,7 @@
 		'article[data-tweet-id] div[dir="auto"].whitespace-pre-wrap:has(> span)';
 	const THREADS_TEXT_BLOCK_SELECTOR = 'div[lang]:has(> div > span[dir="auto"])';
 	const YOUTUBE_CAPTION_ROOT_SELECTOR = "#ytp-caption-window-container";
-	const YOUTUBE_CAPTION_TEXT_SELECTOR = `${YOUTUBE_CAPTION_ROOT_SELECTOR} .captions-text`;
+	const YOUTUBE_CAPTION_TEXT_SELECTOR = `${YOUTUBE_CAPTION_ROOT_SELECTOR} .ytp-caption-segment`;
 	const DEFAULT_SITE_PROFILE = Object.freeze({
 		id: DEFAULT_PROFILE_ID,
 		hosts: Object.freeze([]),

@@ -210,6 +210,32 @@ test("translated subtitles replace the visible native caption", () => {
 	assert.equal(replaceSubtitleSource(defaultProfile, source, true), false);
 });
 
+test("subtitle notes inherit size when the source is the caption segment", () => {
+	const properties = new Map();
+	const source = {
+		matches(selector) {
+			return selector === ".ytp-caption-segment";
+		},
+	};
+	const note = {
+		setAttribute() {},
+		style: {
+			setProperty(name, value) {
+				properties.set(name, value);
+			},
+		},
+	};
+
+	assert.equal(
+		prepareSubtitleNote(youtubeProfile, note, source, (element) => {
+			assert.equal(element, source);
+			return { fontSize: "26px" };
+		}),
+		true,
+	);
+	assert.equal(properties.get("--ot-subtitle-font-size"), "26px");
+});
+
 test("subtitle notes inherit the native caption segment size", () => {
 	const properties = new Map();
 	const segment = {};

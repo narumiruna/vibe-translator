@@ -193,8 +193,9 @@
 
 		note.setAttribute(SUBTITLE_PRESENTATION_ATTR, SUBTITLE_PRESENTATION);
 
-		const captionSegment =
-			source?.querySelector?.(YOUTUBE_CAPTION_SEGMENT_SELECTOR) || source;
+		const captionSegment = source?.matches?.(YOUTUBE_CAPTION_SEGMENT_SELECTOR)
+			? source
+			: source?.querySelector?.(YOUTUBE_CAPTION_SEGMENT_SELECTOR) || source;
 		const fontSize = normalizeCaptionFontSize(
 			getComputedStyle?.(captionSegment)?.fontSize,
 		);

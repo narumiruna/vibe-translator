@@ -97,6 +97,10 @@ test("YouTube extraction is restricted to persistent native caption text", () =>
 	assert.equal(profile.windowed, false);
 	assert.deepEqual(profile.rootSelectors, [YOUTUBE_CAPTION_ROOT_SELECTOR]);
 	assert.equal(selectors.SITE_ROOT_SELECTOR, YOUTUBE_CAPTION_ROOT_SELECTOR);
+	assert.equal(
+		YOUTUBE_CAPTION_TEXT_SELECTOR,
+		"#ytp-caption-window-container .ytp-caption-segment",
+	);
 	assert.ok(
 		selectors.READABLE_BLOCK_SELECTOR.includes(YOUTUBE_CAPTION_TEXT_SELECTOR),
 	);
