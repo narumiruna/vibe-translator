@@ -20,6 +20,7 @@ const CURRENT_CAPTION = `Pi gives you one small tool ${Date.now() + 1}.`;
 
 async function installCaptionFixture(page) {
 	await page.evaluate((text) => {
+		document.querySelector("video")?.pause();
 		let container = document.querySelector("#ytp-caption-window-container");
 
 		if (!container) {
@@ -73,6 +74,24 @@ async function suppressVisibleCaptions(page) {
 	});
 }
 
+async function stopSuppressingVisibleCaptions(page) {
+	await page.evaluate(() => {
+		window.clearInterval(window.__otSuppressCaptionsTimer);
+		window.__otSuppressCaptionsTimer = null;
+	});
+}
+
+async function replaceControlBeforeInteraction(page) {
+	await page.evaluate(() => {
+		document
+			.querySelector(".ytp-subtitles-button")
+			?.setAttribute("aria-pressed", "true");
+		const control = document.querySelector("[data-ot-youtube-control]");
+
+		control?.replaceWith(control.cloneNode(true));
+	});
+}
+
 async function installCaptionTrackMetadata(page) {
 	await page.evaluate(() => {
 		window.ytInitialPlayerResponse = {
@@ -105,7 +124,7 @@ async function clearStoredSettings(context) {
 
 async function main() {
 	const config = getConfig();
-	const mockApiServer = await createMockApiServer({ responseDelayMs: 100 });
+	const mockApiServer = await createMockApiServer({ responseDelayMs: 500 });
 	let runState;
 
 	config.baseUrl = mockApiServer.baseUrl;
@@ -128,7 +147,6 @@ async function main() {
 		});
 		await page.bringToFront();
 		await installCaptionTrackMetadata(page);
-		await installCaptionFixture(page);
 
 		const player = page.locator("#movie_player");
 		const control = player.locator("[data-ot-youtube-control]");
@@ -156,7 +174,16 @@ async function main() {
 			(await control.getAttribute("aria-label")) || "",
 			/Translate subtitles with Vibe Translator/,
 		);
-		await control.dispatchEvent("click");
+		await replaceControlBeforeInteraction(page);
+		await control.click();
+		await waitFor(
+			async () => (await control.getAttribute("data-state")) !== "idle",
+			{
+				timeoutMessage:
+					"A YouTube-replaced player control did not accept a real click.",
+			},
+		);
+		await installCaptionFixture(page);
 
 		const source = page.locator("#ytp-caption-window-container .captions-text");
 		await waitFor(
@@ -165,8 +192,21 @@ async function main() {
 				timeoutMessage: "The initial YouTube caption was not queued.",
 			},
 		);
-		await source.locator(".ytp-caption-segment").evaluate((element, text) => {
-			element.textContent = text;
+		await page.evaluate((text) => {
+			const source = document.querySelector(
+				"#ytp-caption-window-container .captions-text",
+			);
+			const replacement = source?.cloneNode(true);
+
+			if (source && replacement) {
+				replacement.removeAttribute("data-ot-source-id");
+				replacement.removeAttribute("data-ot-queued");
+				replacement.removeAttribute("data-translated");
+				replacement.removeAttribute("data-ot-translated");
+				replacement.removeAttribute("data-ot-subtitle-replaced");
+				replacement.querySelector(".ytp-caption-segment").textContent = text;
+				source.replaceWith(replacement);
+			}
 		}, CURRENT_CAPTION);
 		await waitFor(
 			async () => !(await source.getAttribute("data-ot-source-id")),
@@ -307,6 +347,7 @@ async function main() {
 					"Missing native captions did not produce actionable feedback.",
 			},
 		);
+		await stopSuppressingVisibleCaptions(page);
 
 		await takeScreenshot(
 			page,

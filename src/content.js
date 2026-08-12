@@ -1122,8 +1122,8 @@ const TranslatorContentModule = (() => {
 		}, 4500);
 	}
 
-	async function handleYoutubeControlClick() {
-		const button = pageState.youtubeControl.button;
+	async function handleYoutubeControlClick(_event, clickedButton) {
+		const button = clickedButton || pageState.youtubeControl.button;
 
 		if (!button || pageState.youtubeControl.state === "loading") {
 			return;

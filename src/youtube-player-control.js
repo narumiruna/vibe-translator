@@ -1,6 +1,7 @@
 ((root) => {
 	const CONTROL_ATTR = "data-ot-youtube-control";
 	const CONTROL_SELECTOR = `[${CONTROL_ATTR}]`;
+	const playerControlBindings = new WeakMap();
 	const PLAYER_SELECTOR = "#movie_player";
 	const CAPTION_BUTTON_SELECTOR = ".ytp-subtitles-button";
 	const RIGHT_CONTROLS_LEFT_SELECTOR = ".ytp-right-controls-left";
@@ -124,6 +125,37 @@
 		return svg;
 	}
 
+	function bindYoutubePlayerControl(documentLike, onClick) {
+		if (!documentLike?.addEventListener) {
+			return false;
+		}
+
+		const existingBinding = playerControlBindings.get(documentLike);
+
+		if (existingBinding) {
+			existingBinding.onClick = onClick;
+			return false;
+		}
+
+		const binding = { onClick };
+
+		documentLike.addEventListener(
+			"click",
+			(event) => {
+				const control = event.target?.closest?.(CONTROL_SELECTOR);
+				const player = documentLike.querySelector?.(PLAYER_SELECTOR);
+
+				if (control && player?.contains?.(control)) {
+					binding.onClick?.(event, control);
+				}
+			},
+			true,
+		);
+		playerControlBindings.set(documentLike, binding);
+
+		return true;
+	}
+
 	function createYoutubePlayerControl(options = {}) {
 		const documentLike = options.document || root.document;
 		const button = documentLike.createElement("button");
@@ -134,13 +166,14 @@
 		button.setAttribute("data-priority", "4");
 		button.appendChild(createControlIcon(documentLike));
 		options.applyState?.(button, "idle");
-		button.addEventListener("click", options.onClick);
 
 		return button;
 	}
 
 	function mountYoutubePlayerControl(options = {}) {
 		const documentLike = options.document || root.document;
+
+		bindYoutubePlayerControl(documentLike, options.onClick);
 
 		if (!isYoutubeWatchLocation(options.location || root.location)) {
 			documentLike.querySelector?.(CONTROL_SELECTOR)?.remove?.();
@@ -177,6 +210,7 @@
 		CAPTION_BUTTON_SELECTOR,
 		CONTROL_ATTR,
 		CONTROL_SELECTOR,
+		bindYoutubePlayerControl,
 		PLAYER_SELECTOR,
 		createYoutubePlayerControl,
 		findYoutubePlayerControlAnchor,

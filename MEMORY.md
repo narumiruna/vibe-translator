@@ -18,6 +18,7 @@
 - Symptom: third-party comments such as Disqus stay untranslated. Cause: cross-origin iframe DOM is isolated from the top content script and source IDs collide across frame-local sessions. Fix: request only site-profile-declared frame origins, inject per frame, and route extraction/rendering through frame-aware sessions.
 - Symptom: user-sized previews look viewport-safe but are clipped on narrow options pages. Cause: explicit child widths contribute to CSS Grid intrinsic sizing while the outer panel hides overflow. Fix: set `min-width: 0` through the grid chain and express preview width as `min(configured-width, 100%)`; assert child bounds, not only document scroll width.
 - Symptom: later Schiit FAQ and guide entries stay untranslated. Cause: Schiit article bodies switch from semantic `p` blocks to direct child `div` blocks. Fix: keep the Schiit article profile rooted at the enclosing `.pad` (so headings remain included) and treat `.body` direct `div` children as explicit prose/direct note targets.
+- Symptom: an extension-owned button inside YouTube appears but cannot be clicked. Cause: YouTube can replace or clone player controls, which drops listeners attached directly to the button. Fix: delegate the click from `document` in capture phase and resolve the current control from the event target.
 
 ## TASTE
 - Selection translation UI should default to a compact tooltip-sized card; long content can expand, but the default should prefer density over empty space.

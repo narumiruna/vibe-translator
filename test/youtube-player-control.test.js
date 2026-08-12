@@ -130,6 +130,64 @@ test("YouTube control activates an available auto-generated caption track", () =
 	]);
 });
 
+test("delegated clicks survive YouTube replacing the mounted control", () => {
+	const listeners = [];
+	const controls = {
+		insertBefore() {},
+	};
+	const captionButton = { parentElement: controls };
+	const existingButton = {
+		nextElementSibling: captionButton,
+		parentElement: controls,
+	};
+	const replacementButton = {};
+	const player = {
+		contains(element) {
+			return element === replacementButton;
+		},
+		querySelector(selector) {
+			if (selector === ".ytp-subtitles-button") {
+				return captionButton;
+			}
+
+			return selector === CONTROL_SELECTOR ? existingButton : null;
+		},
+	};
+	const documentLike = {
+		addEventListener(type, listener, capture) {
+			listeners.push({ capture, listener, type });
+		},
+		querySelector(selector) {
+			return selector === "#movie_player" ? player : null;
+		},
+	};
+	let clickedControl = null;
+
+	mountYoutubePlayerControl({
+		document: documentLike,
+		location: {
+			hostname: "www.youtube.com",
+			pathname: "/watch",
+			search: "?v=abc123",
+		},
+		onClick(_event, control) {
+			clickedControl = control;
+		},
+	});
+
+	assert.equal(listeners.length, 1);
+	assert.equal(listeners[0].type, "click");
+	assert.equal(listeners[0].capture, true);
+	listeners[0].listener({
+		target: {
+			closest(selector) {
+				return selector === CONTROL_SELECTOR ? replacementButton : null;
+			},
+		},
+	});
+	assert.equal(clickedControl, replacementButton);
+});
+
 test("repeated mounting does not move an already positioned control", () => {
 	let insertCount = 0;
 	const controls = {
