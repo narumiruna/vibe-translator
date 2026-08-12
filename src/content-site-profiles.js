@@ -12,6 +12,8 @@
 	const X_CURRENT_POST_TEXT_SELECTOR =
 		'article[data-tweet-id] div[dir="auto"].whitespace-pre-wrap:has(> span)';
 	const THREADS_TEXT_BLOCK_SELECTOR = 'div[lang]:has(> div > span[dir="auto"])';
+	const YOUTUBE_CAPTION_ROOT_SELECTOR = "#ytp-caption-window-container";
+	const YOUTUBE_CAPTION_TEXT_SELECTOR = `${YOUTUBE_CAPTION_ROOT_SELECTOR} .captions-text`;
 	const DEFAULT_SITE_PROFILE = Object.freeze({
 		id: DEFAULT_PROFILE_ID,
 		hosts: Object.freeze([]),
@@ -21,6 +23,9 @@
 		splitProseContainerSelectors: Object.freeze([]),
 		directNoteTargetSelectors: Object.freeze([]),
 		embeddedFramePatterns: Object.freeze([]),
+		dynamic: false,
+		presentation: "inline",
+		requireRoot: false,
 		windowed: true,
 	});
 	const SITE_PROFILES = Object.freeze([
@@ -58,6 +63,20 @@
 			directNoteTargetSelectors: Object.freeze([SCHIIT_ARTICLE_TEXT_SELECTOR]),
 			embeddedFramePatterns: Object.freeze([]),
 			windowed: true,
+		}),
+		Object.freeze({
+			id: "youtube",
+			hosts: Object.freeze(["youtube.com", "www.youtube.com", "m.youtube.com"]),
+			socialTextSelectors: Object.freeze([YOUTUBE_CAPTION_TEXT_SELECTOR]),
+			proseTextSelectors: Object.freeze([]),
+			rootSelectors: Object.freeze([YOUTUBE_CAPTION_ROOT_SELECTOR]),
+			splitProseContainerSelectors: Object.freeze([]),
+			directNoteTargetSelectors: Object.freeze([YOUTUBE_CAPTION_TEXT_SELECTOR]),
+			embeddedFramePatterns: Object.freeze([]),
+			dynamic: true,
+			presentation: "subtitle",
+			requireRoot: true,
+			windowed: false,
 		}),
 		Object.freeze({
 			id: "x",
@@ -160,6 +179,8 @@
 		THREADS_TEXT_BLOCK_SELECTOR,
 		X_CURRENT_POST_TEXT_SELECTOR,
 		X_TWEET_TEXT_SELECTOR,
+		YOUTUBE_CAPTION_ROOT_SELECTOR,
+		YOUTUBE_CAPTION_TEXT_SELECTOR,
 		buildProfileSelectors,
 		buildSelector,
 		getActiveSiteProfile,

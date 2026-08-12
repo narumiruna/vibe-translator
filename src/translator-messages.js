@@ -5,6 +5,7 @@
 		CLEAR_SELECTION_TRANSLATION: "clear-selection-translation",
 		EXTRACT_PAGE_CONTENT: "extract-page-content",
 		GET_SELECTION_ANCHOR: "get-selection-anchor",
+		OPEN_OPTIONS: "open-options",
 		PING: "ping",
 		QUEUE_PAGE_TRANSLATION_ITEMS: "queue-page-translation-items",
 		RENDER_PAGE_PLACEHOLDERS: "render-page-placeholders",
@@ -16,6 +17,7 @@
 		RETRY_SELECTION_TRANSLATION: "retry-selection-translation",
 		SHOW_TOAST: "show-toast",
 		START_PAGE_TRANSLATION_SESSION: "start-page-translation-session",
+		START_YOUTUBE_SUBTITLE_TRANSLATION: "start-youtube-subtitle-translation",
 		TEST_CONNECTION: "test-connection",
 	});
 
@@ -41,6 +43,9 @@
 			return createMessage(MESSAGE_TYPES.CLEAR_SELECTION_TRANSLATION);
 		},
 		createMessage,
+		openOptions() {
+			return createMessage(MESSAGE_TYPES.OPEN_OPTIONS);
+		},
 		ping() {
 			return createMessage(MESSAGE_TYPES.PING);
 		},
@@ -76,6 +81,9 @@
 				MESSAGE_TYPES.START_PAGE_TRANSLATION_SESSION,
 				payload,
 			);
+		},
+		startYoutubeSubtitleTranslation() {
+			return createMessage(MESSAGE_TYPES.START_YOUTUBE_SUBTITLE_TRANSLATION);
 		},
 	};
 

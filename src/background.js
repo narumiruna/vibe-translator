@@ -304,8 +304,10 @@ async function ensureContentScript(tabId, frameId) {
 			"src/content-viewport.js",
 			"src/content-selection-panel.js",
 			"src/content-site-profiles.js",
+			"src/content-subtitles.js",
 			"src/content-extraction.js",
 			"src/translator-messages.js",
+			"src/youtube-player-control.js",
 			"src/content.js",
 		],
 	});
@@ -669,18 +671,22 @@ async function processPageTranslationItemBatch(
 		return;
 	}
 
-	const itemIds = batchItems.map((item) => item.id);
-
 	try {
-		await chrome.tabs.sendMessage(
-			tabId,
-			TranslatorMessages.renderPagePlaceholders({
-				ids: itemIds,
-				targetLanguage: session.settings.targetLanguage,
-				...buildTranslationAppearancePayload(session.settings),
-			}),
-			getFrameMessageOptions(frameId),
-		);
+		const placeholderIds = batchItems
+			.filter((item) => item.kind !== "subtitle")
+			.map((item) => item.id);
+
+		if (placeholderIds.length > 0) {
+			await chrome.tabs.sendMessage(
+				tabId,
+				TranslatorMessages.renderPagePlaceholders({
+					ids: placeholderIds,
+					targetLanguage: session.settings.targetLanguage,
+					...buildTranslationAppearancePayload(session.settings),
+				}),
+				getFrameMessageOptions(frameId),
+			);
+		}
 
 		const chunkPlan = TranslatorApi.createRecursiveChunkPlan(batchItems);
 		const mergeState = TranslatorApi.createProgressiveMergeState(chunkPlan);
@@ -796,7 +802,9 @@ async function startPageTranslationFrame(tabId, frameId, settings) {
 			extraction.items,
 			frameId,
 		);
-	} else if (!extraction.totalSegments) {
+	} else if (
+		!TranslatorPageTranslationQueue.shouldKeepPageTranslationSession(extraction)
+	) {
 		pageTranslationQueue.remove(tabId, frameId);
 	}
 
@@ -827,6 +835,7 @@ async function translatePage(tab) {
 	const frames = [{ frameId: 0, url: tab.url }, ...embeddedFrames];
 	let queuedCount = 0;
 	let totalSegments = 0;
+	let keepAliveCount = 0;
 
 	for (const frame of frames) {
 		try {
@@ -838,6 +847,7 @@ async function translatePage(tab) {
 
 			queuedCount += extraction.items.length;
 			totalSegments += Number(extraction.totalSegments) || 0;
+			keepAliveCount += extraction.keepAlive ? 1 : 0;
 		} catch (error) {
 			pageTranslationQueue.remove(tab.id, frame.frameId);
 
@@ -855,6 +865,15 @@ async function translatePage(tab) {
 		await sendToast(
 			tab.id,
 			"Visible content is already translated. More content will translate as you scroll.",
+			"info",
+		);
+		return;
+	}
+
+	if (keepAliveCount > 0) {
+		await sendToast(
+			tab.id,
+			"Subtitle translation is ready. Turn on YouTube captions and play the video.",
 			"info",
 		);
 		return;
@@ -967,9 +986,107 @@ async function translateSelection(tabId, selectionText, frameId, options = {}) {
 	}
 }
 
+async function enableYoutubeCaptions(tabId) {
+	const [result] = await chrome.scripting.executeScript({
+		target: { tabId },
+		world: "MAIN",
+		func: () => {
+			const player = document.querySelector("#movie_player");
+			const captionButton = player?.querySelector(".ytp-subtitles-button");
+
+			if (!player || !captionButton) {
+				return { enabled: false, hasTrack: false };
+			}
+
+			if (captionButton.getAttribute("aria-pressed") !== "true") {
+				captionButton.click();
+			}
+
+			const responseTracks =
+				globalThis.ytInitialPlayerResponse?.captions
+					?.playerCaptionsTracklistRenderer?.captionTracks;
+			const playerTracks = player.getOption?.("captions", "tracklist");
+			const tracks = Array.isArray(responseTracks)
+				? responseTracks
+				: Array.isArray(playerTracks)
+					? playerTracks
+					: [];
+
+			if (
+				captionButton.getAttribute("aria-pressed") !== "true" &&
+				tracks.length > 0
+			) {
+				const track = tracks[0];
+				player.setOption?.("captions", "track", {
+					languageCode: track.languageCode,
+					kind: track.kind || "",
+					name: track.name?.simpleText || track.name || "",
+				});
+			}
+
+			return {
+				enabled: captionButton.getAttribute("aria-pressed") === "true",
+				hasTrack: tracks.length > 0,
+			};
+		},
+	});
+
+	return result?.result || { enabled: false, hasTrack: false };
+}
+
+async function startYoutubeSubtitleTranslation(sender) {
+	if (!sender?.tab?.id || (sender.frameId ?? 0) !== 0) {
+		throw new Error(
+			"YouTube subtitle translation requires the main video page.",
+		);
+	}
+
+	const tab = await chrome.tabs.get(sender.tab.id);
+
+	const profileId = tab?.url
+		? TranslatorContentSiteProfiles.resolveSiteProfile(
+				new URL(tab.url).hostname,
+			).id
+		: "default";
+
+	if (profileId !== "youtube") {
+		throw new Error("This control is only available on YouTube videos.");
+	}
+
+	const captions = await enableYoutubeCaptions(tab.id).catch(() => ({
+		enabled: false,
+		hasTrack: false,
+	}));
+
+	try {
+		await translatePage(tab);
+		return { ok: true, captions };
+	} catch (error) {
+		return {
+			ok: false,
+			error: error.message,
+			openOptions: String(error.message || "").includes(
+				"Settings are incomplete",
+			),
+		};
+	}
+}
+
 async function handleRuntimeMessage(message, sender) {
 	if (!message || typeof message !== "object") {
 		return { ok: false };
+	}
+
+	if (message.type === TranslatorMessages.MESSAGE_TYPES.OPEN_OPTIONS) {
+		await chrome.runtime.openOptionsPage();
+		return { ok: true };
+	}
+
+	if (
+		message.type ===
+		TranslatorMessages.MESSAGE_TYPES.START_YOUTUBE_SUBTITLE_TRANSLATION
+	) {
+		return startYoutubeSubtitleTranslation(sender);
 	}
 
 	if (

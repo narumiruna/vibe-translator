@@ -7,6 +7,12 @@ test("message builders use shared message types", () => {
 	assert.deepEqual(TranslatorMessages.ping(), {
 		type: TranslatorMessages.MESSAGE_TYPES.PING,
 	});
+	assert.deepEqual(TranslatorMessages.startYoutubeSubtitleTranslation(), {
+		type: TranslatorMessages.MESSAGE_TYPES.START_YOUTUBE_SUBTITLE_TRANSLATION,
+	});
+	assert.deepEqual(TranslatorMessages.openOptions(), {
+		type: TranslatorMessages.MESSAGE_TYPES.OPEN_OPTIONS,
+	});
 	assert.deepEqual(TranslatorMessages.showToast({ message: "Saved" }), {
 		type: TranslatorMessages.MESSAGE_TYPES.SHOW_TOAST,
 		payload: { message: "Saved" },

@@ -36,9 +36,11 @@ const REQUIRED_CONTENT_GLOBALS = [
 	"TranslatorAppearance",
 	"TranslatorContentExtraction",
 	"TranslatorContentSiteProfiles",
+	"TranslatorContentSubtitles",
 	"TranslatorContentViewport",
 	"TranslatorMessages",
 	"TranslatorSelectionPanel",
+	"TranslatorYoutubePlayerControl",
 ];
 const REQUIRED_OPTIONS_GLOBALS = [
 	"TranslatorApi",

@@ -8,6 +8,8 @@ const {
 	SCHIIT_ARTICLE_TEXT_SELECTOR,
 	THREADS_TEXT_BLOCK_SELECTOR,
 	X_CURRENT_POST_TEXT_SELECTOR,
+	YOUTUBE_CAPTION_ROOT_SELECTOR,
+	YOUTUBE_CAPTION_TEXT_SELECTOR,
 	X_TWEET_TEXT_SELECTOR,
 	buildProfileSelectors,
 	getActiveSiteProfile,
@@ -39,6 +41,10 @@ test("resolveSiteProfile matches exact built-in hosts", () => {
 		["schiit.com", "schiit-article"],
 		["www.schiit.com", "schiit-article"],
 		["www.threads.net", "threads"],
+		["youtube.com", "youtube"],
+		["www.youtube.com", "youtube"],
+		["m.youtube.com", "youtube"],
+		["music.youtube.com", "default"],
 		["example.com", "default"],
 		["notx.com", "default"],
 		["x.com.evil.example", "default"],
@@ -78,6 +84,26 @@ test("default extraction selectors exclude site-only social selectors", () => {
 	assert.equal(
 		selectors.READABLE_BLOCK_SELECTOR.includes(THREADS_TEXT_BLOCK_SELECTOR),
 		false,
+	);
+});
+
+test("YouTube extraction is restricted to persistent native caption text", () => {
+	const profile = resolveSiteProfile("www.youtube.com");
+	const selectors = createExtractionSelectorsForProfile(profile);
+
+	assert.equal(profile.dynamic, true);
+	assert.equal(profile.presentation, "subtitle");
+	assert.equal(profile.requireRoot, true);
+	assert.equal(profile.windowed, false);
+	assert.deepEqual(profile.rootSelectors, [YOUTUBE_CAPTION_ROOT_SELECTOR]);
+	assert.equal(selectors.SITE_ROOT_SELECTOR, YOUTUBE_CAPTION_ROOT_SELECTOR);
+	assert.ok(
+		selectors.READABLE_BLOCK_SELECTOR.includes(YOUTUBE_CAPTION_TEXT_SELECTOR),
+	);
+	assert.ok(
+		selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
+			YOUTUBE_CAPTION_TEXT_SELECTOR,
+		),
 	);
 });
 

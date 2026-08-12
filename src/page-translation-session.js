@@ -12,6 +12,14 @@
 		return Number.isFinite(number) && number > 0 ? number : fallback;
 	}
 
+	function shouldKeepPageTranslationSession(extraction) {
+		return Boolean(
+			extraction?.keepAlive ||
+				Number(extraction?.totalSegments) > 0 ||
+				(Array.isArray(extraction?.items) && extraction.items.length > 0),
+		);
+	}
+
 	function createPageTranslationQueue(options = {}) {
 		const concurrency = normalizePositiveInteger(
 			options.concurrency,
@@ -221,6 +229,7 @@
 
 	const api = {
 		createPageTranslationQueue,
+		shouldKeepPageTranslationSession,
 	};
 
 	root.TranslatorPageTranslationQueue = api;

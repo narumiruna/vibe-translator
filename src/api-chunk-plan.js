@@ -276,6 +276,7 @@
 			completed.push({
 				id: sourceId,
 				kind: sourceItem ? sourceItem.kind || "paragraph" : "paragraph",
+				sourceText: sourceItem?.text || "",
 				translation: unmaskProtectedFragments(
 					mergedText.trim(),
 					group.protectedFragments,
@@ -330,6 +331,7 @@
 			merged.push({
 				id: item.id,
 				kind: item.kind || "paragraph",
+				sourceText: item.text || "",
 				translation: unmaskProtectedFragments(
 					translation.trim(),
 					group.protectedFragments,

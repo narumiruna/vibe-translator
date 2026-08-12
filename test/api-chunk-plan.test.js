@@ -57,6 +57,10 @@ test("chunk plan splits oversized text and merges translations", () => {
 
 	assert.equal(merged.length, 1);
 	assert.equal(merged[0].id, "long");
+	assert.equal(
+		merged[0].sourceText,
+		"First sentence. Second sentence. Third sentence.",
+	);
 	assert.match(merged[0].translation, /^\[First sentence\./);
 	assert.match(merged[0].translation, /Third sentence\.\]$/);
 });
@@ -90,4 +94,8 @@ test("chunk plan progressive merge waits until all parts are available", () => {
 
 	assert.equal(completed.length, 1);
 	assert.equal(completed[0].id, "long");
+	assert.equal(
+		completed[0].sourceText,
+		"First sentence. Second sentence. Third sentence.",
+	);
 });

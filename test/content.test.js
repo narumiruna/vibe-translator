@@ -16,6 +16,7 @@ global.Node = {
 global.window = {
 	__OPENAI_TRANSLATOR_CONTENT__: false,
 	TranslatorContentExtraction: require("../src/content-extraction.js"),
+	TranslatorContentSubtitles: require("../src/content-subtitles.js"),
 	TranslatorMessages: require("../src/translator-messages.js"),
 	clearTimeout,
 	getComputedStyle() {

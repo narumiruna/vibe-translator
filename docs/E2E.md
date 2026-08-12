@@ -23,6 +23,14 @@ The Antirez regression opens `https://antirez.com/news/169`, translates the arti
 PLAYWRIGHT_MOCK_API=1 npm run e2e:antirez
 ```
 
+## YouTube Subtitle Regression Coverage
+
+The YouTube regression opens `https://www.youtube.com/watch?v=g7AxxkywiFI`, installs deterministic auto-generated caption metadata and a native-caption DOM fixture inside the real YouTube player, clicks the in-player Vibe Translator icon, and uses the mock translation API to verify bounded control placement, active state, continuous replacement of native captions, compact player rendering, and rejection of late results from replaced cues:
+
+```bash
+npm run e2e:youtube
+```
+
 ## Syosetu Regression Coverage
 
 The repository also includes a dedicated regression script for Syosetu directory pages:

@@ -3,7 +3,31 @@ const assert = require("node:assert/strict");
 
 const {
 	createPageTranslationQueue,
+	shouldKeepPageTranslationSession,
 } = require("../src/page-translation-session.js");
+
+test("persistent dynamic profiles keep an empty translation session alive", () => {
+	assert.equal(
+		shouldKeepPageTranslationSession({
+			items: [],
+			keepAlive: true,
+			totalSegments: 0,
+		}),
+		true,
+	);
+	assert.equal(
+		shouldKeepPageTranslationSession({
+			items: [],
+			keepAlive: false,
+			totalSegments: 0,
+		}),
+		false,
+	);
+	assert.equal(
+		shouldKeepPageTranslationSession({ items: [], totalSegments: 2 }),
+		true,
+	);
+});
 
 function nextTick() {
 	return new Promise((resolve) => setTimeout(resolve, 0));

@@ -6,8 +6,9 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 
 - Click the extension icon or right-click a page and choose **Translate entire page**
 - Select text, right-click, and choose **Translate selected text**; a compact status panel shows progress, the target language, and the result
-- Translations are injected as sibling blocks — the original text is never removed
+- Translations are injected as sibling blocks — the original text is never removed on ordinary pages
 - Visible content translates first; more is queued as you scroll
+- Available YouTube captions, including auto-generated tracks, are continuously replaced by translated captions inside the player
 - Large pages are split into batches and translated with bounded parallel requests; oversized blocks are broken down recursively
 - Inline code, file paths, URLs, math expressions, and common technical terms are protected by placeholder substitution so they are never mangled
 - Fully configurable: API key, base URL, model, target language, and prompt templates
@@ -25,6 +26,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 | `src/content-selection-panel.js` | Floating selected-text translation panel rendering and positioning |
 | `src/translation-appearance.js` | Appearance presets, validation, contrast calculation, and safe style mappings |
 | `src/content-extraction.js` | Page content selector, scoring, and extraction helper logic |
+| `src/content-subtitles.js` | Subtitle lifecycle, compact presentation, and changing-cue behavior |
 | `src/content.js` | DOM extraction, translation rendering, scroll-driven queuing |
 | `src/translator-messages.js` | Shared background/content message types and message builders |
 | `src/api-protected-fragments.js` | Placeholder masking and protected fragment validation |
@@ -76,6 +78,17 @@ The extension requests host permission only for the origin derived from your con
 1. Open any `http://` or `https://` page
 2. Click the extension icon, or right-click a blank area and choose **Translate entire page**
 3. Translations appear below each original text block as the content enters the viewport
+
+### Translate YouTube subtitles
+
+1. Open a YouTube video that provides native or auto-generated captions
+2. Click the Vibe Translator icon inside the video’s bottom control bar; it turns on available captions and starts subtitle translation
+3. Play the video; each translated line replaces its original native caption
+4. Leave the page open and newly appearing caption cues continue translating automatically
+
+The pinned Chrome toolbar icon keeps its original whole-page translation behavior.
+
+Videos without an available YouTube caption track are not transcribed from audio.
 
 ### Translate selected text
 

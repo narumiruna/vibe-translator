@@ -8,6 +8,27 @@
 	"background": {
 		"service_worker": "src/background.js"
 	},
+	"content_scripts": [
+		{
+			"matches": [
+				"https://youtube.com/*",
+				"https://www.youtube.com/*",
+				"https://m.youtube.com/*"
+			],
+			"js": [
+				"src/translation-appearance.js",
+				"src/content-viewport.js",
+				"src/content-selection-panel.js",
+				"src/content-site-profiles.js",
+				"src/content-subtitles.js",
+				"src/content-extraction.js",
+				"src/translator-messages.js",
+				"src/youtube-player-control.js",
+				"src/content.js"
+			],
+			"run_at": "document_idle"
+		}
+	],
 	"icons": {
 		"16": "icons/icon-16.png",
 		"32": "icons/icon-32.png",
