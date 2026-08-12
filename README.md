@@ -69,7 +69,8 @@ Older underline settings are ignored and safely migrate to the Calm Reading appe
 
 The options page also shows a live prompt preview and a **Test Connection** button that sends a sample request to confirm the API is reachable.
 
-The extension requests host permission only for the origin derived from your configured **Base URL**.
+The extension requests access to supported YouTube pages for its in-player subtitle control.
+It separately requests API host permission only for the origin derived from your configured **Base URL**.
 
 ## Usage
 

@@ -14,7 +14,6 @@ const {
 } = require("./lib/extension-test-helpers");
 
 const YOUTUBE_VIDEO_URL = "https://www.youtube.com/watch?v=g7AxxkywiFI";
-const YOUTUBE_PERMISSION_PATTERN = "https://www.youtube.com/*";
 const INITIAL_CAPTION = `This result must not survive ${Date.now()}.`;
 const CURRENT_CAPTION = `Pi gives you one small tool ${Date.now() + 1}.`;
 
@@ -132,9 +131,7 @@ async function main() {
 	config.headless = true;
 
 	try {
-		runState = await launchExtensionContext(config, [
-			YOUTUBE_PERMISSION_PATTERN,
-		]);
+		runState = await launchExtensionContext(config);
 		await saveOptions(runState.context, runState.extensionId, config, {
 			runConnectionTest: false,
 		});
