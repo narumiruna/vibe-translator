@@ -160,7 +160,27 @@ async function main() {
 			(await control.getAttribute("aria-label")) || "",
 			/Translate subtitles with Vibe Translator/,
 		);
+		assert.equal(
+			await control.evaluate((element) => getComputedStyle(element).color),
+			"rgb(255, 255, 255)",
+			"The player-control state styles must exist before translation starts.",
+		);
 		await control.click();
+		const diagnosticsPanel = player.locator(
+			'[data-ot-role="youtube-diagnostics"]',
+		);
+		await waitFor(async () => (await diagnosticsPanel.count()) === 1, {
+			timeoutMessage:
+				"The player diagnostic panel did not appear after a real click.",
+		});
+		assert.match(
+			(await diagnosticsPanel.textContent()) || "",
+			/Player button click received/,
+		);
+		assert.doesNotMatch(
+			(await diagnosticsPanel.textContent()) || "",
+			new RegExp(config.apiKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+		);
 		await waitFor(
 			async () => (await control.getAttribute("data-state")) !== "idle",
 			{
@@ -307,12 +327,19 @@ async function main() {
 			(await reloadedControl.getAttribute("aria-label")) || "",
 			/(Configure Vibe Translator|could not start)/,
 		);
+		assert.match(
+			(await page
+				.locator('[data-ot-role="youtube-diagnostics"]')
+				.textContent()) || "",
+			/(Configure Vibe Translator|could not start)/,
+		);
 		assert.equal(await reloadedControl.getAttribute("aria-pressed"), "false");
 
 		await saveOptions(runState.context, runState.extensionId, config, {
 			runConnectionTest: false,
 		});
 		await page.reload({ waitUntil: "domcontentloaded" });
+		await page.waitForTimeout(750);
 		const noCaptionControl = page.locator(
 			"#movie_player [data-ot-youtube-control]",
 		);
@@ -320,11 +347,13 @@ async function main() {
 			timeoutMessage: "The no-caption player control did not appear.",
 		});
 		await suppressVisibleCaptions(page);
-		await noCaptionControl.dispatchEvent("click");
+		await noCaptionControl.click();
 		await waitFor(
 			async () =>
 				/YouTube captions are not visible/.test(
-					(await noCaptionControl.getAttribute("aria-label")) || "",
+					(await page
+						.locator('[data-ot-role="youtube-diagnostics"]')
+						.textContent()) || "",
 				),
 			{
 				timeoutMs: 8000,

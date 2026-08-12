@@ -1,6 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+const YoutubeDiagnostics = require("../src/youtube-diagnostics.js");
+
 const {
 	CONTROL_ATTR,
 	CONTROL_SELECTOR,
@@ -12,6 +14,106 @@ const {
 	mountYoutubePlayerControl,
 	turnOnNativeYoutubeCaptions,
 } = require("../src/youtube-player-control.js");
+
+test("YouTube diagnostics describe the current player without secrets", () => {
+	const control = {
+		disabled: false,
+		getAttribute(name) {
+			return name === "data-state" ? "loading" : null;
+		},
+		getBoundingClientRect() {
+			return { height: 40, left: 10, top: 20, width: 40 };
+		},
+	};
+	const captionButton = {
+		getAttribute(name) {
+			return name === "aria-pressed" ? "true" : "English captions";
+		},
+	};
+	const captionSegment = { textContent: "Visible native caption" };
+	const documentLike = {
+		elementFromPoint() {
+			return control;
+		},
+		querySelector(selector) {
+			if (selector === "[data-ot-youtube-control]") {
+				return control;
+			}
+			if (selector === ".ytp-subtitles-button") {
+				return captionButton;
+			}
+			return null;
+		},
+		querySelectorAll() {
+			return [captionSegment];
+		},
+	};
+
+	assert.deepEqual(
+		YoutubeDiagnostics.collectYoutubeDiagnostics({
+			document: documentLike,
+			extensionVersion: "0.1.3",
+			location: {
+				hostname: "www.youtube.com",
+				pathname: "/watch",
+				search: "?v=abc123&t=5",
+			},
+			playerResponse: {
+				captions: {
+					playerCaptionsTracklistRenderer: { captionTracks: [{ kind: "asr" }] },
+				},
+			},
+		}),
+		{
+			captionButton: {
+				ariaLabel: "English captions",
+				ariaPressed: "true",
+				found: true,
+			},
+			control: {
+				disabled: false,
+				found: true,
+				hitTarget: true,
+				state: "loading",
+			},
+			extensionVersion: "0.1.3",
+			page: "www.youtube.com/watch?v=abc123",
+			trackCount: 1,
+			visibleCaptionCharacters: 22,
+		},
+	);
+});
+
+test("YouTube diagnostic reports redact secrets", () => {
+	const report = YoutubeDiagnostics.createDiagnosticReport(
+		{ extensionVersion: "0.1.3", page: "www.youtube.com/watch?v=abc123" },
+		[
+			{ stage: "click", detail: "received" },
+			{
+				stage: "error",
+				detail:
+					'apiKey="sk-example-secret" Authorization: Bearer private-token',
+			},
+		],
+	);
+
+	assert.match(report, /Vibe Translator YouTube diagnostics/);
+	assert.match(report, /\[redacted\]/);
+	assert.doesNotMatch(report, /sk-example-secret|private-token/);
+});
+
+test("YouTube diagnostic store keeps only recent bounded events", () => {
+	const store = YoutubeDiagnostics.createDiagnosticStore();
+
+	for (let index = 0; index < 35; index += 1) {
+		store.add("step", String(index));
+	}
+
+	assert.equal(store.getEvents().length, 30);
+	assert.equal(store.getEvents()[0].detail, "5");
+	store.clear();
+	assert.deepEqual(store.getEvents(), []);
+});
 
 test("YouTube control is limited to watch and Shorts video routes", () => {
 	assert.equal(
@@ -129,6 +231,35 @@ test("YouTube control activates an available auto-generated caption track", () =
 			},
 		},
 	]);
+});
+
+test("creating a replacement control does not reset owner lifecycle state", () => {
+	const button = {
+		addEventListener() {},
+		appendChild() {},
+		setAttribute() {},
+	};
+	const documentLike = {
+		createElement() {
+			return button;
+		},
+		createElementNS() {
+			return {
+				appendChild() {},
+				setAttribute() {},
+			};
+		},
+	};
+	let appliedState = "";
+
+	createYoutubePlayerControl({
+		applyState(_button, state) {
+			appliedState = state;
+		},
+		document: documentLike,
+	});
+
+	assert.equal(appliedState, "");
 });
 
 test("the mounted control handles a direct click exactly once", () => {

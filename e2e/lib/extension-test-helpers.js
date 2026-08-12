@@ -35,6 +35,7 @@ const EXTENSION_FILES = [
 	"src/api-responses.js",
 	"src/api.js",
 	"src/translator-messages.js",
+	"src/youtube-diagnostics.js",
 	"src/youtube-player-control.js",
 	"src/options.html",
 	"src/options.css",

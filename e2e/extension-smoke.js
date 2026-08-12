@@ -40,6 +40,7 @@ const REQUIRED_CONTENT_GLOBALS = [
 	"TranslatorContentViewport",
 	"TranslatorMessages",
 	"TranslatorSelectionPanel",
+	"TranslatorYoutubeDiagnostics",
 	"TranslatorYoutubePlayerControl",
 ];
 const REQUIRED_OPTIONS_GLOBALS = [

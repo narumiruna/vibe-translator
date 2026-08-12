@@ -28,6 +28,7 @@
 				"src/content-subtitles.js",
 				"src/content-extraction.js",
 				"src/translator-messages.js",
+				"src/youtube-diagnostics.js",
 				"src/youtube-player-control.js",
 				"src/content.js"
 			],

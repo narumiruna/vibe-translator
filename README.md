@@ -27,6 +27,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 | `src/translation-appearance.js` | Appearance presets, validation, contrast calculation, and safe style mappings |
 | `src/content-extraction.js` | Page content selector, scoring, and extraction helper logic |
 | `src/content-subtitles.js` | Subtitle lifecycle, compact presentation, and changing-cue behavior |
+| `src/youtube-diagnostics.js` | Safe in-player YouTube diagnostics snapshots and reports |
 | `src/content.js` | DOM extraction, translation rendering, scroll-driven queuing |
 | `src/translator-messages.js` | Shared background/content message types and message builders |
 | `src/api-protected-fragments.js` | Placeholder masking and protected fragment validation |
@@ -86,6 +87,9 @@ It separately requests API host permission only for the origin derived from your
 2. Click the Vibe Translator icon inside the video’s bottom control bar; it turns on available captions and starts subtitle translation
 3. Play the video; each translated line replaces its original native caption
 4. Leave the page open and newly appearing caption cues continue translating automatically
+
+Clicking the in-player icon opens a diagnostic panel that records startup progress and errors.
+Use **Copy diagnostics** to share a report; API keys are not included.
 
 The pinned Chrome toolbar icon keeps its original whole-page translation behavior.
 

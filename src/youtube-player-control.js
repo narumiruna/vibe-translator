@@ -180,7 +180,6 @@
 		button.addEventListener("click", (event) => {
 			handleYoutubePlayerControlClick(event, button, options.onClick);
 		});
-		options.applyState?.(button, "idle");
 
 		return button;
 	}

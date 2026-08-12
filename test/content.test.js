@@ -18,6 +18,7 @@ global.window = {
 	TranslatorContentExtraction: require("../src/content-extraction.js"),
 	TranslatorContentSubtitles: require("../src/content-subtitles.js"),
 	TranslatorMessages: require("../src/translator-messages.js"),
+	TranslatorYoutubeDiagnostics: require("../src/youtube-diagnostics.js"),
 	clearTimeout,
 	getComputedStyle() {
 		return {

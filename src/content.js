@@ -50,9 +50,20 @@ const TranslatorContentModule = (() => {
 		(typeof module !== "undefined" && module.exports
 			? require("./content-subtitles.js")
 			: null);
+	const YoutubeDiagnosticsApi =
+		window.TranslatorYoutubeDiagnostics ||
+		(typeof module !== "undefined" && module.exports
+			? require("./youtube-diagnostics.js")
+			: null);
 
 	if (!SubtitleApi) {
 		throw new Error("TranslatorContentSubtitles must load before content.js.");
+	}
+
+	if (!YoutubeDiagnosticsApi) {
+		throw new Error(
+			"TranslatorYoutubeDiagnostics must load before content.js.",
+		);
 	}
 	const AppearanceApi =
 		window.TranslatorAppearance ||
@@ -158,6 +169,11 @@ const TranslatorContentModule = (() => {
 			scheduled: false,
 			state: "idle",
 			videoKey: "",
+		},
+		youtubeDiagnostics: {
+			panel: null,
+			status: "Ready",
+			store: YoutubeDiagnosticsApi.createDiagnosticStore(),
 		},
 		translationAppearance: AppearanceApi.normalizeTranslationAppearance(),
 		debug: {
@@ -458,6 +474,55 @@ const TranslatorContentModule = (() => {
 
       .ot-youtube-translate-button[data-state="error"] {
         color: #ff8a80;
+      }
+
+      [${ROOT_ATTR}="youtube-diagnostics"] {
+        position: absolute;
+        z-index: 80;
+        right: 12px;
+        bottom: 56px;
+        box-sizing: border-box;
+        width: min(390px, calc(100% - 24px));
+        padding: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        color: #f5f5f5;
+        background: rgba(12, 12, 14, 0.94);
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+        font: 13px/1.45 Roboto, Arial, sans-serif;
+        pointer-events: auto;
+      }
+
+      [${ROOT_ATTR}="youtube-diagnostics"] strong,
+      [${ROOT_ATTR}="youtube-diagnostics"] span {
+        display: block;
+      }
+
+      [${ROOT_ATTR}="youtube-diagnostics"] [data-ot-diagnostic-status] {
+        margin: 4px 0 10px;
+        color: #b9ddff;
+      }
+
+      [${ROOT_ATTR}="youtube-diagnostics"] pre {
+        max-height: 190px;
+        margin: 0 0 10px;
+        overflow: auto;
+        color: #d7d7dc;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font: 11px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+      }
+
+      [${ROOT_ATTR}="youtube-diagnostics"] button {
+        min-width: 44px;
+        min-height: 32px;
+        margin-right: 8px;
+        padding: 5px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        border-radius: 5px;
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.1);
+        cursor: pointer;
       }
 
       [data-ot-subtitle-replaced="true"] {
@@ -1054,6 +1119,89 @@ const TranslatorContentModule = (() => {
     `;
 	}
 
+	function getYoutubeDiagnosticSnapshot() {
+		return YoutubeDiagnosticsApi.collectYoutubeDiagnostics({
+			document,
+			extensionVersion: chrome.runtime.getManifest?.().version || "unknown",
+			location: window.location,
+			playerResponse: window.ytInitialPlayerResponse,
+		});
+	}
+
+	function getYoutubeDiagnosticReport() {
+		return YoutubeDiagnosticsApi.createDiagnosticReport(
+			getYoutubeDiagnosticSnapshot(),
+			pageState.youtubeDiagnostics.store.getEvents(),
+		);
+	}
+
+	function closeYoutubeDiagnostics() {
+		pageState.youtubeDiagnostics.panel?.remove();
+		pageState.youtubeDiagnostics.panel = null;
+	}
+
+	async function copyYoutubeDiagnostics(button) {
+		const report = getYoutubeDiagnosticReport();
+
+		try {
+			await navigator.clipboard.writeText(report);
+			button.textContent = "Copied";
+		} catch (_error) {
+			button.textContent = "Copy failed";
+		}
+	}
+
+	function renderYoutubeDiagnostics() {
+		ensureStyles();
+		const player = document.querySelector("#movie_player");
+
+		if (!player) {
+			return null;
+		}
+
+		let panel = pageState.youtubeDiagnostics.panel;
+
+		if (!panel?.isConnected) {
+			panel = document.createElement("aside");
+			panel.setAttribute(ROOT_ATTR, "youtube-diagnostics");
+			panel.setAttribute("aria-live", "polite");
+			panel.setAttribute("aria-label", "Vibe Translator diagnostics");
+			pageState.youtubeDiagnostics.panel = panel;
+			player.appendChild(panel);
+		}
+
+		const title = document.createElement("strong");
+		const status = document.createElement("span");
+		const output = document.createElement("pre");
+		const copyButton = document.createElement("button");
+		const closeButton = document.createElement("button");
+
+		title.textContent = "Vibe Translator diagnostics";
+		status.setAttribute("data-ot-diagnostic-status", "");
+		status.textContent = pageState.youtubeDiagnostics.status;
+		output.textContent = getYoutubeDiagnosticReport();
+		copyButton.type = "button";
+		copyButton.textContent = "Copy diagnostics";
+		copyButton.addEventListener("click", () => {
+			copyYoutubeDiagnostics(copyButton);
+		});
+		closeButton.type = "button";
+		closeButton.textContent = "Close";
+		closeButton.addEventListener("click", closeYoutubeDiagnostics);
+		panel.replaceChildren(title, status, output, copyButton, closeButton);
+
+		return panel;
+	}
+
+	function recordYoutubeDiagnostic(stage, detail, options = {}) {
+		pageState.youtubeDiagnostics.store.add(stage, detail);
+		pageState.youtubeDiagnostics.status = detail || stage;
+
+		if (options.show || pageState.youtubeDiagnostics.panel?.isConnected) {
+			renderYoutubeDiagnostics();
+		}
+	}
+
 	function applyYoutubeControlPresentation(button, presentation) {
 		if (!button || !presentation) {
 			return;
@@ -1112,6 +1260,9 @@ const TranslatorContentModule = (() => {
 			error: "YouTube captions are not visible. Turn on CC and play the video",
 		});
 		applyYoutubeControlPresentation(button, presentation);
+		recordYoutubeDiagnostic("caption-timeout", presentation.title, {
+			show: true,
+		});
 	}
 
 	function scheduleYoutubeCaptionCheck(button) {
@@ -1125,11 +1276,24 @@ const TranslatorContentModule = (() => {
 	async function handleYoutubeControlClick(_event, clickedButton) {
 		const button = clickedButton || pageState.youtubeControl.button;
 
-		if (!button || pageState.youtubeControl.state === "loading") {
+		if (!button) {
 			return;
 		}
 
+		if (pageState.youtubeControl.state === "loading") {
+			recordYoutubeDiagnostic(
+				"duplicate-click",
+				"Translation startup is already in progress",
+				{ show: true },
+			);
+			return;
+		}
+
+		recordYoutubeDiagnostic("click", "Player button click received", {
+			show: true,
+		});
 		applyYoutubeControlState(button, "loading");
+		recordYoutubeDiagnostic("loading", "Contacting extension background");
 		window.TranslatorYoutubePlayerControl?.turnOnNativeYoutubeCaptions(
 			document.querySelector("#movie_player"),
 			window.ytInitialPlayerResponse,
@@ -1143,6 +1307,9 @@ const TranslatorContentModule = (() => {
 			if (!response?.ok) {
 				const presentation = SubtitleApi.resolvePlayerControlError(response);
 				applyYoutubeControlPresentation(button, presentation);
+				recordYoutubeDiagnostic("background-error", presentation.title, {
+					show: true,
+				});
 
 				if (presentation.openOptions) {
 					await chrome.runtime.sendMessage(
@@ -1154,6 +1321,10 @@ const TranslatorContentModule = (() => {
 			}
 
 			applyYoutubeControlState(button, "active");
+			recordYoutubeDiagnostic(
+				"active",
+				`Translation session active; caption enabled=${Boolean(response.captions?.enabled)}; track found=${Boolean(response.captions?.hasTrack)}`,
+			);
 			scheduleYoutubeCaptionCheck(button);
 		} catch (error) {
 			const rawError = String(error?.message || "");
@@ -1164,12 +1335,19 @@ const TranslatorContentModule = (() => {
 					rawError.includes("Extension context invalidated"),
 			});
 			applyYoutubeControlPresentation(button, presentation);
+			recordYoutubeDiagnostic("message-error", presentation.title, {
+				show: true,
+			});
 		}
 	}
 
 	function mountYoutubeControl() {
 		pageState.youtubeControl.scheduled = false;
 		const controlApi = window.TranslatorYoutubePlayerControl;
+
+		if (!document.getElementById(STYLE_ID)) {
+			ensureStyles();
+		}
 
 		if (!controlApi) {
 			return;
@@ -1180,6 +1358,9 @@ const TranslatorContentModule = (() => {
 		if (videoKey !== pageState.youtubeControl.videoKey) {
 			pageState.youtubeControl.videoKey = videoKey;
 			pageState.youtubeControl.state = "idle";
+			pageState.youtubeDiagnostics.store.clear();
+			pageState.youtubeDiagnostics.status = "Ready";
+			closeYoutubeDiagnostics();
 			pageState.pageTranslation.active = false;
 			pageState.pageTranslation.sessionId = "";
 		}
