@@ -11,6 +11,7 @@
 		RENDER_PAGE_PLACEHOLDERS: "render-page-placeholders",
 		RENDER_PAGE_TRANSLATION_UPDATES: "render-page-translation-updates",
 		RENDER_PAGE_TRANSLATIONS: "render-page-translations",
+		RENDER_YOUTUBE_DIAGNOSTIC_EVENT: "render-youtube-diagnostic-event",
 		RENDER_SELECTION_ERROR: "render-selection-error",
 		RENDER_SELECTION_PLACEHOLDER: "render-selection-placeholder",
 		RENDER_SELECTION_TRANSLATION: "render-selection-translation",
@@ -58,6 +59,12 @@
 		renderPageTranslationUpdates(payload) {
 			return createMessage(
 				MESSAGE_TYPES.RENDER_PAGE_TRANSLATION_UPDATES,
+				payload,
+			);
+		},
+		renderYoutubeDiagnosticEvent(payload) {
+			return createMessage(
+				MESSAGE_TYPES.RENDER_YOUTUBE_DIAGNOSTIC_EVENT,
 				payload,
 			);
 		},

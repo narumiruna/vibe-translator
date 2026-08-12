@@ -173,6 +173,16 @@ async function renderPageTranslationUpdates(
 	);
 }
 
+async function sendYoutubeDiagnosticEvent(tabId, frameId, stage, detail) {
+	await chrome.tabs
+		.sendMessage(
+			tabId,
+			TranslatorMessages.renderYoutubeDiagnosticEvent({ stage, detail }),
+			getFrameMessageOptions(frameId),
+		)
+		.catch(() => {});
+}
+
 async function clearPagePlaceholders(tabId, ids, frameId) {
 	if (!ids || ids.length === 0) {
 		return;
@@ -673,6 +683,17 @@ async function processPageTranslationItemBatch(
 	}
 
 	try {
+		const subtitleItems = batchItems.filter((item) => item.kind === "subtitle");
+
+		if (subtitleItems.length > 0) {
+			await sendYoutubeDiagnosticEvent(
+				tabId,
+				frameId,
+				"api-start",
+				`Requesting ${subtitleItems.length} caption translation(s)`,
+			);
+		}
+
 		const placeholderIds = batchItems
 			.filter((item) => item.kind !== "subtitle")
 			.map((item) => item.id);
@@ -718,6 +739,19 @@ async function processPageTranslationItemBatch(
 						);
 
 					if (completedTranslations.length > 0) {
+						if (
+							completedTranslations.some(
+								(translation) => translation.kind === "subtitle",
+							)
+						) {
+							await sendYoutubeDiagnosticEvent(
+								tabId,
+								frameId,
+								"api-success",
+								`API returned ${completedTranslations.length} completed translation(s)`,
+							);
+						}
+
 						pageTranslationQueue.markTranslated(
 							tabId,
 							sessionId,
@@ -750,6 +784,22 @@ async function processPageTranslationItemBatch(
 		}
 
 		if (progressiveResult.failures.length > 0) {
+			const subtitleFailure = progressiveResult.failures.find((failure) =>
+				failure.chunkItems?.some((item) => item.kind === "subtitle"),
+			);
+
+			if (subtitleFailure) {
+				await sendYoutubeDiagnosticEvent(
+					tabId,
+					frameId,
+					"api-error",
+					String(
+						subtitleFailure.error?.message ||
+							"Caption translation request failed",
+					),
+				);
+			}
+
 			const failedCount =
 				incompleteSegmentIds.length || progressiveResult.failures.length;
 

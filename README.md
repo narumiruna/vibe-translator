@@ -88,7 +88,7 @@ It separately requests API host permission only for the origin derived from your
 3. Play the video; each translated line replaces its original native caption
 4. Leave the page open and newly appearing caption cues continue translating automatically
 
-Clicking the in-player icon opens a diagnostic panel that records startup progress and errors.
+Clicking the in-player icon opens a diagnostic panel that records extraction, queueing, API, rendering progress, and errors.
 Use **Copy diagnostics** to share a report; API keys are not included.
 
 The pinned Chrome toolbar icon keeps its original whole-page translation behavior.

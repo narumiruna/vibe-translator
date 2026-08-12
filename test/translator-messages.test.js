@@ -13,6 +13,20 @@ test("message builders use shared message types", () => {
 	assert.deepEqual(TranslatorMessages.openOptions(), {
 		type: TranslatorMessages.MESSAGE_TYPES.OPEN_OPTIONS,
 	});
+	assert.equal(
+		TranslatorMessages.MESSAGE_TYPES.RENDER_YOUTUBE_DIAGNOSTIC_EVENT,
+		"render-youtube-diagnostic-event",
+	);
+	assert.deepEqual(
+		TranslatorMessages.renderYoutubeDiagnosticEvent({
+			stage: "api-error",
+			detail: "Request failed",
+		}),
+		{
+			type: TranslatorMessages.MESSAGE_TYPES.RENDER_YOUTUBE_DIAGNOSTIC_EVENT,
+			payload: { stage: "api-error", detail: "Request failed" },
+		},
+	);
 	assert.deepEqual(TranslatorMessages.showToast({ message: "Saved" }), {
 		type: TranslatorMessages.MESSAGE_TYPES.SHOW_TOAST,
 		payload: { message: "Saved" },

@@ -55,16 +55,17 @@
 2. Confirm the Vibe Translator icon appears beside YouTube’s caption control and remains inside the video frame
 3. Click the in-player Vibe Translator icon and confirm its diagnostic panel immediately reports that the click was received
 4. Confirm the icon turns active, the diagnostic panel reports startup progress, and available native captions are enabled
-5. Use **Copy diagnostics** and confirm the report contains player/control/caption state but no API key
-6. Play the video and confirm each translated caption replaces the original native caption
-7. Confirm only one compact subtitle line is visible inside the player, without the reading-card label or shimmer placeholder
-8. Confirm later caption cues continue translating without clicking the icon again
-9. Seek rapidly while a translation is pending and confirm an older result never replaces the new cue
-10. Enter and leave fullscreen and confirm the icon and translated subtitle remain readable and inside the player
-11. Navigate to another YouTube video without reloading and confirm the icon returns to idle before starting that video
-12. Click the pinned Chrome toolbar icon and confirm its existing whole-page translation behavior is unchanged
-13. Open a video where YouTube exposes a caption track but renders no native caption text, click the in-player icon, wait about five seconds, and confirm the icon and diagnostic panel report that captions are not visible instead of staying falsely active
-14. Clear required API settings, click the in-player icon, and confirm the icon visibly enters an error state, the diagnostic panel shows the failure, and Settings opens instead of appearing inert
+5. Confirm the panel records caption extraction, background queueing, API completion or failure, and final render counts
+6. Use **Copy diagnostics** and confirm the report contains player/control/caption pipeline state but no API key
+7. Play the video and confirm each translated caption replaces the original native caption
+8. Confirm only one compact subtitle line is visible inside the player, without the reading-card label or shimmer placeholder
+9. Confirm later caption cues continue translating without clicking the icon again
+10. Seek rapidly while a translation is pending and confirm an older result never replaces the new cue
+11. Enter and leave fullscreen and confirm the icon and translated subtitle remain readable and inside the player
+12. Navigate to another YouTube video without reloading and confirm the icon returns to idle before starting that video
+13. Click the pinned Chrome toolbar icon and confirm its existing whole-page translation behavior is unchanged
+14. Open a video where YouTube exposes a caption track but renders no native caption text, click the in-player icon, wait about five seconds, and confirm the icon and diagnostic panel report that captions are not visible instead of staying falsely active
+15. Clear required API settings, click the in-player icon, and confirm the icon visibly enters an error state, the diagnostic panel shows the failure, and Settings opens instead of appearing inert
 
 ## Selection translation
 

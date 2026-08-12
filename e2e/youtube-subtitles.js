@@ -262,6 +262,21 @@ async function main() {
 				timeoutMessage: "The changed YouTube caption was not translated.",
 			},
 		);
+		await waitFor(
+			async () => {
+				const text = (await diagnosticsPanel.textContent()) || "";
+				return (
+					/api-start|Requesting 1 caption translation/.test(text) &&
+					/api-success|API returned/.test(text) &&
+					/render|rendered 1/.test(text)
+				);
+			},
+			{
+				timeoutMs: REQUEST_TIMEOUT_MS,
+				timeoutMessage:
+					"The diagnostic panel did not report the complete caption pipeline.",
+			},
+		);
 
 		const playerText =
 			(await page.locator("#ytp-caption-window-container").textContent()) || "";

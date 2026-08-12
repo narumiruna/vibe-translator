@@ -30,7 +30,17 @@ test("YouTube diagnostics describe the current player without secrets", () => {
 			return name === "aria-pressed" ? "true" : "English captions";
 		},
 	};
-	const captionSegment = { textContent: "Visible native caption" };
+	const captionSegment = {
+		textContent: "Visible native caption",
+		getAttribute(name) {
+			return {
+				"data-ot-queued": "true",
+				"data-ot-source-id": "ot-4",
+				"data-ot-translated": null,
+			}[name];
+		},
+	};
+	const readyNote = {};
 	const documentLike = {
 		elementFromPoint() {
 			return control;
@@ -44,8 +54,17 @@ test("YouTube diagnostics describe the current player without secrets", () => {
 			}
 			return null;
 		},
-		querySelectorAll() {
-			return [captionSegment];
+		querySelectorAll(selector) {
+			if (selector === "#ytp-caption-window-container .ytp-caption-segment") {
+				return [captionSegment];
+			}
+			if (
+				selector ===
+				'#ytp-caption-window-container [data-ot-role="note"][data-phase="ready"]'
+			) {
+				return [readyNote];
+			}
+			return [];
 		},
 	};
 
@@ -78,6 +97,12 @@ test("YouTube diagnostics describe the current player without secrets", () => {
 			},
 			extensionVersion: "0.1.3",
 			page: "www.youtube.com/watch?v=abc123",
+			pipeline: {
+				queuedSourceCount: 1,
+				readyNoteCount: 1,
+				sourceCount: 1,
+				translatedSourceCount: 0,
+			},
 			trackCount: 1,
 			visibleCaptionCharacters: 22,
 		},

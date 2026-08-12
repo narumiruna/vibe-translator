@@ -44,12 +44,18 @@
 		const captionButton = documentLike?.querySelector?.(
 			CAPTION_BUTTON_SELECTOR,
 		);
-		const visibleCaptionText = Array.from(
+		const captionSegments = Array.from(
 			documentLike?.querySelectorAll?.(CAPTION_SEGMENT_SELECTOR) || [],
-		)
+		);
+		const visibleCaptionText = captionSegments
 			.map((segment) => String(segment.textContent || "").trim())
 			.filter(Boolean)
 			.join("\n");
+		const readyNotes = Array.from(
+			documentLike?.querySelectorAll?.(
+				'#ytp-caption-window-container [data-ot-role="note"][data-phase="ready"]',
+			) || [],
+		);
 
 		return {
 			captionButton: {
@@ -65,6 +71,18 @@
 			},
 			extensionVersion: String(options.extensionVersion || "unknown"),
 			page: getVideoPageLabel(options.location || root.location),
+			pipeline: {
+				queuedSourceCount: captionSegments.filter(
+					(segment) => segment.getAttribute?.("data-ot-queued") === "true",
+				).length,
+				readyNoteCount: readyNotes.length,
+				sourceCount: captionSegments.filter((segment) =>
+					Boolean(segment.getAttribute?.("data-ot-source-id")),
+				).length,
+				translatedSourceCount: captionSegments.filter(
+					(segment) => segment.getAttribute?.("data-ot-translated") === "true",
+				).length,
+			},
 			trackCount: getCaptionTracks(options.playerResponse).length,
 			visibleCaptionCharacters: visibleCaptionText.length,
 		};

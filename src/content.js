@@ -2499,18 +2499,39 @@ const TranslatorContentModule = (() => {
 
 		renderExtractionDebugPanel(extraction.debug);
 
+		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
+			recordYoutubeDiagnostic(
+				"extraction",
+				`Found ${extraction.totalSegments} caption source(s); ${extraction.items?.length || 0} pending item(s)`,
+			);
+		}
+
 		if (!extraction.items || extraction.items.length === 0) {
 			return;
 		}
 
 		try {
-			await chrome.runtime.sendMessage(
+			const response = await chrome.runtime.sendMessage(
 				window.TranslatorMessages.queuePageTranslationItems({
 					sessionId: pageState.pageTranslation.sessionId,
 					items: extraction.items,
 				}),
 			);
-		} catch (_error) {
+
+			if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
+				recordYoutubeDiagnostic(
+					"queued",
+					`Background accepted ${Number(response?.queued) || 0} caption item(s)`,
+				);
+			}
+		} catch (error) {
+			if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
+				recordYoutubeDiagnostic(
+					"queue-error",
+					String(error?.message || "Could not queue caption items"),
+					{ show: true },
+				);
+			}
 			// Ignore runtime messaging failures on teardown or unsupported pages.
 		}
 	}
@@ -2751,6 +2772,12 @@ const TranslatorContentModule = (() => {
 		const extraction = collectPageItems({ windowed: true });
 
 		renderExtractionDebugPanel(extraction.debug);
+		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
+			recordYoutubeDiagnostic(
+				"initial-extraction",
+				`Found ${extraction.totalSegments} caption source(s); ${extraction.items?.length || 0} pending item(s)`,
+			);
+		}
 
 		return extraction;
 	}
@@ -2947,17 +2974,23 @@ const TranslatorContentModule = (() => {
 			(payload.translations || []).map((item) => [item.id, item]),
 		);
 		let rendered = 0;
+		let stale = 0;
+		let missingTarget = 0;
 
 		for (const element of document.querySelectorAll(`[${SOURCE_ATTR}]`)) {
 			const id = element.getAttribute(SOURCE_ATTR);
 			const translationItem = translationMap.get(id);
 			const translation = translationItem?.translation;
 
+			if (!translation) {
+				continue;
+			}
+
 			if (
-				!translation ||
-				(SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE) &&
-					translationItem.sourceText !== getSegmentContent(element).text)
+				SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE) &&
+				translationItem.sourceText !== getSegmentContent(element).text
 			) {
+				stale += 1;
 				continue;
 			}
 
@@ -2971,7 +3004,17 @@ const TranslatorContentModule = (() => {
 
 			if (note) {
 				rendered += 1;
+			} else {
+				missingTarget += 1;
 			}
+		}
+
+		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
+			recordYoutubeDiagnostic(
+				"render",
+				`Received ${translationMap.size} translation(s); rendered ${rendered}; stale ${stale}; missing target ${missingTarget}`,
+				{ show: stale > 0 || missingTarget > 0 },
+			);
 		}
 
 		return { rendered };
@@ -3175,6 +3218,17 @@ const TranslatorContentModule = (() => {
 				ok: true,
 				...renderPageTranslations(message.payload || {}),
 			});
+			return;
+		}
+
+		if (message.type === MessageTypes.RENDER_YOUTUBE_DIAGNOSTIC_EVENT) {
+			const payload = message.payload || {};
+			recordYoutubeDiagnostic(
+				String(payload.stage || "background"),
+				String(payload.detail || "Background event"),
+				{ show: String(payload.stage || "").endsWith("error") },
+			);
+			sendResponse({ ok: true });
 			return;
 		}
 
