@@ -47,8 +47,18 @@ test("timed captions become stable subtitle queue items", () => {
 			{ startMs: 3000, durationMs: 800, text: "Two" },
 		]),
 		[
-			{ id: "youtube-cue-1250-0", kind: "subtitle", text: "One" },
-			{ id: "youtube-cue-3000-1", kind: "subtitle", text: "Two" },
+			{
+				id: "youtube-cue-1250-0",
+				kind: "subtitle",
+				text: "One",
+				dedupeCompleted: true,
+			},
+			{
+				id: "youtube-cue-3000-1",
+				kind: "subtitle",
+				text: "Two",
+				dedupeCompleted: true,
+			},
 		],
 	);
 });

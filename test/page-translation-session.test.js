@@ -199,17 +199,34 @@ test("page translation queue records translated ids", () => {
 	assert.deepEqual([...session.translatedIds].sort(), ["a", "b", "c"]);
 });
 
-test("page translation queue does not enqueue completed timed cue ids again", () => {
+test("page translation queue deduplicates completed timed cues without blocking changed sources", () => {
 	const queue = createPageTranslationQueue();
 	const session = queue.create(8, {});
 
-	queue.markTranslated(8, session.sessionId, ["youtube-cue-1000-0"]);
+	queue.markTranslated(8, session.sessionId, [
+		"youtube-cue-1000-0",
+		"ot-source-1",
+	]);
 
 	assert.deepEqual(
 		queue.enqueue(8, session.sessionId, [
-			{ id: "youtube-cue-1000-0" },
-			{ id: "youtube-cue-2000-1" },
+			{
+				id: "youtube-cue-1000-0",
+				kind: "subtitle",
+				dedupeCompleted: true,
+			},
 		]),
-		{ queued: 1 },
+		{ queued: 0 },
+	);
+	assert.deepEqual(
+		queue.enqueue(8, session.sessionId, [
+			{
+				id: "youtube-cue-2000-1",
+				kind: "subtitle",
+				dedupeCompleted: true,
+			},
+			{ id: "ot-source-1", kind: "subtitle" },
+		]),
+		{ queued: 2 },
 	);
 });

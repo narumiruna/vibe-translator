@@ -53,6 +53,7 @@ function buildTimedCaptionItems(cues) {
 		id: `youtube-cue-${Math.floor(cue.startMs)}-${cue.cueIndex ?? index}`,
 		kind: "subtitle",
 		text: cue.text,
+		dedupeCompleted: true,
 	}));
 }
 
