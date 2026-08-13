@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isSubtitleRelatedMutation } from "../src/content/page/observer.js";
+import {
+	createPageObserver,
+	isSubtitleRelatedMutation,
+} from "../src/content/page/observer.js";
 
 function createElement(options = {}) {
 	return {
@@ -58,4 +61,92 @@ test("subtitle observer accepts only mutations involving caption segments", () =
 		),
 		false,
 	);
+});
+
+test("subtitle text changes reset the source before translation is scheduled", () => {
+	const events = [];
+	const timers = [];
+	let handleMutations;
+	const body = {};
+	const source = {
+		nodeType: Node.ELEMENT_NODE,
+		closest(value) {
+			return value === selector || value === "[data-ot-source-id]"
+				? source
+				: null;
+		},
+		getAttribute(name) {
+			return name === "data-ot-source-id" ? "ot-1" : null;
+		},
+		matches(value) {
+			return value === selector;
+		},
+	};
+	const observer = createPageObserver({
+		MutationObserver: function MutationObserver(callback) {
+			handleMutations = callback;
+			return {
+				disconnect() {},
+				observe() {},
+			};
+		},
+		Node,
+		SubtitleApi: {
+			YOUTUBE_CAPTION_SEGMENT_SELECTOR: selector,
+			isSubtitleProfile() {
+				return true;
+			},
+			removeDetachedSubtitleSources() {},
+			resetChangedSubtitleSource() {
+				events.push("reset");
+				return true;
+			},
+		},
+		activeSiteProfile: {},
+		contentLifecycle: {
+			cleanup() {},
+			start() {},
+		},
+		document: { body },
+		getExistingNoteForSource() {
+			return null;
+		},
+		hasSourceTextChanged() {
+			return true;
+		},
+		isInsideTranslation() {
+			return false;
+		},
+		onScheduleVisibleTranslation() {
+			events.push("schedule");
+		},
+		observerDebounceMs: 0,
+		processedAttr: "data-translated",
+		queuedAttr: "data-ot-queued",
+		rootAttr: "data-ot-role",
+		setSourceQueued() {},
+		sourceAttr: "data-ot-source-id",
+		staleAttr: "data-ot-source-stale",
+		translatedAttr: "data-ot-translated",
+		window: {
+			clearTimeout() {},
+			setTimeout(callback) {
+				timers.push(callback);
+				return timers.length;
+			},
+		},
+	});
+
+	observer.ensureObserver();
+	handleMutations([
+		{
+			addedNodes: [],
+			removedNodes: [],
+			target: { nodeType: 3, parentElement: source },
+			type: "characterData",
+		},
+	]);
+
+	assert.deepEqual(events, ["reset", "schedule"]);
+	assert.equal(timers.length, 0);
 });

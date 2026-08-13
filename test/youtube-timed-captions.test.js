@@ -31,12 +31,12 @@ test("JSON3 timed captions preserve cue timing and joined segment text", () => {
 	]);
 });
 
-test("caption window includes starts in the next 60 seconds only", () => {
+test("caption window includes the active cue and starts in the next 60 seconds", () => {
 	const cues = parseJson3Captions(JSON3_FIXTURE);
 
 	assert.deepEqual(
-		selectCaptionWindow(cues, { currentTimeMs: 10000, windowMs: 60000 }),
-		cues.slice(1, 3),
+		selectCaptionWindow(cues, { currentTimeMs: 10500, windowMs: 60000 }),
+		cues.slice(1, 4),
 	);
 });
 

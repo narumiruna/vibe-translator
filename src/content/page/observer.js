@@ -121,10 +121,13 @@ export function createPageObserver(options = {}) {
 		)
 			return;
 		const directSource = element.closest(`[${sourceAttr}]`);
-		if (directSource) {
-			pendingStaleSources.add(directSource);
-			scheduleStaleFlush();
+		if (!directSource) return;
+		if (SubtitleApi.isSubtitleProfile(activeSiteProfile)) {
+			markSourceStale(directSource);
+			return;
 		}
+		pendingStaleSources.add(directSource);
+		scheduleStaleFlush();
 	}
 
 	function flushObserverMutations() {

@@ -43,9 +43,15 @@ function selectCaptionWindow(cues, options = {}) {
 	);
 	const windowEndMs = currentTimeMs + windowMs;
 
-	return (cues || []).filter(
-		(cue) => cue.startMs >= currentTimeMs && cue.startMs < windowEndMs,
-	);
+	return (cues || []).filter((cue) => {
+		const cueStartMs = normalizeNonNegativeNumber(cue?.startMs);
+		const cueEndMs = cueStartMs + normalizeNonNegativeNumber(cue?.durationMs);
+
+		return (
+			cueStartMs < windowEndMs &&
+			(cueStartMs >= currentTimeMs || cueEndMs > currentTimeMs)
+		);
+	});
 }
 
 function buildTimedCaptionItems(cues) {
