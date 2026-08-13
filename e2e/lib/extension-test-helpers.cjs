@@ -399,6 +399,13 @@ async function saveOptions(context, extensionId, config, options = {}) {
 	await page.locator("#base-url").fill(config.baseUrl);
 	await page.locator("#model").fill(config.model);
 	await page.locator("#target-language").fill(config.targetLanguage);
+	if (options.youtubeSubtitleDisplayMode) {
+		await page
+			.locator(
+				`[name="youtubeSubtitleDisplayMode"][value="${options.youtubeSubtitleDisplayMode}"]`,
+			)
+			.check();
+	}
 	await page.locator('[data-tab="appearance"]').click();
 	await page
 		.locator("#selection-panel-position-mode")

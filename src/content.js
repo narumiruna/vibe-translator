@@ -63,6 +63,7 @@ export function createContentRuntime(options = {}) {
 			active: false,
 			sessionId: "",
 			targetLanguage: "",
+			youtubeSubtitleDisplayMode: "translation-only",
 		},
 		youtubeControl: {
 			button: null,
@@ -302,8 +303,10 @@ export function createContentRuntime(options = {}) {
 		contentLifecycle,
 		document,
 		getExistingNoteForSource,
+		getSourceText: (source) => getSegmentContent(source).text,
 		hasSourceTextChanged,
 		isInsideTranslation,
+		noteAttr: NOTE_ATTR,
 		onScheduleVisibleTranslation: scheduleVisiblePageTranslation,
 		observerDebounceMs: SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)
 			? 0
@@ -610,6 +613,8 @@ export function createContentRuntime(options = {}) {
 				renderPageTranslations({
 					targetLanguage: pageState.pageTranslation.targetLanguage,
 					translations: matched.cached,
+					youtubeSubtitleDisplayMode:
+						pageState.pageTranslation.youtubeSubtitleDisplayMode,
 				});
 			}
 
@@ -703,6 +708,8 @@ export function createContentRuntime(options = {}) {
 			pageState.debug.enabled = Boolean(response.debug?.enabled);
 			activatePageTranslationSession(response.sessionId);
 			pageState.pageTranslation.targetLanguage = response.targetLanguage || "";
+			pageState.pageTranslation.youtubeSubtitleDisplayMode =
+				response.youtubeSubtitleDisplayMode || "translation-only";
 			ensureObserver();
 			if (pageState.youtubeControl.button) {
 				applyYoutubeControlState(pageState.youtubeControl.button, "active");

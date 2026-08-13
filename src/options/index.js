@@ -20,6 +20,9 @@ const showTranslationDebugInfoInput = document.getElementById(
 const selectionPanelPositionModeInput = document.getElementById(
 	"selection-panel-position-mode",
 );
+const youtubeSubtitleDisplayModeInputs = Array.from(
+	document.querySelectorAll('[name="youtubeSubtitleDisplayMode"]'),
+);
 const disabledDomainsInput = document.getElementById("disabled-domains");
 const systemPromptPreview = document.getElementById("system-prompt-preview");
 const userPromptPreview = document.getElementById("user-prompt-preview");
@@ -79,6 +82,9 @@ function getFormSettings() {
 		translationAppearance: appearanceController.getAppearance(),
 		showTranslationDebugInfo: showTranslationDebugInfoInput.checked,
 		selectionPanelPositionMode: selectionPanelPositionModeInput.value,
+		youtubeSubtitleDisplayMode: youtubeSubtitleDisplayModeInputs.find(
+			(input) => input.checked,
+		)?.value,
 		targetLanguage: targetLanguageInput.value,
 		disabledDomains: disabledDomainsInput.value,
 	};
@@ -201,6 +207,13 @@ async function loadSettings() {
 		Settings.normalizeSelectionPanelPositionMode(
 			settings.selectionPanelPositionMode,
 		);
+	const youtubeSubtitleDisplayMode =
+		Settings.normalizeYoutubeSubtitleDisplayMode(
+			settings.youtubeSubtitleDisplayMode,
+		);
+	for (const input of youtubeSubtitleDisplayModeInputs) {
+		input.checked = input.value === youtubeSubtitleDisplayMode;
+	}
 	disabledDomainsInput.value = settings.disabledDomains || "";
 	renderPromptPreview();
 	await updatePermissionStatus(settings.baseUrl);

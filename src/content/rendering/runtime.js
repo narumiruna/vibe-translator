@@ -256,6 +256,8 @@ export function createContentRenderer(options = {}) {
 		}
 		activatePageTranslationSession(payload.sessionId);
 		pageState.pageTranslation.targetLanguage = payload.targetLanguage || "";
+		pageState.pageTranslation.youtubeSubtitleDisplayMode =
+			payload.youtubeSubtitleDisplayMode || "translation-only";
 		pageState.youtubeSubtitleTranslations?.clear?.();
 		if (pageState.youtubeControl.button) {
 			applyYoutubeControlState(pageState.youtubeControl.button, "active");
@@ -348,6 +350,8 @@ export function createContentRenderer(options = {}) {
 		translation,
 		targetLanguage,
 		protectedFragments,
+		sourceText,
+		youtubeSubtitleDisplayMode,
 	) {
 		const insertionTarget = getNoteInsertionTarget(element);
 
@@ -368,15 +372,19 @@ export function createContentRenderer(options = {}) {
 			body.replaceChildren();
 			appendFormattedText(body, translation, protectedFragments);
 			note.removeAttribute("data-stale");
+			SubtitleApi.bindSubtitleNote(ACTIVE_SITE_PROFILE, note, {
+				displayMode: youtubeSubtitleDisplayMode,
+				sourceText,
+			});
 
 			if (!existingNote) {
 				insertNoteForTarget(insertionTarget, note);
 			}
 
-			SubtitleApi.replaceSubtitleSource(
+			SubtitleApi.applySubtitleDisplayMode(
 				ACTIVE_SITE_PROFILE,
-				insertionTarget,
-				true,
+				element,
+				youtubeSubtitleDisplayMode,
 			);
 		});
 
@@ -461,6 +469,12 @@ export function createContentRenderer(options = {}) {
 	function renderPageTranslations(payload) {
 		ensureStyles(payload?.translationAppearance);
 		ensureObserver();
+		const youtubeSubtitleDisplayMode =
+			payload.youtubeSubtitleDisplayMode ||
+			pageState.pageTranslation.youtubeSubtitleDisplayMode ||
+			"translation-only";
+		pageState.pageTranslation.youtubeSubtitleDisplayMode =
+			youtubeSubtitleDisplayMode;
 		const cachedSubtitleCount = SubtitleApi.cacheSubtitleTranslations(
 			pageState.youtubeSubtitleTranslations,
 			payload.translations,
@@ -532,6 +546,8 @@ export function createContentRenderer(options = {}) {
 				translation,
 				payload.targetLanguage,
 				translationItem.protectedFragments,
+				translationItem.sourceText || getSegmentContent(element).text,
+				youtubeSubtitleDisplayMode,
 			);
 
 			if (note) {

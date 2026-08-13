@@ -8,7 +8,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 - Select text, right-click, and choose **Translate selected text**; a compact status panel shows progress, the target language, and the result
 - Translations are injected as sibling blocks — the original text is never removed on ordinary pages
 - Visible content translates first; more is queued as you scroll
-- Available YouTube captions, including auto-generated tracks, are pretranslated in a rolling 60-second window and replaced inside the player
+- Available YouTube captions, including auto-generated tracks, are pretranslated in a rolling 60-second window and shown in saved bilingual or translation-only mode
 - Large pages are split into batches and translated with bounded parallel requests; oversized blocks are broken down recursively
 - Inline code, file paths, URLs, math expressions, and common technical terms are protected by placeholder substitution so they are never mangled
 - Fully configurable: API key, base URL, model, target language, and prompt templates
@@ -55,11 +55,14 @@ All settings are on the options page.
 | User Prompt Template | Full user prompt; must include `{{sourcePayload}}` |
 | Reading Appearance | Calm Reading, Minimal, and High Contrast presets plus font, size, spacing, surface, accent, label, animation, and separate light/dark colors |
 | Selection Panel Appearance | Independent width, font size, line height, radius, opacity, position, and light/dark colors |
+| YouTube Subtitle Display | **Original and translation** keeps each native cue visible with its matching translation; **Translation only** hides that cue after its translation is ready |
 | Disabled Domains | One domain per line; translation is silently skipped on matching hostnames |
 
 The Appearance tab previews changes without saving and warns when translation text/background contrast is below WCAG AA. An unsaved-state label distinguishes previewed values from applied settings. **Reset Appearance** changes only the preview until **Save Settings** is used. Saved appearance changes apply the next time a page or selection is translated; existing rendered translations are not updated proactively.
 
 Older underline settings are ignored and safely migrate to the Calm Reading appearance. Arbitrary CSS and font names are not accepted.
+
+YouTube subtitles default to **Translation only**, preserving the behavior of existing saved settings. The selected mode applies when subtitle translation next starts or an active session is restored.
 
 The options page also shows a live prompt preview and a **Test Connection** button that sends a sample request to confirm the API is reachable.
 
@@ -78,8 +81,9 @@ It separately requests API host permission only for the origin derived from your
 
 1. Open a YouTube video that provides native or auto-generated captions
 2. Click the Vibe Translator icon inside the video’s bottom control bar; it turns on available captions and starts subtitle translation
-3. Play the video; the next 60 seconds are translated ahead and each cached line replaces its original native caption immediately
-4. Continue playing or seek elsewhere; the rolling window refills automatically, with visible-caption translation as a fallback when timed captions are unavailable
+3. In Settings, choose **Original and translation** for a bilingual view or **Translation only** to hide each matched native cue after its translation is ready
+4. Play the video; the next 60 seconds are translated ahead and each cached line appears in the selected mode immediately
+5. Continue playing or seek elsewhere; the rolling window refills automatically, with visible-caption translation as a fallback when timed captions are unavailable
 
 Clicking the in-player icon opens a diagnostic panel that records extraction, queueing, API, rendering progress, and errors.
 Use **Copy diagnostics** to share a report; API keys are not included.

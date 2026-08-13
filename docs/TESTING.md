@@ -28,8 +28,10 @@
 17. Save custom appearance settings, confirm the save bar reports no unsaved changes, reload options, and confirm every inline and selection value persists
 18. Change **Selection Panel** to **Near selected text**, save, reload, and confirm the selection is preserved
 19. Change **Selection Panel** to **Bottom-right corner**, save, reload, and confirm the selection is preserved
-20. Save disabled domains using mixed case and comma or newline separators, reload the page, and confirm they are normalized to lowercase hostnames with one hostname per line
-21. Upgrade a profile containing only legacy underline settings and confirm it opens as Calm Reading without validation errors
+20. Select each **YouTube Subtitles → Display Mode** radio option with the keyboard and confirm its full label and description are announced by a screen reader
+21. Save each YouTube subtitle display mode, reload Settings, and confirm the selected mode persists; confirm a profile without the setting opens as **Translation only**
+22. Save disabled domains using mixed case and comma or newline separators, reload the page, and confirm they are normalized to lowercase hostnames with one hostname per line
+23. Upgrade a profile containing only legacy underline settings and confirm it opens as Calm Reading without validation errors
 
 ## Entire page translation
 
@@ -53,22 +55,26 @@
 
 1. Open a YouTube watch page with an available auto-generated caption track, such as `https://www.youtube.com/watch?v=g7AxxkywiFI`
 2. Confirm the Vibe Translator icon appears beside YouTube’s caption control and remains inside the video frame
-3. Click the in-player Vibe Translator icon and confirm its diagnostic panel immediately reports that the click was received
+3. In Settings, choose **Translation only**, then click the in-player icon and confirm its diagnostic panel immediately reports that the click was received
 4. Confirm the icon turns active, the diagnostic panel reports startup progress, and available native captions are enabled
 5. Confirm the panel records caption extraction, background queueing, API completion or failure, and final render counts
 6. Use **Copy diagnostics** and confirm the report contains player/control/caption pipeline state but no API key
 7. Confirm diagnostics report that timed captions loaded and the next 60 seconds were queued; if they are unavailable, confirm diagnostics report the visible-caption fallback
-8. Play the video and confirm prefetched translations replace their original native captions immediately without first waiting for an API response
-9. Confirm only one compact subtitle line is visible inside the player, without the reading-card label or shimmer placeholder
-10. Continue playing for more than 60 seconds and confirm the rolling prefetch window refills without clicking the icon again
-11. Seek to an untranslated part of the video and confirm that position starts a new 60-second prefetch window
-12. Confirm a caption segment replaced by YouTube while its translation is pending still renders when the visible source text is identical
-13. Seek rapidly while a translation is pending and confirm an older result never replaces the new cue
-14. Enter and leave fullscreen and confirm the icon and translated subtitle remain readable and inside the player
-15. Navigate to another YouTube video without reloading and confirm the icon returns to idle before starting that video
-16. Click the pinned Chrome toolbar icon and confirm its existing whole-page translation behavior is unchanged
-17. Open a video where YouTube exposes a caption track but renders no native caption text, click the in-player icon, wait about five seconds, and confirm the icon and diagnostic panel report that captions are not visible instead of staying falsely active
-18. Clear required API settings, click the in-player icon, and confirm the icon visibly enters an error state, the diagnostic panel shows the failure, and Settings opens instead of appearing inert
+8. Play the video and confirm each prefetched translation appears immediately without first waiting for an API response
+9. In **Translation only**, confirm only the exact native segment with a ready matching translation is hidden; sibling native segments remain visible until their own translations are ready
+10. Confirm translated subtitles use the compact player style without the reading-card label or shimmer placeholder
+11. Change Settings to **Original and translation**, restart subtitle translation, and confirm each native cue remains visible with its matching translated line directly below it
+12. Watch several consecutive cues, including cumulative auto-generated captions, and confirm each old translation disappears in the same cue transition instead of surviving over newer native text
+13. Find a caption window with multiple simultaneous segments and confirm each translation stays attached to its exact source while removing one segment leaves valid siblings intact
+14. Continue playing for more than 60 seconds and confirm the rolling prefetch window refills without clicking the icon again
+15. Seek to an untranslated part of the video and confirm that position starts a new 60-second prefetch window
+16. Confirm a caption segment replaced by YouTube while its translation is pending still renders when the visible source text is identical
+17. Seek rapidly while a translation is pending and confirm an older result never replaces the new cue
+18. Enter and leave fullscreen in each display mode and confirm the icon, native captions required by the mode, and translated subtitles remain readable and inside the player
+19. Navigate to another YouTube video without reloading and confirm the icon returns to idle before starting that video; start again and confirm the saved display mode is retained
+20. Click the pinned Chrome toolbar icon and confirm its existing whole-page translation behavior is unchanged
+21. Open a video where YouTube exposes a caption track but renders no native caption text, click the in-player icon, wait about five seconds, and confirm the icon and diagnostic panel report that captions are not visible instead of staying falsely active
+22. Clear required API settings, click the in-player icon, and confirm the icon visibly enters an error state, the diagnostic panel shows the failure, and Settings opens instead of appearing inert
 
 ## Selection translation
 

@@ -34,6 +34,10 @@ const SELECTION_PANEL_POSITION_MODES = Object.freeze([
 	"near-selection",
 	"bottom-right",
 ]);
+const YOUTUBE_SUBTITLE_DISPLAY_MODES = Object.freeze([
+	"bilingual",
+	"translation-only",
+]);
 const { normalizeTranslationAppearance } = AppearanceApi;
 
 function normalizeShowTranslationDebugInfo(value) {
@@ -48,6 +52,16 @@ function normalizeSelectionPanelPositionMode(value) {
 	return SELECTION_PANEL_POSITION_MODES.includes(normalized)
 		? normalized
 		: "near-selection";
+}
+
+function normalizeYoutubeSubtitleDisplayMode(value) {
+	const normalized = String(value || "")
+		.trim()
+		.toLowerCase();
+
+	return YOUTUBE_SUBTITLE_DISPLAY_MODES.includes(normalized)
+		? normalized
+		: "translation-only";
 }
 
 function lintPromptTemplates(input) {
@@ -94,6 +108,7 @@ const DEFAULT_SETTINGS = Object.freeze({
 	translationAppearance: AppearanceApi.DEFAULT_TRANSLATION_APPEARANCE,
 	showTranslationDebugInfo: false,
 	selectionPanelPositionMode: "near-selection",
+	youtubeSubtitleDisplayMode: "translation-only",
 	targetLanguage: "台灣正體中文",
 	disabledDomains: "",
 });
@@ -154,6 +169,9 @@ function validateSettings(input) {
 		),
 		selectionPanelPositionMode: normalizeSelectionPanelPositionMode(
 			merged.selectionPanelPositionMode,
+		),
+		youtubeSubtitleDisplayMode: normalizeYoutubeSubtitleDisplayMode(
+			merged.youtubeSubtitleDisplayMode,
 		),
 		targetLanguage: String(merged.targetLanguage || "").trim(),
 		disabledDomains: normalizeDisabledDomains(merged.disabledDomains),
@@ -249,6 +267,7 @@ const api = {
 	DEFAULT_USER_PROMPT_TEMPLATE,
 	LEGACY_DEFAULT_INSTRUCTIONS,
 	STORAGE_KEY,
+	YOUTUBE_SUBTITLE_DISPLAY_MODES,
 	createDefaultSystemPromptTemplate,
 	getApiPermissionPattern,
 	getSettings,
@@ -258,6 +277,7 @@ const api = {
 	normalizeDisabledDomains,
 	normalizeSelectionPanelPositionMode,
 	normalizeShowTranslationDebugInfo,
+	normalizeYoutubeSubtitleDisplayMode,
 	normalizeTranslationAppearance,
 	lintPromptTemplates,
 	saveSettings,
@@ -280,9 +300,11 @@ export {
 	normalizeSelectionPanelPositionMode,
 	normalizeShowTranslationDebugInfo,
 	normalizeTranslationAppearance,
+	normalizeYoutubeSubtitleDisplayMode,
 	SELECTION_PANEL_POSITION_MODES,
 	STORAGE_KEY,
 	saveSettings,
 	validateSettings,
+	YOUTUBE_SUBTITLE_DISPLAY_MODES,
 };
 export default api;

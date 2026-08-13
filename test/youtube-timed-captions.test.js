@@ -40,6 +40,39 @@ test("caption window includes the active cue and starts in the next 60 seconds",
 	);
 });
 
+test("cumulative auto-caption events preserve every exact visible text boundary", () => {
+	const cues = parseJson3Captions({
+		events: [
+			{
+				tStartMs: 1000,
+				dDurationMs: 3000,
+				segs: [{ utf8: "We" }],
+			},
+			{
+				tStartMs: 1400,
+				dDurationMs: 2600,
+				segs: [{ utf8: "We build" }],
+			},
+			{
+				tStartMs: 1800,
+				dDurationMs: 2200,
+				segs: [{ utf8: "We build tools" }],
+			},
+		],
+	});
+
+	assert.deepEqual(
+		selectCaptionWindow(cues, { currentTimeMs: 2000, windowMs: 1000 }).map(
+			(cue) => cue.text,
+		),
+		["We", "We build", "We build tools"],
+	);
+	assert.deepEqual(
+		buildTimedCaptionItems(cues).map((item) => item.text),
+		["We", "We build", "We build tools"],
+	);
+});
+
 test("timed captions become stable subtitle queue items", () => {
 	assert.deepEqual(
 		buildTimedCaptionItems([

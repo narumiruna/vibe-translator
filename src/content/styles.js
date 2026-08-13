@@ -175,7 +175,7 @@ export function applyContentStyles(options = {}) {
         cursor: pointer;
       }
 
-      [data-ot-subtitle-replaced="true"] {
+      .ytp-caption-segment[data-ot-subtitle-replaced="true"] {
         display: none !important;
       }
 

@@ -89,6 +89,51 @@ test("progress refills an overlapping window without duplicate cue IDs", async (
 	);
 });
 
+test("prefetch queues every overlapping active cue for exact DOM matching", async () => {
+	const enqueued = [];
+	const prefetch = createYoutubeCaptionPrefetch({
+		async enqueue(context) {
+			enqueued.push(context);
+			return { queued: context.items.length };
+		},
+		async fetch() {
+			return {
+				ok: true,
+				async json() {
+					return {
+						events: [
+							{
+								tStartMs: 1000,
+								dDurationMs: 5000,
+								segs: [{ utf8: "First active line" }],
+							},
+							{
+								tStartMs: 3000,
+								dDurationMs: 4000,
+								segs: [{ utf8: "Second active line" }],
+							},
+						],
+					};
+				},
+			};
+		},
+	});
+
+	assert.deepEqual(
+		await prefetch.initialize({
+			baseUrl: "https://www.youtube.com/api/timedtext?v=overlap",
+			currentTimeMs: 4000,
+			sessionId: "session-overlap",
+			tabId: 9,
+		}),
+		{ available: true, cueCount: 2, queued: 2 },
+	);
+	assert.deepEqual(
+		enqueued[0].items.map((item) => item.text),
+		["First active line", "Second active line"],
+	);
+});
+
 test("unavailable or malformed timed captions preserve fallback behavior", async () => {
 	const diagnostics = [];
 	const prefetch = createYoutubeCaptionPrefetch({

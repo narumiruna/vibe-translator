@@ -13,7 +13,9 @@ import {
 	normalizeDisabledDomains,
 	normalizeSelectionPanelPositionMode,
 	normalizeShowTranslationDebugInfo,
+	normalizeYoutubeSubtitleDisplayMode,
 	validateSettings,
+	YOUTUBE_SUBTITLE_DISPLAY_MODES,
 } from "../src/shared/settings.js";
 
 test("normalizeBaseUrl trims trailing slash", () => {
@@ -189,6 +191,41 @@ test("normalizeSelectionPanelPositionMode falls back to near-selection", () => {
 	);
 });
 
+test("YouTube subtitle display mode defaults to translation-only", () => {
+	assert.deepEqual(YOUTUBE_SUBTITLE_DISPLAY_MODES, [
+		"bilingual",
+		"translation-only",
+	]);
+	assert.equal(DEFAULT_SETTINGS.youtubeSubtitleDisplayMode, "translation-only");
+	assert.equal(
+		validateSettings({}).settings.youtubeSubtitleDisplayMode,
+		"translation-only",
+	);
+});
+
+test("YouTube subtitle display mode accepts both supported values", () => {
+	for (const mode of YOUTUBE_SUBTITLE_DISPLAY_MODES) {
+		assert.equal(normalizeYoutubeSubtitleDisplayMode(mode), mode);
+		assert.equal(
+			validateSettings({ youtubeSubtitleDisplayMode: mode }).settings
+				.youtubeSubtitleDisplayMode,
+			mode,
+		);
+	}
+});
+
+test("invalid YouTube subtitle display modes fall back safely", () => {
+	assert.equal(
+		normalizeYoutubeSubtitleDisplayMode("side-by-side"),
+		"translation-only",
+	);
+	assert.equal(
+		validateSettings({ youtubeSubtitleDisplayMode: "side-by-side" }).settings
+			.youtubeSubtitleDisplayMode,
+		"translation-only",
+	);
+});
+
 test("getSettings returns migrated and normalized stored settings", async () => {
 	const originalChrome = global.chrome;
 
@@ -218,6 +255,7 @@ test("getSettings returns migrated and normalized stored settings", async () => 
 		assert.equal(settings.targetLanguage, "日本語");
 		assert.match(settings.systemPromptTemplate, /^Translate carefully\./);
 		assert.equal(settings.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+		assert.equal(settings.youtubeSubtitleDisplayMode, "translation-only");
 		assert.equal(settings.disabledDomains, "example.com\ndocs.example.com");
 	} finally {
 		global.chrome = originalChrome;

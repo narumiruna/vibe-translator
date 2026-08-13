@@ -206,10 +206,76 @@ h1 {
 	cursor: pointer;
 }
 
+.choice-group {
+	display: grid;
+	gap: 10px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.choice-group legend {
+	margin-bottom: 2px;
+	padding: 0;
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+
+.choice-option {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	min-height: 44px;
+	padding: 11px 12px;
+	border: 1px solid var(--separator);
+	border-radius: 10px;
+	background: var(--panel-inset);
+	cursor: pointer;
+}
+
+.choice-option:has(input:checked) {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.choice-option input[type="radio"] {
+	flex: 0 0 auto;
+	width: 18px;
+	height: 18px;
+	margin: 2px 0 0;
+	accent-color: var(--accent);
+	cursor: pointer;
+}
+
+.choice-option span {
+	display: grid;
+	gap: 2px;
+}
+
+.choice-option strong {
+	font-size: 0.875rem;
+	line-height: 1.35;
+}
+
+.choice-option small {
+	color: var(--muted);
+	font-size: 0.8125rem;
+	line-height: 1.4;
+}
+
+.choice-option:focus-within {
+	outline: 3px solid var(--accent-soft);
+	outline-offset: 2px;
+}
+
 .field-note {
 	color: var(--muted);
 	font-size: 0.8125rem;
 	line-height: 1.4;
+}
+
+.choice-group > .field-note {
+	margin: -4px 0 2px;
 }
 
 .status-card h3 {

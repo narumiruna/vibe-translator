@@ -63,6 +63,95 @@ test("subtitle observer accepts only mutations involving caption segments", () =
 	);
 });
 
+test("subtitle removals reconcile exact notes before translation is scheduled", () => {
+	const events = [];
+	const timers = [];
+	let handleMutations;
+	const body = {};
+	const removedSource = createElement({ matches: selector });
+	const observer = createPageObserver({
+		MutationObserver: function MutationObserver(callback) {
+			handleMutations = callback;
+			return {
+				disconnect() {},
+				observe() {},
+			};
+		},
+		Node,
+		SubtitleApi: {
+			YOUTUBE_CAPTION_SEGMENT_SELECTOR: selector,
+			isSubtitleProfile() {
+				return true;
+			},
+			reconcileSubtitleNotes() {
+				events.push("reconcile");
+			},
+			removeDetachedSubtitleSources(_profile, source) {
+				assert.equal(source, removedSource);
+				events.push("remove");
+			},
+			resetChangedSubtitleSource() {
+				return false;
+			},
+		},
+		activeSiteProfile: {},
+		contentLifecycle: {
+			cleanup() {},
+			start() {},
+		},
+		document: {
+			body,
+			querySelectorAll() {
+				return [];
+			},
+		},
+		getExistingNoteForSource() {
+			return null;
+		},
+		getSourceText() {
+			return "";
+		},
+		hasSourceTextChanged() {
+			return false;
+		},
+		isInsideTranslation() {
+			return false;
+		},
+		noteAttr: "data-ot-note-id",
+		onScheduleVisibleTranslation() {
+			events.push("schedule");
+		},
+		observerDebounceMs: 0,
+		processedAttr: "data-translated",
+		queuedAttr: "data-ot-queued",
+		rootAttr: "data-ot-role",
+		setSourceQueued() {},
+		sourceAttr: "data-ot-source-id",
+		staleAttr: "data-ot-source-stale",
+		translatedAttr: "data-ot-translated",
+		window: {
+			clearTimeout() {},
+			setTimeout(callback) {
+				timers.push(callback);
+				return timers.length;
+			},
+		},
+	});
+
+	observer.ensureObserver();
+	handleMutations([
+		{
+			addedNodes: [],
+			removedNodes: [removedSource],
+			target: createElement(),
+			type: "childList",
+		},
+	]);
+
+	assert.deepEqual(events, ["remove", "reconcile", "schedule"]);
+	assert.equal(timers.length, 0);
+});
+
 test("subtitle text changes reset the source before translation is scheduled", () => {
 	const events = [];
 	const timers = [];

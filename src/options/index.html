@@ -52,6 +52,39 @@
               </label>
             </section>
 
+            <section class="form-section" aria-labelledby="youtube-subtitles-section-title">
+              <h2 id="youtube-subtitles-section-title" class="form-section-title">YouTube Subtitles</h2>
+
+              <fieldset class="choice-group" aria-describedby="youtube-subtitle-display-note">
+                <legend>Display Mode</legend>
+                <p id="youtube-subtitle-display-note" class="field-note">
+                  Choose whether translated YouTube captions keep the matching original line visible.
+                </p>
+                <label class="choice-option">
+                  <input
+                    name="youtubeSubtitleDisplayMode"
+                    type="radio"
+                    value="bilingual"
+                  />
+                  <span>
+                    <strong>Original and translation</strong>
+                    <small>Keep the native caption visible above its translation.</small>
+                  </span>
+                </label>
+                <label class="choice-option">
+                  <input
+                    name="youtubeSubtitleDisplayMode"
+                    type="radio"
+                    value="translation-only"
+                  />
+                  <span>
+                    <strong>Translation only</strong>
+                    <small>Hide a native caption after its matching translation is ready.</small>
+                  </span>
+                </label>
+              </fieldset>
+            </section>
+
             <section class="form-section" aria-labelledby="api-section-title">
               <h2 id="api-section-title" class="form-section-title">API Connection</h2>
 
