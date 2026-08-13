@@ -10,6 +10,7 @@ export function createYoutubeRuntime(options = {}) {
 		SubtitleApi,
 		YoutubeDiagnosticsApi,
 		YoutubePlayerControlApi,
+		TimedCaptionApi,
 		Messages,
 	} = options;
 	function getYoutubeDiagnosticSnapshot() {
@@ -137,6 +138,64 @@ export function createYoutubeRuntime(options = {}) {
 		}
 	}
 
+	function reportYoutubePrefetchProgress(force = false) {
+		const video = pageState.youtubeControl.prefetchVideo;
+		const currentTimeMs = Math.max(0, Number(video?.currentTime) || 0) * 1000;
+
+		if (
+			!video ||
+			!TimedCaptionApi?.shouldReportCaptionProgress(
+				pageState.youtubeControl.lastPrefetchTimeMs,
+				currentTimeMs,
+				{ force },
+			)
+		) {
+			return false;
+		}
+
+		pageState.youtubeControl.lastPrefetchTimeMs = currentTimeMs;
+		chrome.runtime
+			.sendMessage(Messages.prefetchYoutubeSubtitles({ currentTimeMs }))
+			.catch?.(() => {});
+		return true;
+	}
+
+	function handleYoutubePlaybackProgress() {
+		reportYoutubePrefetchProgress(false);
+	}
+
+	function handleYoutubePlaybackSeek() {
+		reportYoutubePrefetchProgress(true);
+	}
+
+	function clearYoutubePrefetchTracking() {
+		const video = pageState.youtubeControl.prefetchVideo;
+
+		video?.removeEventListener?.("timeupdate", handleYoutubePlaybackProgress);
+		video?.removeEventListener?.("seeking", handleYoutubePlaybackSeek);
+		pageState.youtubeControl.prefetchVideo = null;
+		pageState.youtubeControl.lastPrefetchTimeMs = 0;
+	}
+
+	function bindYoutubePrefetchTracking() {
+		const video =
+			document.querySelector?.("#movie_player video") ||
+			document.querySelector?.("video");
+
+		clearYoutubePrefetchTracking();
+
+		if (!video) {
+			return false;
+		}
+
+		pageState.youtubeControl.prefetchVideo = video;
+		pageState.youtubeControl.lastPrefetchTimeMs =
+			Math.max(0, Number(video.currentTime) || 0) * 1000;
+		video.addEventListener?.("timeupdate", handleYoutubePlaybackProgress);
+		video.addEventListener?.("seeking", handleYoutubePlaybackSeek);
+		return true;
+	}
+
 	function showYoutubeCaptionUnavailable(button) {
 		if (
 			!button ||
@@ -210,6 +269,11 @@ export function createYoutubeRuntime(options = {}) {
 			}
 
 			applyYoutubeControlState(button, "active");
+			if (response.prefetch?.available) {
+				bindYoutubePrefetchTracking();
+			} else {
+				clearYoutubePrefetchTracking();
+			}
 			recordYoutubeDiagnostic(
 				"active",
 				`Translation session active; caption enabled=${Boolean(response.captions?.enabled)}; track found=${Boolean(response.captions?.hasTrack)}`,
@@ -245,6 +309,7 @@ export function createYoutubeRuntime(options = {}) {
 		const videoKey = getYoutubeVideoKey();
 
 		if (videoKey !== pageState.youtubeControl.videoKey) {
+			clearYoutubePrefetchTracking();
 			pageState.youtubeControl.videoKey = videoKey;
 			pageState.youtubeControl.state = "idle";
 			pageState.youtubeDiagnostics.store.clear();
@@ -252,6 +317,8 @@ export function createYoutubeRuntime(options = {}) {
 			closeYoutubeDiagnostics();
 			pageState.pageTranslation.active = false;
 			pageState.pageTranslation.sessionId = "";
+			pageState.pageTranslation.targetLanguage = "";
+			pageState.youtubeSubtitleTranslations?.clear?.();
 		}
 
 		const button = controlApi.mountYoutubePlayerControl({
@@ -280,6 +347,7 @@ export function createYoutubeRuntime(options = {}) {
 
 	function cleanupYoutubeRuntime() {
 		clearYoutubeCaptionCheck();
+		clearYoutubePrefetchTracking();
 		if (pageState.youtubeControl.mountTimer) {
 			window.clearTimeout(pageState.youtubeControl.mountTimer);
 			pageState.youtubeControl.mountTimer = null;
@@ -324,6 +392,7 @@ export function createYoutubeRuntime(options = {}) {
 
 	return {
 		applyYoutubeControlState,
+		bindYoutubePrefetchTracking,
 		cleanupYoutubeRuntime,
 		clearYoutubeCaptionCheck,
 		closeYoutubeDiagnostics,

@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveSiteProfile } from "../src/content/extraction/site-profiles.js";
 import {
+	cacheSubtitleTranslations,
+	consumeCachedSubtitleTranslations,
 	findMatchingSubtitleSource,
 	getMeaningfulCharacterMinimum,
 	getSegmentKind,
+	hasCachedSubtitleTranslation,
 	isSubtitleProfile,
 	prepareSubtitleNote,
 	removeDetachedSubtitleSources,
@@ -19,6 +22,54 @@ import {
 
 const youtubeProfile = resolveSiteProfile("www.youtube.com");
 const defaultProfile = resolveSiteProfile("example.com");
+
+test("prefetched subtitle translations are consumed by exact source text", () => {
+	const cache = new Map();
+
+	cacheSubtitleTranslations(cache, [
+		{ kind: "subtitle", sourceText: "Hello world", translation: "哈囉世界" },
+		{ kind: "subtitle", sourceText: "Later", translation: "稍後" },
+	]);
+
+	assert.deepEqual(
+		consumeCachedSubtitleTranslations(cache, [
+			{ id: "visible-1", kind: "subtitle", text: "Hello world" },
+			{ id: "visible-2", kind: "subtitle", text: "Unknown" },
+		]),
+		{
+			cached: [
+				{
+					id: "visible-1",
+					kind: "subtitle",
+					sourceText: "Hello world",
+					translation: "哈囉世界",
+				},
+			],
+			missing: [{ id: "visible-2", kind: "subtitle", text: "Unknown" }],
+		},
+	);
+	assert.equal(cache.get("Hello world").translation, "哈囉世界");
+	assert.equal(cache.get("Later").translation, "稍後");
+	assert.equal(
+		hasCachedSubtitleTranslation(cache, ["Unknown", "Hello world"]),
+		true,
+	);
+	assert.equal(hasCachedSubtitleTranslation(cache, ["Unknown"]), false);
+});
+
+test("subtitle cache ignores empty and unrelated translation results", () => {
+	const cache = new Map();
+
+	assert.equal(
+		cacheSubtitleTranslations(cache, [
+			{ kind: "paragraph", sourceText: "Paragraph", translation: "段落" },
+			{ kind: "subtitle", sourceText: "", translation: "空" },
+			{ kind: "subtitle", sourceText: "Caption", translation: "" },
+		]),
+		0,
+	);
+	assert.equal(cache.size, 0);
+});
 
 test("player control state exposes stable accessible labels", () => {
 	assert.deepEqual(resolvePlayerControlState("idle"), {

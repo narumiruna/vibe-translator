@@ -1,4 +1,5 @@
 import { getSelectionAnchor } from "./selection-anchor.js";
+import { createYoutubeCaptionPrefetch } from "./youtube-caption-prefetch.js";
 
 export function createBackgroundController(options = {}) {
 	const {
@@ -60,6 +61,19 @@ export function createBackgroundController(options = {}) {
 				sessionId: context?.sessionId,
 				tabId: context?.tabId,
 			});
+		},
+	});
+	const youtubeCaptionPrefetch = createYoutubeCaptionPrefetch({
+		enqueue: ({ tabId, frameId, sessionId, items }) =>
+			queuePageTranslationItems(tabId, sessionId, items, frameId),
+		fetch: options.fetch,
+		onDiagnostic(stage, detail, context) {
+			sendYoutubeDiagnosticEvent?.(
+				context.tabId,
+				context.frameId || 0,
+				stage,
+				detail,
+			)?.catch?.(() => {});
 		},
 	});
 
@@ -268,7 +282,15 @@ export function createBackgroundController(options = {}) {
 			pageTranslationQueue.remove(tabId, frameId);
 		}
 
-		return extraction;
+		return { ...extraction, sessionId: session.sessionId };
+	}
+
+	function removePageTranslationState(tabId, frameId) {
+		pageTranslationQueue.remove(tabId, frameId);
+
+		if (!Number.isInteger(frameId) || frameId === 0) {
+			youtubeCaptionPrefetch.remove(tabId);
+		}
 	}
 
 	async function translatePage(tab) {
@@ -291,12 +313,13 @@ export function createBackgroundController(options = {}) {
 			);
 		}
 
-		pageTranslationQueue.remove(tab.id);
+		removePageTranslationState(tab.id);
 		const embeddedFrames = await discoverEmbeddedPageFrames(tab.id, tab.url);
 		const frames = [{ frameId: 0, url: tab.url }, ...embeddedFrames];
 		let queuedCount = 0;
 		let totalSegments = 0;
 		let keepAliveCount = 0;
+		let mainSessionId = "";
 
 		for (const frame of frames) {
 			try {
@@ -309,8 +332,11 @@ export function createBackgroundController(options = {}) {
 				queuedCount += extraction.items.length;
 				totalSegments += Number(extraction.totalSegments) || 0;
 				keepAliveCount += extraction.keepAlive ? 1 : 0;
+				if (frame.frameId === 0) {
+					mainSessionId = extraction.sessionId || "";
+				}
 			} catch (error) {
-				pageTranslationQueue.remove(tab.id, frame.frameId);
+				removePageTranslationState(tab.id, frame.frameId);
 
 				if (frame.frameId === 0) {
 					throw error;
@@ -319,7 +345,7 @@ export function createBackgroundController(options = {}) {
 		}
 
 		if (queuedCount > 0) {
-			return;
+			return { sessionId: mainSessionId };
 		}
 
 		if (totalSegments > 0) {
@@ -328,7 +354,7 @@ export function createBackgroundController(options = {}) {
 				"Visible content is already translated. More content will translate as you scroll.",
 				"info",
 			);
-			return;
+			return { sessionId: mainSessionId };
 		}
 
 		if (keepAliveCount > 0) {
@@ -337,7 +363,7 @@ export function createBackgroundController(options = {}) {
 				"Subtitle translation is ready. Turn on YouTube captions and play the video.",
 				"info",
 			);
-			return;
+			return { sessionId: mainSessionId };
 		}
 
 		await sendToast(
@@ -346,6 +372,7 @@ export function createBackgroundController(options = {}) {
 			"info",
 		);
 		setBadge(tab.id, "");
+		return { sessionId: mainSessionId };
 	}
 
 	async function translateSelection(
@@ -507,10 +534,21 @@ export function createBackgroundController(options = {}) {
 						name: track.name?.simpleText || track.name || "",
 					});
 				}
+				const selectedTrack = player.getOption?.("captions", "track");
+				const timedTrack =
+					tracks.find(
+						(track) =>
+							track?.baseUrl &&
+							selectedTrack?.languageCode === track.languageCode,
+					) || tracks.find((track) => track?.baseUrl);
+				const video =
+					player.querySelector?.("video") || document.querySelector("video");
 
 				return {
+					currentTimeMs: Math.max(0, Number(video?.currentTime) || 0) * 1000,
 					enabled: captionButton.getAttribute("aria-pressed") === "true",
 					hasTrack: tracks.length > 0,
+					trackBaseUrl: String(timedTrack?.baseUrl || ""),
 				};
 			},
 		});
@@ -541,8 +579,15 @@ export function createBackgroundController(options = {}) {
 		}));
 
 		try {
-			await translatePage(tab);
-			return { ok: true, captions };
+			const translation = await translatePage(tab);
+			const prefetch = await youtubeCaptionPrefetch.initialize({
+				baseUrl: captions.trackBaseUrl,
+				currentTimeMs: captions.currentTimeMs,
+				frameId: 0,
+				sessionId: translation?.sessionId,
+				tabId: tab.id,
+			});
+			return { ok: true, captions, prefetch };
 		} catch (error) {
 			return {
 				ok: false,
@@ -589,6 +634,7 @@ export function createBackgroundController(options = {}) {
 				ok: true,
 				active: true,
 				sessionId: session.sessionId,
+				targetLanguage: session.settings.targetLanguage,
 				...buildTranslationAppearancePayload(session.settings),
 				...buildDebugPayload(session.settings),
 			};
@@ -636,6 +682,20 @@ export function createBackgroundController(options = {}) {
 			message.type === Messages.MESSAGE_TYPES.START_YOUTUBE_SUBTITLE_TRANSLATION
 		) {
 			return startYoutubeSubtitleTranslation(sender);
+		}
+
+		if (message.type === Messages.MESSAGE_TYPES.PREFETCH_YOUTUBE_SUBTITLES) {
+			if (!sender.tab?.id || (sender.frameId ?? 0) !== 0) {
+				return { available: false, queued: 0 };
+			}
+
+			const session = getPageTranslationSession(sender.tab.id, undefined, 0);
+
+			return youtubeCaptionPrefetch.update({
+				currentTimeMs: message.payload?.currentTimeMs,
+				sessionId: session?.sessionId,
+				tabId: sender.tab.id,
+			});
 		}
 
 		if (message.type === Messages.MESSAGE_TYPES.RETRY_SELECTION_TRANSLATION) {
@@ -705,6 +765,7 @@ export function createBackgroundController(options = {}) {
 	return {
 		handleRuntimeMessage,
 		pageTranslationQueue,
+		removePageTranslationState,
 		setupContextMenus,
 		translatePage,
 		translateSelection,

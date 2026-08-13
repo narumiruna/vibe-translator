@@ -120,6 +120,7 @@ test("background controller returns an active frame session for content reinject
 			ok: true,
 			active: true,
 			sessionId: "page-session",
+			targetLanguage: "French",
 			translationAppearance: session.settings.translationAppearance,
 			debug: { enabled: true },
 		},

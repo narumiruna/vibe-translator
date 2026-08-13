@@ -38,7 +38,7 @@ function handleFailure(tab, error) {
 		error: error?.message || String(error),
 		tabId: tab.id,
 	});
-	controller.pageTranslationQueue.remove(tab.id);
+	controller.removePageTranslationState(tab.id);
 	return chrome.tabs
 		.sendMessage(tab.id, Messages.clearPendingTranslations())
 		.catch(() => {})
@@ -90,14 +90,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 	if (changeInfo.status === "loading") {
-		controller.pageTranslationQueue.remove(tabId);
+		controller.removePageTranslationState(tabId);
 		platform.setBadge(tabId, "");
 		logger.debug("tab-loading", { tabId });
 	}
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-	controller.pageTranslationQueue.remove(tabId);
+	controller.removePageTranslationState(tabId);
 	logger.debug("tab-removed", { tabId });
 });
 

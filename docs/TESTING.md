@@ -57,16 +57,18 @@
 4. Confirm the icon turns active, the diagnostic panel reports startup progress, and available native captions are enabled
 5. Confirm the panel records caption extraction, background queueing, API completion or failure, and final render counts
 6. Use **Copy diagnostics** and confirm the report contains player/control/caption pipeline state but no API key
-7. Play the video and confirm each translated caption replaces the original native caption
-8. Confirm only one compact subtitle line is visible inside the player, without the reading-card label or shimmer placeholder
-9. Confirm later caption cues continue translating without clicking the icon again
-10. Confirm a caption segment replaced by YouTube while its translation is pending still renders when the visible source text is identical
-11. Seek rapidly while a translation is pending and confirm an older result never replaces the new cue
-12. Enter and leave fullscreen and confirm the icon and translated subtitle remain readable and inside the player
-13. Navigate to another YouTube video without reloading and confirm the icon returns to idle before starting that video
-14. Click the pinned Chrome toolbar icon and confirm its existing whole-page translation behavior is unchanged
-15. Open a video where YouTube exposes a caption track but renders no native caption text, click the in-player icon, wait about five seconds, and confirm the icon and diagnostic panel report that captions are not visible instead of staying falsely active
-16. Clear required API settings, click the in-player icon, and confirm the icon visibly enters an error state, the diagnostic panel shows the failure, and Settings opens instead of appearing inert
+7. Confirm diagnostics report that timed captions loaded and the next 60 seconds were queued; if they are unavailable, confirm diagnostics report the visible-caption fallback
+8. Play the video and confirm prefetched translations replace their original native captions immediately without first waiting for an API response
+9. Confirm only one compact subtitle line is visible inside the player, without the reading-card label or shimmer placeholder
+10. Continue playing for more than 60 seconds and confirm the rolling prefetch window refills without clicking the icon again
+11. Seek to an untranslated part of the video and confirm that position starts a new 60-second prefetch window
+12. Confirm a caption segment replaced by YouTube while its translation is pending still renders when the visible source text is identical
+13. Seek rapidly while a translation is pending and confirm an older result never replaces the new cue
+14. Enter and leave fullscreen and confirm the icon and translated subtitle remain readable and inside the player
+15. Navigate to another YouTube video without reloading and confirm the icon returns to idle before starting that video
+16. Click the pinned Chrome toolbar icon and confirm its existing whole-page translation behavior is unchanged
+17. Open a video where YouTube exposes a caption track but renders no native caption text, click the in-player icon, wait about five seconds, and confirm the icon and diagnostic panel report that captions are not visible instead of staying falsely active
+18. Clear required API settings, click the in-player icon, and confirm the icon visibly enters an error state, the diagnostic panel shows the failure, and Settings opens instead of appearing inert
 
 ## Selection translation
 
