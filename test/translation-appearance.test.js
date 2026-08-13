@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-	DEFAULT_TRANSLATION_APPEARANCE,
-	FONT_FAMILY_STACKS,
-	TRANSLATION_APPEARANCE_PRESETS,
 	calculateContrastRatio,
 	createTranslationAppearancePreset,
+	DEFAULT_TRANSLATION_APPEARANCE,
+	FONT_FAMILY_STACKS,
 	getContrastingTextColor,
 	normalizeTranslationAppearance,
+	TRANSLATION_APPEARANCE_PRESETS,
 } from "../src/shared/appearance.js";
 
 test("Calm Reading preserves the current inline and selection appearance", () => {

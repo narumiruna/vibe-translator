@@ -1,7 +1,7 @@
-import Api from "../translation/api.js";
 import Appearance from "../shared/appearance.js";
 import Messages from "../shared/messages.js";
 import Settings from "../shared/settings.js";
+import Api from "../translation/api.js";
 import { createAppearanceController } from "./appearance.js";
 import "./styles.css";
 

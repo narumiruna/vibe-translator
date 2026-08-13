@@ -255,11 +255,6 @@ const api = {
 };
 
 export {
-	SUBTITLE_FONT_SIZE_PROPERTY,
-	SUBTITLE_PRESENTATION,
-	SUBTITLE_PRESENTATION_ATTR,
-	SUBTITLE_REPLACED_ATTR,
-	YOUTUBE_CAPTION_SEGMENT_SELECTOR,
 	findMatchingSubtitleSource,
 	getMeaningfulCharacterMinimum,
 	getSegmentKind,
@@ -271,8 +266,13 @@ export {
 	resetChangedSubtitleSource,
 	resolvePlayerControlError,
 	resolvePlayerControlState,
+	SUBTITLE_FONT_SIZE_PROPERTY,
+	SUBTITLE_PRESENTATION,
+	SUBTITLE_PRESENTATION_ATTR,
+	SUBTITLE_REPLACED_ATTR,
 	shouldAllowAncestorTransforms,
 	shouldKeepSessionAlive,
 	shouldRenderPlaceholder,
+	YOUTUBE_CAPTION_SEGMENT_SELECTOR,
 };
 export default api;

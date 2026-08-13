@@ -113,8 +113,8 @@ const api = {
 };
 
 export {
-	DEFAULT_TRANSLATION_CACHE_LIMIT,
 	buildTranslationCacheKey,
 	createTranslationCache,
+	DEFAULT_TRANSLATION_CACHE_LIMIT,
 };
 export default api;

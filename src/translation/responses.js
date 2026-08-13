@@ -1,4 +1,5 @@
 import ProtectedFragments from "./protected-fragments.js";
+
 const TRANSLATION_RESPONSE_FORMAT = Object.freeze({
 	type: "json_schema",
 	name: "translation_result",
@@ -269,7 +270,6 @@ const api = {
 };
 
 export {
-	TRANSLATION_RESPONSE_FORMAT,
 	buildResponsesRequest,
 	buildTranslationInput,
 	callResponsesApi,
@@ -278,6 +278,7 @@ export {
 	parseTranslationResponse,
 	renderPromptTemplate,
 	stripCodeFences,
+	TRANSLATION_RESPONSE_FORMAT,
 	validateTranslationCoverage,
 };
 export default api;

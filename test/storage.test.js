@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 
 import {
 	DEFAULT_SETTINGS,
@@ -9,10 +9,10 @@ import {
 	getSettings,
 	lintPromptTemplates,
 	migrateLegacyPromptSettings,
-	normalizeDisabledDomains,
 	normalizeBaseUrl,
-	normalizeShowTranslationDebugInfo,
+	normalizeDisabledDomains,
 	normalizeSelectionPanelPositionMode,
+	normalizeShowTranslationDebugInfo,
 	validateSettings,
 } from "../src/shared/settings.js";
 

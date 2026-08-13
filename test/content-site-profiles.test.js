@@ -1,22 +1,21 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-
+import test from "node:test";
+import { createExtractionSelectorsForProfile } from "../src/content/extraction/rules.js";
 import {
+	buildProfileSelectors,
 	DISQUS_COMMENT_TEXT_SELECTOR,
+	getActiveSiteProfile,
+	normalizeHostname,
+	resolveSiteProfile,
 	SAFE_EMPTY_SELECTOR,
 	SCHIIT_ARTICLE_ROOT_SELECTOR,
 	SCHIIT_ARTICLE_TEXT_SELECTOR,
 	THREADS_TEXT_BLOCK_SELECTOR,
 	X_CURRENT_POST_TEXT_SELECTOR,
+	X_TWEET_TEXT_SELECTOR,
 	YOUTUBE_CAPTION_ROOT_SELECTOR,
 	YOUTUBE_CAPTION_TEXT_SELECTOR,
-	X_TWEET_TEXT_SELECTOR,
-	buildProfileSelectors,
-	getActiveSiteProfile,
-	normalizeHostname,
-	resolveSiteProfile,
 } from "../src/content/extraction/site-profiles.js";
-import { createExtractionSelectorsForProfile } from "../src/content/extraction/rules.js";
 
 test("normalizeHostname lowercases and strips trailing dots", () => {
 	assert.equal(normalizeHostname(" WWW.X.COM. "), "www.x.com");

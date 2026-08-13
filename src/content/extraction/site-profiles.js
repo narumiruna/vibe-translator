@@ -191,9 +191,15 @@ const api = {
 export {
 	ANTIREZ_PROSE_CONTAINER_SELECTOR,
 	ANTIREZ_PROSE_TEXT_SELECTOR,
+	buildProfileSelectors,
+	buildSelector,
 	DEFAULT_PROFILE_ID,
-	DISQUS_COMMENT_TEXT_SELECTOR,
 	DEFAULT_SITE_PROFILE,
+	DISQUS_COMMENT_TEXT_SELECTOR,
+	getActiveSiteProfile,
+	normalizeHostname,
+	normalizeSelectorList,
+	resolveSiteProfile,
 	SAFE_EMPTY_SELECTOR,
 	SCHIIT_ARTICLE_ROOT_SELECTOR,
 	SCHIIT_ARTICLE_TEXT_SELECTOR,
@@ -203,11 +209,5 @@ export {
 	X_TWEET_TEXT_SELECTOR,
 	YOUTUBE_CAPTION_ROOT_SELECTOR,
 	YOUTUBE_CAPTION_TEXT_SELECTOR,
-	buildProfileSelectors,
-	buildSelector,
-	getActiveSiteProfile,
-	normalizeHostname,
-	normalizeSelectorList,
-	resolveSiteProfile,
 };
 export default api;

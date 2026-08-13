@@ -2,7 +2,7 @@
 	"name": "vibe-translator",
 	"private": true,
 	"scripts": {
-		"check": "npm run lint:modules && npm test && npm run build && npm run verify:build",
+		"check": "npx --no-install biome ci && npm run lint:modules && npm test && npm run build && npm run verify:build",
 		"lint:modules": "find src scripts -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
 		"test": "node --test test/*.test.js",
 		"e2e:smoke": "node e2e/extension-smoke.cjs",

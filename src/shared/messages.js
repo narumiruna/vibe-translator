@@ -102,5 +102,5 @@ const api = {
 	},
 };
 
-export { MESSAGE_TYPES, createMessage };
+export { createMessage, MESSAGE_TYPES };
 export default api;

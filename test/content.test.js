@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 
 const originalWindow = global.window;
 const originalDocument = global.document;
@@ -43,17 +43,17 @@ global.chrome = {
 	},
 };
 
-import { createContentRuntime } from "../src/content.js";
 import { createExtractionSelectorsForProfile } from "../src/content/extraction/rules.js";
 import {
 	ANTIREZ_PROSE_CONTAINER_SELECTOR,
 	ANTIREZ_PROSE_TEXT_SELECTOR,
+	resolveSiteProfile,
 	SCHIIT_ARTICLE_TEXT_SELECTOR,
 	THREADS_TEXT_BLOCK_SELECTOR,
 	X_CURRENT_POST_TEXT_SELECTOR,
 	X_TWEET_TEXT_SELECTOR,
-	resolveSiteProfile,
 } from "../src/content/extraction/site-profiles.js";
+import { createContentRuntime } from "../src/content.js";
 
 const contentTestApi = createContentRuntime({ mount: false }).__TEST__;
 

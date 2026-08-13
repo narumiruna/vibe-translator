@@ -448,14 +448,14 @@ const api = {
 export {
 	ALL_PRESET_IDS,
 	APPEARANCE_LIMITS,
-	DEFAULT_TRANSLATION_APPEARANCE,
-	FONT_FAMILY_STACKS,
-	PRESET_IDS,
-	TRANSLATION_APPEARANCE_PRESETS,
 	calculateContrastRatio,
 	createTranslationAppearancePreset,
+	DEFAULT_TRANSLATION_APPEARANCE,
+	FONT_FAMILY_STACKS,
 	getContrastingTextColor,
 	hexToRgbaColor,
 	normalizeTranslationAppearance,
+	PRESET_IDS,
+	TRANSLATION_APPEARANCE_PRESETS,
 };
 export default api;

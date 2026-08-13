@@ -1,0 +1,13 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.4.9/schema.json",
+	"files": {
+		"ignoreUnknown": true,
+		"includes": [
+			"**",
+			"!!dist",
+			"!!.extension-js",
+			"!!e2e-artifacts",
+			"!!node_modules"
+		]
+	}
+}

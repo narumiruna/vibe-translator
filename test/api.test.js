@@ -1,16 +1,13 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-
-import { validateTranslationCoverage } from "../src/translation/responses.js";
-
+import test from "node:test";
 import {
 	buildResponsesRequest,
 	buildTranslationInput,
 	chunkTranslationItems,
 	clearTranslationCache,
 	consumeProgressiveTranslations,
-	createRecursiveChunkPlan,
 	createProgressiveMergeState,
+	createRecursiveChunkPlan,
 	extractOutputText,
 	getIncompleteSegmentIds,
 	maskProtectedFragments,
@@ -23,6 +20,7 @@ import {
 	unmaskProtectedFragments,
 	validateProtectedFragments,
 } from "../src/translation/api.js";
+import { validateTranslationCoverage } from "../src/translation/responses.js";
 
 function buildSettings(overrides) {
 	return {

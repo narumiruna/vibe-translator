@@ -1,20 +1,20 @@
-import Api from "./translation/api.js";
-import AppearanceApi from "./shared/appearance.js";
-import Messages from "./shared/messages.js";
 import ExtractionApi from "./content/extraction/rules.js";
-import SelectionPanelApi from "./content/selection/panel.js";
-import SubtitleApi from "./content/youtube/subtitles.js";
-import ViewportApi from "./content/page/viewport.js";
-import YoutubeDiagnosticsApi from "./content/youtube/diagnostics.js";
-import YoutubePlayerControlApi from "./content/youtube/player-control.js";
-import { applyContentStyles } from "./content/styles.js";
+import { createSourceAnalyzer } from "./content/extraction/source-analyzer.js";
 import { createContentHelpers } from "./content/helpers.js";
 import { createContentLifecycle } from "./content/lifecycle.js";
 import { createPageObserver } from "./content/page/observer.js";
 import { createPageProfile } from "./content/page/profile.js";
-import { createSourceAnalyzer } from "./content/extraction/source-analyzer.js";
+import ViewportApi from "./content/page/viewport.js";
 import { createContentRenderer } from "./content/rendering/runtime.js";
+import SelectionPanelApi from "./content/selection/panel.js";
+import { applyContentStyles } from "./content/styles.js";
+import YoutubeDiagnosticsApi from "./content/youtube/diagnostics.js";
+import YoutubePlayerControlApi from "./content/youtube/player-control.js";
 import { createYoutubeRuntime } from "./content/youtube/runtime.js";
+import SubtitleApi from "./content/youtube/subtitles.js";
+import AppearanceApi from "./shared/appearance.js";
+import Messages from "./shared/messages.js";
+import Api from "./translation/api.js";
 
 export function createContentRuntime(options = {}) {
 	const SOURCE_ATTR = "data-ot-source-id";

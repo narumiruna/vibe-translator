@@ -1,22 +1,21 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-
+import test from "node:test";
+import { resolveSiteProfile } from "../src/content/extraction/site-profiles.js";
 import {
 	findMatchingSubtitleSource,
 	getMeaningfulCharacterMinimum,
 	getSegmentKind,
 	isSubtitleProfile,
 	prepareSubtitleNote,
+	removeDetachedSubtitleSources,
 	replaceSubtitleSource,
+	resetChangedSubtitleSource,
 	resolvePlayerControlError,
 	resolvePlayerControlState,
-	removeDetachedSubtitleSources,
-	resetChangedSubtitleSource,
 	shouldAllowAncestorTransforms,
 	shouldKeepSessionAlive,
 	shouldRenderPlaceholder,
 } from "../src/content/youtube/subtitles.js";
-import { resolveSiteProfile } from "../src/content/extraction/site-profiles.js";
 
 const youtubeProfile = resolveSiteProfile("www.youtube.com");
 const defaultProfile = resolveSiteProfile("example.com");

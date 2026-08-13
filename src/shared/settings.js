@@ -1,4 +1,5 @@
 import AppearanceApi from "./appearance.js";
+
 const STORAGE_KEY = "settings";
 const LEGACY_DEFAULT_INSTRUCTIONS =
 	"Preserve meaning, tone, and technical accuracy in translation.";
@@ -264,23 +265,23 @@ const api = {
 };
 
 export {
+	createDefaultSystemPromptTemplate,
 	DEFAULT_SETTINGS,
 	DEFAULT_SYSTEM_PROMPT_TEMPLATE,
-	SELECTION_PANEL_POSITION_MODES,
 	DEFAULT_USER_PROMPT_TEMPLATE,
-	LEGACY_DEFAULT_INSTRUCTIONS,
-	STORAGE_KEY,
-	createDefaultSystemPromptTemplate,
 	getApiPermissionPattern,
 	getSettings,
 	hasCompleteSettings,
+	LEGACY_DEFAULT_INSTRUCTIONS,
+	lintPromptTemplates,
 	migrateLegacyPromptSettings,
 	normalizeBaseUrl,
 	normalizeDisabledDomains,
 	normalizeSelectionPanelPositionMode,
 	normalizeShowTranslationDebugInfo,
 	normalizeTranslationAppearance,
-	lintPromptTemplates,
+	SELECTION_PANEL_POSITION_MODES,
+	STORAGE_KEY,
 	saveSettings,
 	validateSettings,
 };

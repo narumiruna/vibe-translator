@@ -1,4 +1,5 @@
 import ProtectedFragments from "./protected-fragments.js";
+
 const DEFAULT_MAX_BATCH_CHARS = 5000;
 const maskProtectedFragments = ProtectedFragments.maskProtectedFragments;
 const unmaskProtectedFragments = ProtectedFragments.unmaskProtectedFragments;
@@ -352,11 +353,11 @@ const api = {
 };
 
 export {
-	DEFAULT_MAX_BATCH_CHARS,
 	chunkTranslationItems,
 	consumeProgressiveTranslations,
 	createProgressiveMergeState,
 	createRecursiveChunkPlan,
+	DEFAULT_MAX_BATCH_CHARS,
 	getIncompleteSegmentIds,
 	mergeRecursiveTranslations,
 	normalizeChunkText,

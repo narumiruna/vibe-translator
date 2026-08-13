@@ -23,13 +23,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup Biome
-        uses: biomejs/setup-biome@v2
-        with:
-          version: 2.4.9
-
       - name: Run Biome checks
-        run: biome ci
+        run: npx --no-install biome ci
 
       - name: Run check
         run: npm run check

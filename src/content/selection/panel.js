@@ -603,17 +603,17 @@ const api = {
 };
 
 export {
+	createSelectionPanelRenderer,
+	getSelectionPanelWidth,
+	normalizeSelectionAnchorRect,
+	normalizeSelectionPanelPositionMode,
+	normalizeSelectionRequestId,
 	SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT,
 	SELECTION_PANEL_COMPACT_WIDTH,
 	SELECTION_PANEL_EXPANDED_MAX_BODY_HEIGHT,
 	SELECTION_PANEL_EXPANDED_WIDTH,
 	SELECTION_PANEL_MAX_WIDTH,
 	SELECTION_PANEL_MOBILE_BREAKPOINT,
-	createSelectionPanelRenderer,
-	getSelectionPanelWidth,
-	normalizeSelectionAnchorRect,
-	normalizeSelectionPanelPositionMode,
-	normalizeSelectionRequestId,
 	shouldCloseSelectionPanelOnKey,
 };
 export default api;

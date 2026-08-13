@@ -246,19 +246,19 @@ const api = {
 };
 
 export {
+	bindYoutubePlayerControl,
 	CAPTION_BUTTON_SELECTOR,
 	CONTROL_ATTR,
 	CONTROL_SELECTOR,
-	bindYoutubePlayerControl,
-	PLAYER_SELECTOR,
 	createYoutubePlayerControl,
 	findYoutubePlayerControlAnchor,
 	getVisibleYoutubeCaptionText,
-	handleYoutubePlayerControlClick,
 	getYoutubeCaptionTracks,
+	handleYoutubePlayerControlClick,
 	hasAvailableYoutubeCaptionTrack,
 	isYoutubeWatchLocation,
 	mountYoutubePlayerControl,
+	PLAYER_SELECTOR,
 	turnOnNativeYoutubeCaptions,
 	unbindYoutubePlayerControl,
 };

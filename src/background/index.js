@@ -1,11 +1,11 @@
-import Api from "../translation/api.js";
+import SiteProfiles from "../content/extraction/site-profiles.js";
 import Appearance from "../shared/appearance.js";
 import EmbeddedFrames from "../shared/embedded-frames.js";
 import { createLogger } from "../shared/logger.js";
 import Messages from "../shared/messages.js";
 import Settings from "../shared/settings.js";
 import TranslationSession from "../shared/translation-session.js";
-import SiteProfiles from "../content/extraction/site-profiles.js";
+import Api from "../translation/api.js";
 import { createBackgroundController } from "./controller.js";
 import { createBackgroundPlatform } from "./platform.js";
 
