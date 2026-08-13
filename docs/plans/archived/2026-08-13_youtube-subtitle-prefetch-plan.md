@@ -31,7 +31,7 @@ Prefetch and translate the next 60 seconds of timed YouTube captions so a cached
 - [x] Extend the content and YouTube runtimes to cache early results, render cached captions before queueing misses, and report playback progress; verify with focused content/runtime tests.
 - [x] Format and lint changed JavaScript with Biome; verify `biome format --write` and `biome lint --write` complete successfully.
 - [x] Run focused tests, `just check`, and `just e2e-youtube`; all checks passed.
-- [ ] Commit the intended paths, push `agent/prefetch-youtube-subtitles`, and open a draft pull request with the implementation and verification evidence.
+- [x] Commit the intended paths, push `agent/prefetch-youtube-subtitles`, and open draft pull request [#17](https://github.com/narumiruna/vibe-translator/pull/17) with the implementation and verification evidence.
 
 ## Risks
 
@@ -45,4 +45,4 @@ Prefetch and translate the next 60 seconds of timed YouTube captions so a cached
 - [x] Continued playback or seeking queues the corresponding new 60-second window without retranslating completed cue IDs.
 - [x] A prefetched translation is cached before its caption DOM exists and renders immediately when an exact matching caption appears.
 - [x] Missing, malformed, or changed YouTube timed-caption data leaves the current visible-caption translation path working.
-- [ ] Focused tests, the repository check, branch push, and draft pull request all succeed.
+- [x] Focused tests, the repository check, branch push, and draft pull request all succeed.
