@@ -18,6 +18,7 @@ const {
 } = require("./lib/extension-test-helpers.cjs");
 
 const FIXTURE_PATH = "/test/fixture-page.html";
+const REINJECTION_FIXTURE_PATH = "/test/reinjection-page.html";
 const NESTED_SCROLL_FIXTURE_PATH = "/test/nested-scroll-page.html";
 const PARTIAL_FAILURE_FIXTURE_PATH = "/test/partial-failure-page.html";
 const SELECTION_FAILURE_FIXTURE_PATH = "/test/selection-failure-page.html";
@@ -569,14 +570,14 @@ async function runContentReinjectionSmoke(
 ) {
 	const page = await context.newPage();
 
-	await page.goto(`${serverOrigin}${FIXTURE_PATH}`, {
+	await page.goto(`${serverOrigin}${REINJECTION_FIXTURE_PATH}`, {
 		waitUntil: "domcontentloaded",
 	});
 	await callBackground(context, "translatePage", { pageUrl: page.url() });
 	await waitFor(
 		async () =>
 			(await page
-				.locator('[data-ot-role="note"][data-phase="ready"]')
+				.locator('#initial-source + [data-ot-role="note"][data-phase="ready"]')
 				.count()) > 0,
 		{
 			timeoutMs: REQUEST_TIMEOUT_MS,
@@ -600,6 +601,25 @@ async function runContentReinjectionSmoke(
 			mockApiServer.getResponseRequestCount(),
 			requestCountBefore,
 			"Content reinjection triggered an unexpected API request.",
+		);
+	}
+
+	await page.locator("#append-source").click();
+	await waitFor(
+		async () =>
+			(await page
+				.locator('#late-source + [data-ot-role="note"][data-phase="ready"]')
+				.count()) > 0,
+		{
+			timeoutMs: REQUEST_TIMEOUT_MS,
+			timeoutMessage:
+				"Content added after reinjection did not continue the active translation session.",
+		},
+	);
+	if (mockApiServer) {
+		assert.ok(
+			mockApiServer.getResponseRequestCount() > requestCountBefore,
+			"Post-reinjection content did not trigger an API request.",
 		);
 	}
 	await page.close();

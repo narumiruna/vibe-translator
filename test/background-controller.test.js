@@ -4,7 +4,7 @@ import test from "node:test";
 import { createBackgroundController } from "../src/background/controller.js";
 import Messages from "../src/shared/messages.js";
 
-function createController() {
+function createController(options = {}) {
 	const chrome = {
 		runtime: {
 			getManifest() {
@@ -13,15 +13,17 @@ function createController() {
 			id: "trusted-extension-id",
 		},
 	};
-	const pageTranslationQueue = {
-		enqueue() {},
-		get() {},
-		getTranslatedCount() {
-			return 0;
-		},
-		markTranslated() {},
-		remove() {},
-	};
+	const pageTranslationQueue =
+		options.pageTranslationQueue ||
+		Object.freeze({
+			enqueue() {},
+			get() {},
+			getTranslatedCount() {
+				return 0;
+			},
+			markTranslated() {},
+			remove() {},
+		});
 
 	return createBackgroundController({
 		chrome,
@@ -39,7 +41,18 @@ function createController() {
 				return pageTranslationQueue;
 			},
 		},
-		platform: {},
+		platform: {
+			buildDebugPayload(settings) {
+				return {
+					debug: { enabled: Boolean(settings?.showTranslationDebugInfo) },
+				};
+			},
+			buildTranslationAppearancePayload(settings) {
+				return {
+					translationAppearance: settings?.translationAppearance,
+				};
+			},
+		},
 	});
 }
 
@@ -66,5 +79,66 @@ test("background controller accepts health checks from this extension", async ()
 			id: "trusted-extension-id",
 		}),
 		{ ok: true, component: "background", version: "0.1.3" },
+	);
+});
+
+test("background controller returns an active frame session for content reinjection", async () => {
+	const session = {
+		sessionId: "page-session",
+		settings: {
+			showTranslationDebugInfo: true,
+			targetLanguage: "French",
+			translationAppearance: { preset: "minimal" },
+		},
+	};
+	const requestedSessions = [];
+	const controller = createController({
+		pageTranslationQueue: {
+			enqueue() {},
+			get(tabId, sessionId, frameId) {
+				requestedSessions.push({ tabId, sessionId, frameId });
+				return session;
+			},
+			getTranslatedCount() {
+				return 0;
+			},
+			markTranslated() {},
+			remove() {},
+		},
+	});
+
+	assert.deepEqual(
+		await controller.handleRuntimeMessage(
+			Messages.getPageTranslationSession(),
+			{
+				id: "trusted-extension-id",
+				tab: { id: 17 },
+				frameId: 3,
+			},
+		),
+		{
+			ok: true,
+			active: true,
+			sessionId: "page-session",
+			translationAppearance: session.settings.translationAppearance,
+			debug: { enabled: true },
+		},
+	);
+	assert.deepEqual(requestedSessions, [
+		{ tabId: 17, sessionId: undefined, frameId: 3 },
+	]);
+});
+
+test("background controller reports no reinjection session without a sender tab", async () => {
+	const controller = createController();
+
+	assert.deepEqual(
+		await controller.handleRuntimeMessage(
+			Messages.getPageTranslationSession(),
+			{
+				id: "trusted-extension-id",
+			},
+		),
+		{ ok: true, active: false },
 	);
 });

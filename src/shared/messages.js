@@ -2,6 +2,7 @@ const MESSAGE_TYPES = Object.freeze({
 	AUTOMATION_TRANSLATE_PAGE: "automation-translate-page",
 	AUTOMATION_TRANSLATE_SELECTION: "automation-translate-selection",
 	GET_RUNTIME_HEALTH: "get-runtime-health",
+	GET_PAGE_TRANSLATION_SESSION: "get-page-translation-session",
 	CLEAR_PAGE_PLACEHOLDERS: "clear-page-placeholders",
 	CLEAR_PENDING_TRANSLATIONS: "clear-pending-translations",
 	CLEAR_SELECTION_TRANSLATION: "clear-selection-translation",
@@ -54,6 +55,9 @@ const api = {
 	createMessage,
 	getRuntimeHealth() {
 		return createMessage(MESSAGE_TYPES.GET_RUNTIME_HEALTH);
+	},
+	getPageTranslationSession() {
+		return createMessage(MESSAGE_TYPES.GET_PAGE_TRANSLATION_SESSION);
 	},
 	openOptions() {
 		return createMessage(MESSAGE_TYPES.OPEN_OPTIONS);

@@ -194,7 +194,7 @@ Background, content, and options logs share a redacted event shape with correlat
 - [x] Make options and background URLs derive from the generated manifest and service-worker discovery; verify tests do not contain Extension.js output paths except the artifact root.
 - [x] Run the complete mock smoke suite twice consecutively to detect lifecycle and profile leakage; verify both runs pass with independent temporary profiles.
 - [ ] Run YouTube, Antirez/Disqus, and Syosetu regressions against `dist/chrome`; YouTube passes after a bundled-runtime timing assertion was made multi-note-safe, while live Antirez/Disqus and Syosetu currently reach their pages but do not complete translations and remain open for investigation.
-- [ ] Add an E2E assertion that content-script reinjection does not duplicate controls, notes, observers, or runtime responses; the smoke suite now verifies health, no duplicate notes, and no extra API request after production-bundle reinjection, while control/observer counts still need explicit assertions.
+- [ ] Add an E2E assertion that content-script reinjection does not duplicate controls, notes, observers, or runtime responses; the smoke suite verifies health, no duplicate notes, no extra API request during reinjection, and continued mutation translation through the restored background session, while control/observer counts still need explicit assertions.
 
 ### Phase 9: Replace packaging and CI
 
@@ -202,7 +202,7 @@ Background, content, and options logs share a redacted event shape with correlat
 - [x] Add `scripts/verify-build.mjs` to validate manifest parity, referenced-file existence, ZIP contents, no duplicate bundles, and an agreed size budget; verify it fails on a deliberately corrupted artifact.
 - [x] Update `npm run check` and `just check` to run syntax or module checks, unit tests, a production build, and build verification in a deterministic order.
 - [x] Update GitHub Actions to run `npm ci`, Biome, unit tests, Extension.js production build, build verification, and headless mock E2E with an installed Playwright Chromium.
-- [ ] Upload the verified Chrome ZIP and E2E diagnostics as CI artifacts without publishing them; workflow is configured in `.github/workflows/ci.yml`, but a hosted pull-request run is still required.
+- [x] Upload the verified Chrome ZIP and E2E diagnostics as CI artifacts without publishing them; pull request CI run `31655830912` passed the configured upload workflow.
 - [x] Run `biome format --write` and `biome lint --write` after code changes, then rerun the complete check pipeline; focused Biome checks and `npm run check` pass.
 - [x] Delete the obsolete Python packager only after the Extension.js ZIP and rollback artifact have both been verified.
 
@@ -251,7 +251,7 @@ If the migrated store candidate requests new permissions, duplicates injected UI
 - [ ] Mock smoke, YouTube, Antirez/Disqus, and Syosetu tests load `dist/chrome` and pass; mock smoke and YouTube pass, but the two live-site suites remain unresolved.
 - [ ] Structured cross-context logs trace page, selection, and YouTube requests without leaking secrets or source text.
 - [x] Production ZIP verification passes and finds no duplicate content payload or development-only file.
-- [ ] Clean-checkout CI produces a verified Chrome ZIP and passing headless mock E2E evidence; local commands pass and workflow is configured, but hosted evidence is pending.
+- [x] Clean-checkout CI produces a verified Chrome ZIP and passing headless mock E2E evidence; pull request CI run `31655830912` passed.
 - [ ] Upgrade rehearsal preserves settings and introduces no unexpected permission prompt.
 - [x] README, E2E, manual testing, and repository guidance describe the Extension.js workflow.
 - [ ] A last known-good rollback ZIP is retained before the first migrated release.

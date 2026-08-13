@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Content Reinjection Fixture</title>
+  </head>
+  <body>
+    <main>
+      <h1>Content reinjection test</h1>
+      <p id="initial-source">
+        This paragraph should translate before the content script is reinjected.
+      </p>
+      <button id="append-source" type="button">Append article content</button>
+    </main>
+    <script>
+      document.getElementById("append-source").addEventListener("click", () => {
+        const paragraph = document.createElement("p");
+        paragraph.id = "late-source";
+        paragraph.textContent =
+          "This paragraph was added after reinjection and should translate automatically.";
+        document.querySelector("main").appendChild(paragraph);
+      });
+    </script>
+  </body>
+</html>

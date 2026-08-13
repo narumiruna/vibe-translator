@@ -625,6 +625,36 @@ export function createContentRuntime(options = {}) {
 		}, VISIBLE_TRANSLATION_FLUSH_DELAY_MS);
 	}
 
+	async function restorePageTranslationSession() {
+		try {
+			const response = await chrome.runtime.sendMessage(
+				Messages.getPageTranslationSession(),
+			);
+
+			if (
+				cleanedUp ||
+				isPageTranslationSessionActive() ||
+				!response?.ok ||
+				!response.active ||
+				!response.sessionId
+			) {
+				return false;
+			}
+
+			ensureStyles(response.translationAppearance);
+			pageState.debug.enabled = Boolean(response.debug?.enabled);
+			activatePageTranslationSession(response.sessionId);
+			ensureObserver();
+			if (pageState.youtubeControl.button) {
+				applyYoutubeControlState(pageState.youtubeControl.button, "active");
+			}
+			return true;
+		} catch (_error) {
+			// The background may be unavailable while the extension is reloading.
+			return false;
+		}
+	}
+
 	const {
 		clearPagePlaceholders,
 		clearPendingTranslations,
@@ -681,6 +711,8 @@ export function createContentRuntime(options = {}) {
 	});
 
 	const MessageTypes = Messages.MESSAGE_TYPES;
+	let cleanedUp = false;
+	let restoreSessionTimer = null;
 	const onRuntimeMessage = (message, _sender, sendResponse) => {
 		if (!message || typeof message !== "object") {
 			sendResponse({ ok: false });
@@ -819,15 +851,24 @@ export function createContentRuntime(options = {}) {
 	if (options.mount !== false) {
 		ensureYoutubeControl();
 		chrome.runtime.onMessage.addListener(onRuntimeMessage);
+		restoreSessionTimer = window.setTimeout(() => {
+			restoreSessionTimer = null;
+			restorePageTranslationSession();
+		}, 0);
 	}
 
 	function cleanup() {
+		cleanedUp = true;
 		cleanupYoutubeRuntime();
 		pageObserverRuntime.cleanup();
 		if (visibleTranslationFlushTimer) {
 			window.clearTimeout(visibleTranslationFlushTimer);
 		}
+		if (restoreSessionTimer) {
+			window.clearTimeout(restoreSessionTimer);
+		}
 		visibleTranslationFlushTimer = null;
+		restoreSessionTimer = null;
 		cleanupRendering();
 		chrome.runtime.onMessage.removeListener?.(onRuntimeMessage);
 	}

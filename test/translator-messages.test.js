@@ -13,6 +13,9 @@ test("message builders use shared message types", () => {
 	assert.deepEqual(TranslatorMessages.openOptions(), {
 		type: TranslatorMessages.MESSAGE_TYPES.OPEN_OPTIONS,
 	});
+	assert.deepEqual(TranslatorMessages.getPageTranslationSession(), {
+		type: TranslatorMessages.MESSAGE_TYPES.GET_PAGE_TRANSLATION_SESSION,
+	});
 	assert.equal(
 		TranslatorMessages.MESSAGE_TYPES.RENDER_YOUTUBE_DIAGNOSTIC_EVENT,
 		"render-youtube-diagnostic-event",

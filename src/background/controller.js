@@ -571,6 +571,29 @@ export function createBackgroundController(options = {}) {
 			};
 		}
 
+		if (message.type === Messages.MESSAGE_TYPES.GET_PAGE_TRANSLATION_SESSION) {
+			const tabId = sender?.tab?.id;
+			const frameId = Number.isInteger(sender?.frameId) ? sender.frameId : 0;
+
+			if (!tabId) {
+				return { ok: true, active: false };
+			}
+
+			const session = getPageTranslationSession(tabId, undefined, frameId);
+
+			if (!session) {
+				return { ok: true, active: false };
+			}
+
+			return {
+				ok: true,
+				active: true,
+				sessionId: session.sessionId,
+				...buildTranslationAppearancePayload(session.settings),
+				...buildDebugPayload(session.settings),
+			};
+		}
+
 		if (message.type === Messages.MESSAGE_TYPES.AUTOMATION_TRANSLATE_PAGE) {
 			if (!sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`)) {
 				return {
