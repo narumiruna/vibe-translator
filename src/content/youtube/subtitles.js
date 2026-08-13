@@ -1,7 +1,11 @@
+import Settings from "../../shared/settings.js";
+
 const SUBTITLE_PRESENTATION = "subtitle";
 const SUBTITLE_PRESENTATION_ATTR = "data-ot-presentation";
+const SUBTITLE_DISPLAY_MODE_ATTR = "data-ot-subtitle-display-mode";
 const SUBTITLE_FONT_SIZE_PROPERTY = "--ot-subtitle-font-size";
 const SUBTITLE_REPLACED_ATTR = "data-ot-subtitle-replaced";
+const SUBTITLE_SOURCE_TEXT_ATTR = "data-ot-subtitle-source-text";
 const YOUTUBE_CAPTION_SEGMENT_SELECTOR = ".ytp-caption-segment";
 
 const PLAYER_CONTROL_STATES = Object.freeze({
@@ -153,6 +157,29 @@ function shouldRenderPlaceholder(profile) {
 	return !isSubtitleProfile(profile);
 }
 
+function normalizeSubtitleSourceText(value) {
+	return String(value || "")
+		.replace(/\s+/gu, " ")
+		.trim();
+}
+
+function bindSubtitleNote(profile, note, options = {}) {
+	if (!isSubtitleProfile(profile) || !note) {
+		return false;
+	}
+
+	note.setAttribute(
+		SUBTITLE_SOURCE_TEXT_ATTR,
+		normalizeSubtitleSourceText(options.sourceText),
+	);
+	note.setAttribute(
+		SUBTITLE_DISPLAY_MODE_ATTR,
+		Settings.normalizeYoutubeSubtitleDisplayMode(options.displayMode),
+	);
+
+	return true;
+}
+
 function replaceSubtitleSource(profile, source, replaced) {
 	if (!isSubtitleProfile(profile) || !source) {
 		return false;
@@ -167,13 +194,21 @@ function replaceSubtitleSource(profile, source, replaced) {
 	return true;
 }
 
-function resetChangedSubtitleSource(profile, options = {}) {
-	if (!isSubtitleProfile(profile) || !options.element) {
+function applySubtitleDisplayMode(profile, source, displayMode) {
+	if (!isSubtitleProfile(profile) || !source) {
 		return false;
 	}
 
-	options.note?.remove?.();
-	replaceSubtitleSource(profile, options.element, false);
+	return replaceSubtitleSource(
+		profile,
+		source,
+		Settings.normalizeYoutubeSubtitleDisplayMode(displayMode) ===
+			"translation-only",
+	);
+}
+
+function clearSubtitleSourceState(profile, element, options = {}) {
+	replaceSubtitleSource(profile, element, false);
 
 	for (const attribute of [
 		options.sourceAttribute,
@@ -182,13 +217,22 @@ function resetChangedSubtitleSource(profile, options = {}) {
 		options.processedAttribute,
 	]) {
 		if (attribute) {
-			options.element.removeAttribute(attribute);
+			element.removeAttribute?.(attribute);
 		}
 	}
 
 	if (options.queuedAttribute) {
-		options.element.setAttribute(options.queuedAttribute, "false");
+		element.setAttribute?.(options.queuedAttribute, "false");
 	}
+}
+
+function resetChangedSubtitleSource(profile, options = {}) {
+	if (!isSubtitleProfile(profile) || !options.element) {
+		return false;
+	}
+
+	options.note?.remove?.();
+	clearSubtitleSourceState(profile, options.element, options);
 
 	return true;
 }
@@ -221,29 +265,50 @@ function removeDetachedSubtitleSources(profile, node, options = {}) {
 
 	for (const source of getSubtitleSources(node, options.sourceAttribute)) {
 		const id = source.getAttribute?.(options.sourceAttribute);
-
-		replaceSubtitleSource(profile, source, false);
 		const note = id ? options.findNote?.(source, id) : null;
 
-		for (const attribute of [
-			options.sourceAttribute,
-			options.staleAttribute,
-			options.translatedAttribute,
-			options.processedAttribute,
-		]) {
-			if (attribute) {
-				source.removeAttribute?.(attribute);
-			}
-		}
-
-		if (options.queuedAttribute) {
-			source.setAttribute?.(options.queuedAttribute, "false");
-		}
+		clearSubtitleSourceState(profile, source, options);
 
 		if (!note) {
 			continue;
 		}
 
+		note.remove?.();
+		removed += 1;
+	}
+
+	return removed;
+}
+
+function reconcileSubtitleNotes(profile, options = {}) {
+	if (!isSubtitleProfile(profile)) {
+		return 0;
+	}
+
+	let removed = 0;
+
+	for (const note of options.notes || []) {
+		const id = note.getAttribute?.(options.noteAttribute);
+		const source = id ? options.findSource?.(id) : null;
+		const sourceSnapshot = normalizeSubtitleSourceText(
+			note.getAttribute?.(SUBTITLE_SOURCE_TEXT_ATTR),
+		);
+		const currentSourceText = normalizeSubtitleSourceText(
+			source ? options.getSourceText?.(source) : "",
+		);
+
+		if (source && sourceSnapshot && sourceSnapshot === currentSourceText) {
+			applySubtitleDisplayMode(
+				profile,
+				source,
+				note.getAttribute?.(SUBTITLE_DISPLAY_MODE_ATTR),
+			);
+			continue;
+		}
+
+		if (source) {
+			clearSubtitleSourceState(profile, source, options);
+		}
 		note.remove?.();
 		removed += 1;
 	}
@@ -285,13 +350,17 @@ function prepareSubtitleNote(profile, note, source, getComputedStyle) {
 }
 
 const api = {
+	applySubtitleDisplayMode,
+	bindSubtitleNote,
 	cacheSubtitleTranslations,
 	consumeCachedSubtitleTranslations,
 	hasCachedSubtitleTranslation,
+	SUBTITLE_DISPLAY_MODE_ATTR,
 	SUBTITLE_FONT_SIZE_PROPERTY,
 	SUBTITLE_PRESENTATION,
 	SUBTITLE_PRESENTATION_ATTR,
 	SUBTITLE_REPLACED_ATTR,
+	SUBTITLE_SOURCE_TEXT_ATTR,
 	YOUTUBE_CAPTION_SEGMENT_SELECTOR,
 	findMatchingSubtitleSource,
 	getMeaningfulCharacterMinimum,
@@ -299,6 +368,7 @@ const api = {
 	isSubtitleProfile,
 	normalizeCaptionFontSize,
 	prepareSubtitleNote,
+	reconcileSubtitleNotes,
 	removeDetachedSubtitleSources,
 	replaceSubtitleSource,
 	resetChangedSubtitleSource,
@@ -310,6 +380,8 @@ const api = {
 };
 
 export {
+	applySubtitleDisplayMode,
+	bindSubtitleNote,
 	cacheSubtitleTranslations,
 	consumeCachedSubtitleTranslations,
 	findMatchingSubtitleSource,
@@ -319,15 +391,18 @@ export {
 	isSubtitleProfile,
 	normalizeCaptionFontSize,
 	prepareSubtitleNote,
+	reconcileSubtitleNotes,
 	removeDetachedSubtitleSources,
 	replaceSubtitleSource,
 	resetChangedSubtitleSource,
 	resolvePlayerControlError,
 	resolvePlayerControlState,
+	SUBTITLE_DISPLAY_MODE_ATTR,
 	SUBTITLE_FONT_SIZE_PROPERTY,
 	SUBTITLE_PRESENTATION,
 	SUBTITLE_PRESENTATION_ATTR,
 	SUBTITLE_REPLACED_ATTR,
+	SUBTITLE_SOURCE_TEXT_ATTR,
 	shouldAllowAncestorTransforms,
 	shouldKeepSessionAlive,
 	shouldRenderPlaceholder,

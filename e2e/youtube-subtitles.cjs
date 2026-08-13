@@ -16,9 +16,17 @@ const {
 const YOUTUBE_VIDEO_URL = "https://www.youtube.com/watch?v=g7AxxkywiFI";
 const INITIAL_CAPTION = `This result must not survive ${Date.now()}.`;
 const CURRENT_CAPTION = `Pi gives you one small tool ${Date.now() + 1}.`;
+const NEXT_CAPTION = `The next cue stays synchronized ${Date.now() + 2}.`;
+const FINAL_CAPTION = `The final cue replaces it cleanly ${Date.now() + 3}.`;
+const BILINGUAL_CAPTIONS = [
+	`Keep this original caption visible ${Date.now() + 4}.`,
+	`Keep this sibling caption visible ${Date.now() + 5}.`,
+];
 
-async function installCaptionFixture(page) {
-	await page.evaluate((text) => {
+async function installCaptionFixture(page, captionTexts) {
+	const texts = Array.isArray(captionTexts) ? captionTexts : [captionTexts];
+
+	await page.evaluate((fixtureTexts) => {
 		document.querySelector("video")?.pause();
 		let container = document.querySelector("#ytp-caption-window-container");
 
@@ -45,7 +53,6 @@ async function installCaptionFixture(page) {
 		const captionWindow = document.createElement("div");
 		const captionsText = document.createElement("span");
 		const visualLine = document.createElement("span");
-		const segment = document.createElement("span");
 
 		captionWindow.className = "caption-window ytp-caption-window-bottom";
 		captionWindow.style.transform = "translateY(0px)";
@@ -53,13 +60,106 @@ async function installCaptionFixture(page) {
 		captionsText.style.cssText =
 			"display:block;color:white;font:500 24px/1.25 Arial,sans-serif;background:rgba(8,8,8,.78);width:max-content;max-width:100%;margin:0 auto;padding:.08em .34em";
 		visualLine.className = "caption-visual-line";
-		segment.className = "ytp-caption-segment";
-		segment.textContent = text;
-		visualLine.appendChild(segment);
+		for (const text of fixtureTexts) {
+			const segment = document.createElement("span");
+
+			segment.className = "ytp-caption-segment";
+			segment.textContent = text;
+			visualLine.appendChild(segment);
+		}
 		captionsText.appendChild(visualLine);
 		captionWindow.appendChild(captionsText);
 		container.appendChild(captionWindow);
-	}, INITIAL_CAPTION);
+	}, texts);
+}
+
+async function installSubtitleTimeline(page) {
+	await page.evaluate(() => {
+		window.__otSubtitleTimelineObserver?.disconnect();
+		window.__otSubtitleTimeline = [];
+		const root = document.querySelector("#ytp-caption-window-container");
+
+		window.__otSubtitleTimelineObserver = new MutationObserver((mutations) => {
+			const nodeMatches = (node, selector) =>
+				Boolean(
+					node?.nodeType === Node.ELEMENT_NODE &&
+						(node.matches?.(selector) || node.querySelector?.(selector)),
+				);
+			const mutationTouches = (mutation, selector) =>
+				Boolean(
+					mutation.target?.parentElement?.closest?.(selector) ||
+						mutation.target?.closest?.(selector) ||
+						[
+							...(mutation.addedNodes || []),
+							...(mutation.removedNodes || []),
+						].some((node) => nodeMatches(node, selector)),
+				);
+			const nativeMutation = mutations.some((mutation) =>
+				mutationTouches(mutation, ".ytp-caption-segment"),
+			);
+			const noteMutation = mutations.some((mutation) =>
+				mutationTouches(mutation, '[data-ot-role="note"]'),
+			);
+
+			if (!nativeMutation && !noteMutation) {
+				return;
+			}
+
+			window.__otSubtitleTimeline.push({
+				nativeMutation,
+				nativeTexts: Array.from(
+					root.querySelectorAll(".ytp-caption-segment"),
+				).map((element) => (element.textContent || "").trim()),
+				noteMutation,
+				notes: Array.from(root.querySelectorAll('[data-ot-role="note"]')).map(
+					(note) => ({
+						sourceText: note.getAttribute("data-ot-subtitle-source-text") || "",
+						translation:
+							note.querySelector('[data-ot-role="note-body"]')?.textContent ||
+							"",
+					}),
+				),
+				timestamp: Date.now(),
+			});
+		});
+		window.__otSubtitleTimelineObserver.observe(root, {
+			childList: true,
+			characterData: true,
+			subtree: true,
+		});
+	});
+}
+
+async function setFirstCaptionText(page, text) {
+	await page.evaluate((nextText) => {
+		const source = document.querySelector(
+			"#ytp-caption-window-container .ytp-caption-segment",
+		);
+
+		if (source) {
+			source.textContent = nextText;
+		}
+	}, text);
+}
+
+async function waitForCaptionTranslation(page, sourceText) {
+	const note = page
+		.locator(
+			'#ytp-caption-window-container [data-ot-role="note"][data-phase="ready"]',
+		)
+		.filter({ hasText: sourceText.slice(0, 30) })
+		.first();
+
+	await waitFor(
+		async () =>
+			((await note.textContent()) || "").includes(sourceText.slice(0, 30)),
+		{
+			timeoutMs: REQUEST_TIMEOUT_MS,
+			timeoutMessage: `The YouTube caption was not translated: ${sourceText}`,
+		},
+	);
+
+	return note;
 }
 
 async function suppressVisibleCaptions(page) {
@@ -188,7 +288,7 @@ async function main() {
 					"A YouTube-replaced player control did not accept a real click.",
 			},
 		);
-		await installCaptionFixture(page);
+		await installCaptionFixture(page, INITIAL_CAPTION);
 
 		const source = page.locator(
 			"#ytp-caption-window-container .ytp-caption-segment",
@@ -365,6 +465,97 @@ async function main() {
 			"24px",
 		);
 		assert.equal(await control.getAttribute("aria-pressed"), "true");
+
+		await installSubtitleTimeline(page);
+		for (const caption of [NEXT_CAPTION, FINAL_CAPTION]) {
+			await setFirstCaptionText(page, caption);
+			await waitForCaptionTranslation(page, caption);
+		}
+		const subtitleTimeline = await page.evaluate(
+			() => window.__otSubtitleTimeline || [],
+		);
+		assert.ok(
+			subtitleTimeline.some((entry) => entry.nativeMutation),
+			"Expected timestamped native caption mutations.",
+		);
+		assert.ok(
+			subtitleTimeline.some((entry) => entry.noteMutation),
+			"Expected timestamped translated-note mutations.",
+		);
+		assert.ok(
+			subtitleTimeline.every(
+				(entry, index, entries) =>
+					Number.isFinite(entry.timestamp) &&
+					(index === 0 || entry.timestamp >= entries[index - 1].timestamp),
+			),
+			"Subtitle mutation timestamps should be ordered.",
+		);
+		const staleTimelineEntries = subtitleTimeline.filter((entry) =>
+			entry.notes.some(
+				(note) =>
+					note.sourceText && !entry.nativeTexts.includes(note.sourceText),
+			),
+		);
+		assert.deepEqual(
+			staleTimelineEntries,
+			[],
+			`A translated note outlived its exact native cue: ${JSON.stringify(staleTimelineEntries)}`,
+		);
+		for (const caption of [NEXT_CAPTION, FINAL_CAPTION]) {
+			assert.ok(
+				subtitleTimeline.some((entry) =>
+					entry.notes.some((note) => note.sourceText === caption),
+				),
+				`The timeline did not record the translated cue: ${caption}`,
+			);
+		}
+
+		await saveOptions(runState.context, runState.extensionId, config, {
+			runConnectionTest: false,
+			youtubeSubtitleDisplayMode: "bilingual",
+		});
+		await page.reload({ waitUntil: "domcontentloaded" });
+		await page.bringToFront();
+		await installCaptionTrackMetadata(page);
+		const bilingualControl = page.locator(
+			"#movie_player [data-ot-youtube-control]",
+		);
+		await waitFor(async () => (await bilingualControl.count()) === 1, {
+			timeoutMessage: "The bilingual player control did not appear.",
+		});
+		await bilingualControl.click();
+		await installCaptionFixture(page, BILINGUAL_CAPTIONS);
+		await waitFor(
+			async () =>
+				(await bilingualControl.getAttribute("data-state")) === "active",
+			{
+				timeoutMs: REQUEST_TIMEOUT_MS,
+				timeoutMessage: "The bilingual subtitle session did not become active.",
+			},
+		);
+		for (const caption of BILINGUAL_CAPTIONS) {
+			const bilingualNote = await waitForCaptionTranslation(page, caption);
+			const bilingualSource = page
+				.locator("#ytp-caption-window-container .ytp-caption-segment")
+				.filter({ hasText: caption })
+				.first();
+
+			assert.notEqual(
+				await bilingualSource.evaluate(
+					(element) => getComputedStyle(element).display,
+				),
+				"none",
+				"Bilingual mode should preserve the exact native caption segment.",
+			);
+			assert.equal(
+				await bilingualSource.getAttribute("data-ot-subtitle-replaced"),
+				null,
+			);
+			assert.equal(
+				await bilingualNote.getAttribute("data-ot-subtitle-display-mode"),
+				"bilingual",
+			);
+		}
 
 		await clearStoredSettings(runState.context);
 		await page.reload({ waitUntil: "domcontentloaded" });

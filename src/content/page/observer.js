@@ -29,6 +29,7 @@ export function createPageObserver(options = {}) {
 		window,
 		rootAttr,
 		sourceAttr,
+		noteAttr,
 		queuedAttr,
 		staleAttr,
 		translatedAttr,
@@ -39,6 +40,7 @@ export function createPageObserver(options = {}) {
 		hasSourceTextChanged,
 		setSourceQueued,
 		getExistingNoteForSource,
+		getSourceText,
 		onScheduleVisibleTranslation,
 		contentLifecycle,
 		observerDebounceMs = 200,
@@ -130,6 +132,39 @@ export function createPageObserver(options = {}) {
 		scheduleStaleFlush();
 	}
 
+	function reconcileSubtitleNotes() {
+		if (
+			!SubtitleApi.isSubtitleProfile(activeSiteProfile) ||
+			typeof SubtitleApi.reconcileSubtitleNotes !== "function"
+		) {
+			return;
+		}
+
+		const sources = Array.from(
+			document.querySelectorAll?.(`[${sourceAttr}]`) || [],
+		);
+
+		withObserverPaused(() => {
+			SubtitleApi.reconcileSubtitleNotes(activeSiteProfile, {
+				findSource(id) {
+					return (
+						sources.find(
+							(source) => source.getAttribute?.(sourceAttr) === id,
+						) || null
+					);
+				},
+				getSourceText,
+				noteAttribute: noteAttr,
+				notes: document.querySelectorAll?.(`[${rootAttr}="note"]`) || [],
+				processedAttribute: processedAttr,
+				queuedAttribute: queuedAttr,
+				sourceAttribute: sourceAttr,
+				staleAttribute: staleAttr,
+				translatedAttribute: translatedAttr,
+			});
+		});
+	}
+
 	function flushObserverMutations() {
 		observerFlushTimer = null;
 		const mutations = pendingObserverMutations.splice(0);
@@ -148,6 +183,7 @@ export function createPageObserver(options = {}) {
 				continue;
 			if (mutation.type === "characterData" || mutation.type === "attributes") {
 				markRelatedSourcesStale(mutation.target);
+				reconcileSubtitleNotes();
 				shouldScheduleTranslation = true;
 				continue;
 			}
@@ -170,6 +206,7 @@ export function createPageObserver(options = {}) {
 					markRelatedSourcesStale(node);
 				}
 			}
+			reconcileSubtitleNotes();
 			shouldScheduleTranslation = true;
 		}
 

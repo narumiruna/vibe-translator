@@ -98,6 +98,14 @@ export function createBackgroundPlatform(options = {}) {
 		};
 	}
 
+	function buildYoutubeSubtitlePayload(settings) {
+		return {
+			youtubeSubtitleDisplayMode: Settings.normalizeYoutubeSubtitleDisplayMode(
+				settings?.youtubeSubtitleDisplayMode,
+			),
+		};
+	}
+
 	function buildDebugPayload(settings) {
 		return {
 			debug: {
@@ -153,6 +161,7 @@ export function createBackgroundPlatform(options = {}) {
 				targetLanguage,
 				translations,
 				...buildTranslationAppearancePayload(settings),
+				...buildYoutubeSubtitlePayload(settings),
 			}),
 			getFrameMessageOptions(frameId),
 		);
@@ -330,6 +339,7 @@ export function createBackgroundPlatform(options = {}) {
 		buildDebugPayload,
 		buildSelectionPanelPayload,
 		buildTranslationAppearancePayload,
+		buildYoutubeSubtitlePayload,
 		clearPagePlaceholders,
 		discoverEmbeddedPageFrames,
 		ensureApiPermission,

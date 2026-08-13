@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveSiteProfile } from "../src/content/extraction/site-profiles.js";
 import {
+	applySubtitleDisplayMode,
+	bindSubtitleNote,
 	cacheSubtitleTranslations,
 	consumeCachedSubtitleTranslations,
 	findMatchingSubtitleSource,
@@ -10,11 +12,14 @@ import {
 	hasCachedSubtitleTranslation,
 	isSubtitleProfile,
 	prepareSubtitleNote,
+	reconcileSubtitleNotes,
 	removeDetachedSubtitleSources,
 	replaceSubtitleSource,
 	resetChangedSubtitleSource,
 	resolvePlayerControlError,
 	resolvePlayerControlState,
+	SUBTITLE_DISPLAY_MODE_ATTR,
+	SUBTITLE_SOURCE_TEXT_ATTR,
 	shouldAllowAncestorTransforms,
 	shouldKeepSessionAlive,
 	shouldRenderPlaceholder,
@@ -278,7 +283,130 @@ test("detached subtitle results rebind only to an identical visible source", () 
 	);
 });
 
-test("translated subtitles replace the visible native caption", () => {
+test("subtitle display modes change only the bound native segment", () => {
+	const firstAttributes = new Map();
+	const secondAttributes = new Map();
+	const noteAttributes = new Map();
+	const createSource = (attributes) => ({
+		removeAttribute(name) {
+			attributes.delete(name);
+		},
+		setAttribute(name, value) {
+			attributes.set(name, value);
+		},
+	});
+	const firstSource = createSource(firstAttributes);
+	const secondSource = createSource(secondAttributes);
+	const note = {
+		setAttribute(name, value) {
+			noteAttributes.set(name, value);
+		},
+	};
+
+	assert.equal(
+		bindSubtitleNote(youtubeProfile, note, {
+			displayMode: "bilingual",
+			sourceText: "  Hello   world  ",
+		}),
+		true,
+	);
+	assert.equal(noteAttributes.get(SUBTITLE_SOURCE_TEXT_ATTR), "Hello world");
+	assert.equal(noteAttributes.get(SUBTITLE_DISPLAY_MODE_ATTR), "bilingual");
+	assert.equal(
+		applySubtitleDisplayMode(youtubeProfile, firstSource, "bilingual"),
+		true,
+	);
+	assert.equal(firstAttributes.has("data-ot-subtitle-replaced"), false);
+
+	bindSubtitleNote(youtubeProfile, note, {
+		displayMode: "translation-only",
+		sourceText: "Hello world",
+	});
+	assert.equal(
+		applySubtitleDisplayMode(youtubeProfile, firstSource, "translation-only"),
+		true,
+	);
+	assert.equal(firstAttributes.get("data-ot-subtitle-replaced"), "true");
+	assert.equal(secondAttributes.has("data-ot-subtitle-replaced"), false);
+	assert.equal(
+		applySubtitleDisplayMode(defaultProfile, secondSource, "translation-only"),
+		false,
+	);
+});
+
+test("subtitle reconciliation removes notes whose exact source changed or disappeared", () => {
+	const matchingSource = {
+		attributes: new Map([["data-ot-source-id", "ot-1"]]),
+		text: "First cue",
+		removeAttribute(name) {
+			this.attributes.delete(name);
+		},
+		setAttribute(name, value) {
+			this.attributes.set(name, value);
+		},
+	};
+	const changedSource = {
+		attributes: new Map([["data-ot-source-id", "ot-2"]]),
+		text: "New second cue",
+		removeAttribute(name) {
+			this.attributes.delete(name);
+		},
+		setAttribute(name, value) {
+			this.attributes.set(name, value);
+		},
+	};
+	const sources = new Map([
+		["ot-1", matchingSource],
+		["ot-2", changedSource],
+	]);
+	function createNote(id, sourceText, displayMode) {
+		const attributes = new Map([
+			["data-ot-note-id", id],
+			[SUBTITLE_SOURCE_TEXT_ATTR, sourceText],
+			[SUBTITLE_DISPLAY_MODE_ATTR, displayMode],
+		]);
+
+		return {
+			attributes,
+			removed: false,
+			getAttribute(name) {
+				return attributes.get(name) || null;
+			},
+			remove() {
+				this.removed = true;
+			},
+		};
+	}
+	const matchingNote = createNote("ot-1", "First cue", "bilingual");
+	const changedNote = createNote(
+		"ot-2",
+		"Previous second cue",
+		"translation-only",
+	);
+	const detachedNote = createNote("ot-3", "Detached cue", "translation-only");
+
+	assert.equal(
+		reconcileSubtitleNotes(youtubeProfile, {
+			findSource: (id) => sources.get(id) || null,
+			getSourceText: (source) => source.text,
+			noteAttribute: "data-ot-note-id",
+			notes: [matchingNote, changedNote, detachedNote],
+			processedAttribute: "data-translated",
+			queuedAttribute: "data-ot-queued",
+			sourceAttribute: "data-ot-source-id",
+			staleAttribute: "data-ot-source-stale",
+			translatedAttribute: "data-ot-translated",
+		}),
+		2,
+	);
+	assert.equal(matchingNote.removed, false);
+	assert.equal(changedNote.removed, true);
+	assert.equal(detachedNote.removed, true);
+	assert.equal(changedSource.attributes.has("data-ot-source-id"), false);
+	assert.equal(changedSource.attributes.get("data-ot-queued"), "false");
+});
+
+test("translated subtitles can still explicitly clear native replacement state", () => {
 	const attributes = new Map();
 	const source = {
 		removeAttribute(name) {

@@ -16,6 +16,7 @@ export function createBackgroundController(options = {}) {
 		buildDebugPayload,
 		buildSelectionPanelPayload,
 		buildTranslationAppearancePayload,
+		buildYoutubeSubtitlePayload,
 		clearPagePlaceholders,
 		discoverEmbeddedPageFrames,
 		ensureApiPermission,
@@ -259,6 +260,7 @@ export function createBackgroundController(options = {}) {
 				sessionId: session.sessionId,
 				targetLanguage: settings.targetLanguage,
 				...buildTranslationAppearancePayload(settings),
+				...buildYoutubeSubtitlePayload(settings),
 				...buildDebugPayload(settings),
 			}),
 			getFrameMessageOptions(frameId),
@@ -636,6 +638,7 @@ export function createBackgroundController(options = {}) {
 				sessionId: session.sessionId,
 				targetLanguage: session.settings.targetLanguage,
 				...buildTranslationAppearancePayload(session.settings),
+				...buildYoutubeSubtitlePayload(session.settings),
 				...buildDebugPayload(session.settings),
 			};
 		}
