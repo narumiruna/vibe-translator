@@ -255,6 +255,8 @@ export function createContentRenderer(options = {}) {
 			clearDebugPanel();
 		}
 		activatePageTranslationSession(payload.sessionId);
+		pageState.pageTranslation.targetLanguage = payload.targetLanguage || "";
+		pageState.youtubeSubtitleTranslations?.clear?.();
 		if (pageState.youtubeControl.button) {
 			applyYoutubeControlState(pageState.youtubeControl.button, "active");
 		}
@@ -459,6 +461,10 @@ export function createContentRenderer(options = {}) {
 	function renderPageTranslations(payload) {
 		ensureStyles(payload?.translationAppearance);
 		ensureObserver();
+		const cachedSubtitleCount = SubtitleApi.cacheSubtitleTranslations(
+			pageState.youtubeSubtitleTranslations,
+			payload.translations,
+		);
 
 		const translationMap = new Map(
 			(payload.translations || []).map((item) => [item.id, item]),
@@ -539,7 +545,7 @@ export function createContentRenderer(options = {}) {
 			recordYoutubeDiagnostic(
 				"render",
 				`Received ${translationMap.size} translation(s); rendered ${rendered}; rebound ${rebound}; stale ${stale}; missing target ${missingTarget}`,
-				{ show: stale > 0 || missingTarget > 0 },
+				{ show: stale > 0 || (missingTarget > 0 && cachedSubtitleCount === 0) },
 			);
 		}
 

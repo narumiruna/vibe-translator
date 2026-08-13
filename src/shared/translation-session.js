@@ -199,7 +199,8 @@ function createPageTranslationQueue(options = {}) {
 			if (
 				!item ||
 				typeof item.id !== "string" ||
-				session.pendingIds.has(item.id)
+				session.pendingIds.has(item.id) ||
+				session.translatedIds.has(item.id)
 			) {
 				continue;
 			}

@@ -55,6 +55,58 @@ function isSubtitleProfile(profile) {
 	return profile?.presentation === SUBTITLE_PRESENTATION;
 }
 
+function cacheSubtitleTranslations(cache, translations) {
+	if (!cache?.set) {
+		return 0;
+	}
+
+	let cached = 0;
+
+	for (const item of translations || []) {
+		if (
+			item?.kind !== "subtitle" ||
+			!String(item.sourceText || "").trim() ||
+			!String(item.translation || "").trim()
+		) {
+			continue;
+		}
+
+		cache.set(item.sourceText, item);
+		cached += 1;
+	}
+
+	return cached;
+}
+
+function consumeCachedSubtitleTranslations(cache, items) {
+	const cached = [];
+	const missing = [];
+
+	for (const item of items || []) {
+		const cachedItem = item?.text ? cache?.get?.(item.text) : null;
+
+		if (!cachedItem?.translation) {
+			missing.push(item);
+			continue;
+		}
+
+		cached.push({
+			id: item.id,
+			kind: "subtitle",
+			sourceText: item.text,
+			translation: cachedItem.translation,
+		});
+	}
+
+	return { cached, missing };
+}
+
+function hasCachedSubtitleTranslation(cache, sourceTexts) {
+	return (sourceTexts || []).some((sourceText) =>
+		Boolean(sourceText && cache?.get?.(sourceText)?.translation),
+	);
+}
+
 function findMatchingSubtitleSource(
 	profile,
 	sources,
@@ -233,6 +285,9 @@ function prepareSubtitleNote(profile, note, source, getComputedStyle) {
 }
 
 const api = {
+	cacheSubtitleTranslations,
+	consumeCachedSubtitleTranslations,
+	hasCachedSubtitleTranslation,
 	SUBTITLE_FONT_SIZE_PROPERTY,
 	SUBTITLE_PRESENTATION,
 	SUBTITLE_PRESENTATION_ATTR,
@@ -255,9 +310,12 @@ const api = {
 };
 
 export {
+	cacheSubtitleTranslations,
+	consumeCachedSubtitleTranslations,
 	findMatchingSubtitleSource,
 	getMeaningfulCharacterMinimum,
 	getSegmentKind,
+	hasCachedSubtitleTranslation,
 	isSubtitleProfile,
 	normalizeCaptionFontSize,
 	prepareSubtitleNote,

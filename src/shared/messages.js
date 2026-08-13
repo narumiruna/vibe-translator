@@ -10,6 +10,7 @@ const MESSAGE_TYPES = Object.freeze({
 	GET_SELECTION_ANCHOR: "get-selection-anchor",
 	OPEN_OPTIONS: "open-options",
 	PING: "ping",
+	PREFETCH_YOUTUBE_SUBTITLES: "prefetch-youtube-subtitles",
 	QUEUE_PAGE_TRANSLATION_ITEMS: "queue-page-translation-items",
 	RENDER_PAGE_PLACEHOLDERS: "render-page-placeholders",
 	RENDER_PAGE_TRANSLATION_UPDATES: "render-page-translation-updates",
@@ -64,6 +65,9 @@ const api = {
 	},
 	ping() {
 		return createMessage(MESSAGE_TYPES.PING);
+	},
+	prefetchYoutubeSubtitles(payload) {
+		return createMessage(MESSAGE_TYPES.PREFETCH_YOUTUBE_SUBTITLES, payload);
 	},
 	queuePageTranslationItems(payload) {
 		return createMessage(MESSAGE_TYPES.QUEUE_PAGE_TRANSLATION_ITEMS, payload);

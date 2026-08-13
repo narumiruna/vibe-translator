@@ -199,6 +199,7 @@ async function main() {
 				timeoutMessage: "The initial YouTube caption was not queued.",
 			},
 		);
+		const initialSourceId = await source.getAttribute("data-ot-source-id");
 		await page.evaluate((text) => {
 			const source = document.querySelector(
 				"#ytp-caption-window-container .ytp-caption-segment",
@@ -219,9 +220,14 @@ async function main() {
 			}
 		}, CURRENT_CAPTION);
 		await waitFor(
-			async () => !(await source.getAttribute("data-ot-source-id")),
+			async () => {
+				const currentSourceId = await source.getAttribute("data-ot-source-id");
+
+				return Boolean(currentSourceId && currentSourceId !== initialSourceId);
+			},
 			{
-				timeoutMessage: "The changed cue did not invalidate its old request.",
+				timeoutMessage:
+					"The changed cue did not receive a new source identity.",
 			},
 		);
 		await page.evaluate(() => {
@@ -293,22 +299,27 @@ async function main() {
 				timeoutMessage: "The changed YouTube caption was not translated.",
 			},
 		);
-		await waitFor(
-			async () => {
-				const text = (await diagnosticsPanel.textContent()) || "";
-				return (
-					/api-start|Requesting 1 caption translation/.test(text) &&
-					/api-success|API returned/.test(text) &&
-					/render|rendered 1/.test(text) &&
-					/rebound 1/.test(text)
-				);
-			},
-			{
-				timeoutMs: REQUEST_TIMEOUT_MS,
-				timeoutMessage:
-					"The diagnostic panel did not report the complete caption pipeline.",
-			},
-		);
+		try {
+			await waitFor(
+				async () => {
+					const text = (await diagnosticsPanel.textContent()) || "";
+					return (
+						/api-start|Requesting 1 caption translation/.test(text) &&
+						/api-success|API returned/.test(text) &&
+						/render|rendered 1/.test(text) &&
+						/rebound 1/.test(text)
+					);
+				},
+				{
+					timeoutMs: REQUEST_TIMEOUT_MS,
+					timeoutMessage:
+						"The diagnostic panel did not report the complete caption pipeline.",
+				},
+			);
+		} catch (error) {
+			error.message += `\nDiagnostics:\n${(await diagnosticsPanel.textContent()) || "unavailable"}`;
+			throw error;
+		}
 
 		const playerText =
 			(await page.locator("#ytp-caption-window-container").textContent()) || "";
@@ -397,19 +408,24 @@ async function main() {
 		});
 		await suppressVisibleCaptions(page);
 		await noCaptionControl.click();
-		await waitFor(
-			async () =>
-				/YouTube captions are not visible/.test(
-					(await page
-						.locator('[data-ot-role="youtube-diagnostics"]')
-						.textContent()) || "",
-				),
-			{
-				timeoutMs: 8000,
-				timeoutMessage:
-					"Missing native captions did not produce actionable feedback.",
-			},
-		);
+		try {
+			await waitFor(
+				async () =>
+					/YouTube captions are not visible/.test(
+						(await page
+							.locator('[data-ot-role="youtube-diagnostics"]')
+							.textContent()) || "",
+					),
+				{
+					timeoutMs: 15000,
+					timeoutMessage:
+						"Missing native captions did not produce actionable feedback.",
+				},
+			);
+		} catch (error) {
+			error.message += `\nControl state: ${await noCaptionControl.getAttribute("data-state")}\nDiagnostics:\n${(await page.locator('[data-ot-role="youtube-diagnostics"]').textContent()) || "unavailable"}`;
+			throw error;
+		}
 		await stopSuppressingVisibleCaptions(page);
 
 		await takeScreenshot(

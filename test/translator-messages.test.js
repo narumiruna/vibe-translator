@@ -10,6 +10,13 @@ test("message builders use shared message types", () => {
 	assert.deepEqual(TranslatorMessages.startYoutubeSubtitleTranslation(), {
 		type: TranslatorMessages.MESSAGE_TYPES.START_YOUTUBE_SUBTITLE_TRANSLATION,
 	});
+	assert.deepEqual(
+		TranslatorMessages.prefetchYoutubeSubtitles({ currentTimeMs: 12000 }),
+		{
+			type: TranslatorMessages.MESSAGE_TYPES.PREFETCH_YOUTUBE_SUBTITLES,
+			payload: { currentTimeMs: 12000 },
+		},
+	);
 	assert.deepEqual(TranslatorMessages.openOptions(), {
 		type: TranslatorMessages.MESSAGE_TYPES.OPEN_OPTIONS,
 	});

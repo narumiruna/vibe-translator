@@ -198,3 +198,18 @@ test("page translation queue records translated ids", () => {
 	assert.equal(queue.markTranslated(4, session.sessionId, ["a", "c"]), 1);
 	assert.deepEqual([...session.translatedIds].sort(), ["a", "b", "c"]);
 });
+
+test("page translation queue does not enqueue completed timed cue ids again", () => {
+	const queue = createPageTranslationQueue();
+	const session = queue.create(8, {});
+
+	queue.markTranslated(8, session.sessionId, ["youtube-cue-1000-0"]);
+
+	assert.deepEqual(
+		queue.enqueue(8, session.sessionId, [
+			{ id: "youtube-cue-1000-0" },
+			{ id: "youtube-cue-2000-1" },
+		]),
+		{ queued: 1 },
+	);
+});

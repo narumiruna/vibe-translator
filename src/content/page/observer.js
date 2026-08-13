@@ -1,3 +1,26 @@
+function isSubtitleRelatedMutation(mutation, options = {}) {
+	const { Node, selector } = options;
+
+	function containsSubtitleSegment(node, includeDescendants) {
+		const element =
+			node?.nodeType === Node?.ELEMENT_NODE ? node : node?.parentElement;
+
+		return Boolean(
+			element &&
+				(element.matches?.(selector) ||
+					element.closest?.(selector) ||
+					(includeDescendants && element.querySelector?.(selector))),
+		);
+	}
+
+	return (
+		containsSubtitleSegment(mutation?.target, false) ||
+		[...(mutation?.addedNodes || []), ...(mutation?.removedNodes || [])].some(
+			(node) => containsSubtitleSegment(node, true),
+		)
+	);
+}
+
 export function createPageObserver(options = {}) {
 	const {
 		document,
@@ -107,6 +130,8 @@ export function createPageObserver(options = {}) {
 	function flushObserverMutations() {
 		observerFlushTimer = null;
 		const mutations = pendingObserverMutations.splice(0);
+		let shouldScheduleTranslation = false;
+
 		for (const mutation of mutations) {
 			const targetElement =
 				mutation.target?.nodeType === Node.ELEMENT_NODE
@@ -120,7 +145,7 @@ export function createPageObserver(options = {}) {
 				continue;
 			if (mutation.type === "characterData" || mutation.type === "attributes") {
 				markRelatedSourcesStale(mutation.target);
-				onScheduleVisibleTranslation();
+				shouldScheduleTranslation = true;
 				continue;
 			}
 			if (mutation.type !== "childList") continue;
@@ -142,6 +167,10 @@ export function createPageObserver(options = {}) {
 					markRelatedSourcesStale(node);
 				}
 			}
+			shouldScheduleTranslation = true;
+		}
+
+		if (shouldScheduleTranslation) {
 			onScheduleVisibleTranslation();
 		}
 	}
@@ -149,7 +178,24 @@ export function createPageObserver(options = {}) {
 	function ensureObserver() {
 		if (observer || !document.body) return;
 		observer = new MutationObserver((mutations) => {
-			pendingObserverMutations.push(...mutations);
+			const relevantMutations = SubtitleApi.isSubtitleProfile(activeSiteProfile)
+				? mutations.filter((mutation) =>
+						isSubtitleRelatedMutation(mutation, {
+							Node,
+							selector: SubtitleApi.YOUTUBE_CAPTION_SEGMENT_SELECTOR,
+						}),
+					)
+				: mutations;
+
+			if (relevantMutations.length === 0) {
+				return;
+			}
+
+			pendingObserverMutations.push(...relevantMutations);
+			if (observerDebounceMs <= 0) {
+				flushObserverMutations();
+				return;
+			}
 			if (!observerFlushTimer) {
 				observerFlushTimer = window.setTimeout(
 					flushObserverMutations,
@@ -177,4 +223,5 @@ export function createPageObserver(options = {}) {
 	return { cleanup, ensureObserver, withObserverPaused };
 }
 
-export default { createPageObserver };
+export { isSubtitleRelatedMutation };
+export default { createPageObserver, isSubtitleRelatedMutation };

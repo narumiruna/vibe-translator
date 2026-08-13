@@ -12,6 +12,7 @@ import YoutubeDiagnosticsApi from "./content/youtube/diagnostics.js";
 import YoutubePlayerControlApi from "./content/youtube/player-control.js";
 import { createYoutubeRuntime } from "./content/youtube/runtime.js";
 import SubtitleApi from "./content/youtube/subtitles.js";
+import TimedCaptionApi from "./content/youtube/timed-captions.js";
 import AppearanceApi from "./shared/appearance.js";
 import Messages from "./shared/messages.js";
 import Api from "./translation/api.js";
@@ -61,6 +62,7 @@ export function createContentRuntime(options = {}) {
 		pageTranslation: {
 			active: false,
 			sessionId: "",
+			targetLanguage: "",
 		},
 		youtubeControl: {
 			button: null,
@@ -69,8 +71,11 @@ export function createContentRuntime(options = {}) {
 			mountTimer: null,
 			scheduled: false,
 			state: "idle",
+			prefetchVideo: null,
+			lastPrefetchTimeMs: 0,
 			videoKey: "",
 		},
+		youtubeSubtitleTranslations: new Map(),
 		youtubeDiagnostics: {
 			panel: null,
 			status: "Ready",
@@ -109,6 +114,7 @@ export function createContentRuntime(options = {}) {
 
 	const {
 		applyYoutubeControlState,
+		bindYoutubePrefetchTracking,
 		cleanupYoutubeRuntime,
 		ensureYoutubeControl,
 		recordYoutubeDiagnostic,
@@ -123,6 +129,7 @@ export function createContentRuntime(options = {}) {
 		SubtitleApi,
 		YoutubeDiagnosticsApi,
 		YoutubePlayerControlApi,
+		TimedCaptionApi,
 		Messages,
 	});
 
@@ -298,6 +305,9 @@ export function createContentRuntime(options = {}) {
 		hasSourceTextChanged,
 		isInsideTranslation,
 		onScheduleVisibleTranslation: scheduleVisiblePageTranslation,
+		observerDebounceMs: SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)
+			? 0
+			: 200,
 		processedAttr: PROCESSED_ATTR,
 		queuedAttr: QUEUED_ATTR,
 		rootAttr: ROOT_ATTR,
@@ -578,14 +588,35 @@ export function createContentRuntime(options = {}) {
 		const extraction = collectPageItems({ windowed: true });
 		renderExtractionDebugPanel(extraction.debug);
 
-		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
+		if (
+			SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE) &&
+			(extraction.totalSegments > 0 || extraction.items?.length > 0)
+		) {
 			recordYoutubeDiagnostic(
 				"extraction",
 				`Found ${extraction.totalSegments} caption source(s); ${extraction.items?.length || 0} pending item(s)`,
 			);
 		}
 
-		if (!extraction.items || extraction.items.length === 0) {
+		let pendingItems = extraction.items || [];
+
+		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
+			const matched = SubtitleApi.consumeCachedSubtitleTranslations(
+				pageState.youtubeSubtitleTranslations,
+				pendingItems,
+			);
+
+			if (matched.cached.length > 0) {
+				renderPageTranslations({
+					targetLanguage: pageState.pageTranslation.targetLanguage,
+					translations: matched.cached,
+				});
+			}
+
+			pendingItems = matched.missing;
+		}
+
+		if (pendingItems.length === 0) {
 			return;
 		}
 
@@ -593,7 +624,7 @@ export function createContentRuntime(options = {}) {
 			const response = await chrome.runtime.sendMessage(
 				Messages.queuePageTranslationItems({
 					sessionId: pageState.pageTranslation.sessionId,
-					items: extraction.items,
+					items: pendingItems,
 				}),
 			);
 
@@ -616,7 +647,34 @@ export function createContentRuntime(options = {}) {
 	}
 
 	function scheduleVisiblePageTranslation() {
-		if (!isPageTranslationSessionActive() || visibleTranslationFlushTimer) {
+		if (!isPageTranslationSessionActive()) {
+			return;
+		}
+
+		const shouldRenderCachedSubtitleImmediately =
+			SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE) &&
+			SubtitleApi.hasCachedSubtitleTranslation(
+				pageState.youtubeSubtitleTranslations,
+				Array.from(document.querySelectorAll(DIRECT_NOTE_TARGET_SELECTOR) || [])
+					.filter((source) =>
+						shouldQueueElementForTranslation(
+							source,
+							source.getAttribute(SOURCE_ATTR),
+						),
+					)
+					.map((source) => getSegmentContent(source).text),
+			);
+
+		if (shouldRenderCachedSubtitleImmediately) {
+			if (visibleTranslationFlushTimer) {
+				window.clearTimeout(visibleTranslationFlushTimer);
+				visibleTranslationFlushTimer = null;
+			}
+			requestVisiblePageTranslationBatch().catch(() => {});
+			return;
+		}
+
+		if (visibleTranslationFlushTimer) {
 			return;
 		}
 
@@ -644,10 +702,12 @@ export function createContentRuntime(options = {}) {
 			ensureStyles(response.translationAppearance);
 			pageState.debug.enabled = Boolean(response.debug?.enabled);
 			activatePageTranslationSession(response.sessionId);
+			pageState.pageTranslation.targetLanguage = response.targetLanguage || "";
 			ensureObserver();
 			if (pageState.youtubeControl.button) {
 				applyYoutubeControlState(pageState.youtubeControl.button, "active");
 			}
+			bindYoutubePrefetchTracking();
 			return true;
 		} catch (_error) {
 			// The background may be unavailable while the extension is reloading.
