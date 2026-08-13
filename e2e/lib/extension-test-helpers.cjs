@@ -400,11 +400,25 @@ async function saveOptions(context, extensionId, config, options = {}) {
 	await page.locator("#model").fill(config.model);
 	await page.locator("#target-language").fill(config.targetLanguage);
 	if (options.youtubeSubtitleDisplayMode) {
-		await page
-			.locator(
-				`[name="youtubeSubtitleDisplayMode"][value="${options.youtubeSubtitleDisplayMode}"]`,
-			)
-			.check();
+		const displayModeInput = page.locator(
+			`[name="youtubeSubtitleDisplayMode"][value="${options.youtubeSubtitleDisplayMode}"]`,
+		);
+
+		await displayModeInput.check();
+		const inputBounds = await displayModeInput.boundingBox();
+		const inputAppearance = await displayModeInput.evaluate(
+			(element) => getComputedStyle(element).appearance,
+		);
+
+		assert.ok(
+			inputBounds && inputBounds.width <= 20 && inputBounds.height <= 20,
+			"YouTube display mode should use a compact native radio control.",
+		);
+		assert.notEqual(
+			inputAppearance,
+			"none",
+			"YouTube display mode should preserve the native checked indicator.",
+		);
 	}
 	await page.locator('[data-tab="appearance"]').click();
 	await page

@@ -292,7 +292,7 @@ button {
 	font: inherit;
 }
 
-input:not([type="checkbox"]):not([type="color"]),
+input:not([type="checkbox"]):not([type="color"]):not([type="radio"]),
 select,
 textarea {
 	width: 100%;
@@ -309,12 +309,14 @@ textarea {
 	-webkit-appearance: none;
 }
 
-input:not([type="checkbox"]):not([type="color"])::placeholder,
+input:not([type="checkbox"]):not([type="color"]):not(
+		[type="radio"]
+	)::placeholder,
 textarea::placeholder {
 	color: var(--placeholder);
 }
 
-input:not([type="checkbox"]):not([type="color"]):focus,
+input:not([type="checkbox"]):not([type="color"]):not([type="radio"]):focus,
 select:focus,
 textarea:focus {
 	outline: none;
