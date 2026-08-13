@@ -1,7 +1,7 @@
-const assert = require("node:assert/strict");
-const test = require("node:test");
+import assert from "node:assert/strict";
+import test from "node:test";
 
-const {
+import {
 	DEFAULT_TRANSLATION_APPEARANCE,
 	FONT_FAMILY_STACKS,
 	TRANSLATION_APPEARANCE_PRESETS,
@@ -9,7 +9,7 @@ const {
 	createTranslationAppearancePreset,
 	getContrastingTextColor,
 	normalizeTranslationAppearance,
-} = require("../src/translation-appearance.js");
+} from "../src/shared/appearance.js";
 
 test("Calm Reading preserves the current inline and selection appearance", () => {
 	assert.deepEqual(DEFAULT_TRANSLATION_APPEARANCE, {

@@ -1,14 +1,14 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import test from "node:test";
+import assert from "node:assert/strict";
 
-const {
+import {
 	createSelectionPanelRenderer,
 	getSelectionPanelWidth,
 	normalizeSelectionAnchorRect,
 	normalizeSelectionPanelPositionMode,
 	normalizeSelectionRequestId,
 	shouldCloseSelectionPanelOnKey,
-} = require("../src/content-selection-panel.js");
+} from "../src/content/selection/panel.js";
 
 class FakeClassList {
 	constructor() {
@@ -140,6 +140,11 @@ function createRendererHarness(options = {}) {
 		addEventListener(type, listener) {
 			listeners.set(type, listener);
 		},
+		removeEventListener(type, listener) {
+			if (listeners.get(type) === listener) {
+				listeners.delete(type);
+			}
+		},
 		createElement(tagName) {
 			return new FakeElement(tagName);
 		},
@@ -159,6 +164,11 @@ function createRendererHarness(options = {}) {
 		innerWidth: 800,
 		addEventListener(type, listener) {
 			viewportListeners.set(type, listener);
+		},
+		removeEventListener(type, listener) {
+			if (viewportListeners.get(type) === listener) {
+				viewportListeners.delete(type);
+			}
 		},
 	};
 	const renderer = createSelectionPanelRenderer({
@@ -262,6 +272,28 @@ test("shouldCloseSelectionPanelOnKey only accepts plain Escape", () => {
 	);
 	assert.equal(shouldCloseSelectionPanelOnKey({ key: "Enter" }), false);
 	assert.equal(shouldCloseSelectionPanelOnKey(null), false);
+});
+
+test("selection panel renderer cleanup removes lifecycle handlers", () => {
+	const harness = createRendererHarness();
+
+	harness.renderer.renderPlaceholder({
+		requestId: "request-cleanup",
+		sourceText: "Hello",
+		targetLanguage: "日本語",
+	});
+
+	assert.equal(harness.listeners.has("keydown"), true);
+	assert.equal(harness.viewportListeners.has("resize"), true);
+
+	harness.renderer.cleanup();
+
+	assert.equal(harness.listeners.has("keydown"), false);
+	assert.equal(harness.viewportListeners.has("resize"), false);
+	assert.equal(
+		harness.document.querySelector('[data-ot-role="selection-panel"]'),
+		null,
+	);
 });
 
 test("selection panel renderer close reports cleared panels", () => {

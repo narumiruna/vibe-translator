@@ -1,0 +1,79 @@
+{
+	"version": "0.1.3",
+	"unitTests": {
+		"command": "npm test",
+		"count": 145,
+		"passed": 145
+	},
+	"package": {
+		"archiveName": "vibe-translator-0.1.3-pre-extensionjs.zip",
+		"sha256": "5f947cfcfff4610277dae32f7b727f934d7f6119544044ac143fe3a0d7001b93",
+		"compressedBytes": 98493,
+		"uncompressedBytes": 335682,
+		"files": [
+			"README.md",
+			"docs/TESTING.md",
+			"icons/icon-128.png",
+			"icons/icon-16.png",
+			"icons/icon-32.png",
+			"icons/icon-48.png",
+			"icons/icon.svg",
+			"manifest.json",
+			"src/api-cache.js",
+			"src/api-chunk-plan.js",
+			"src/api-protected-fragments.js",
+			"src/api-responses.js",
+			"src/api.js",
+			"src/background.js",
+			"src/content-extraction.js",
+			"src/content-selection-panel.js",
+			"src/content-site-profiles.js",
+			"src/content-subtitles.js",
+			"src/content-viewport.js",
+			"src/content.js",
+			"src/embedded-frames.js",
+			"src/options-appearance.js",
+			"src/options.css",
+			"src/options.html",
+			"src/options.js",
+			"src/page-translation-session.js",
+			"src/storage.js",
+			"src/translation-appearance.js",
+			"src/translator-messages.js",
+			"src/youtube-diagnostics.js",
+			"src/youtube-player-control.js"
+		]
+	},
+	"manifest": {
+		"manifest_version": 3,
+		"name": "Vibe Translator",
+		"version": "0.1.3",
+		"description": "Translate web pages with an OpenAI-compatible API while keeping the original text visible.",
+		"permissions": ["activeTab", "contextMenus", "scripting", "storage"],
+		"host_permissions": [
+			"https://youtube.com/*",
+			"https://www.youtube.com/*",
+			"https://m.youtube.com/*"
+		],
+		"optional_host_permissions": ["http://*/*", "https://*/*"],
+		"action": {
+			"default_title": "Translate this page",
+			"default_icon": {
+				"16": "icons/icon-16.png",
+				"32": "icons/icon-32.png",
+				"48": "icons/icon-48.png",
+				"128": "icons/icon-128.png"
+			}
+		},
+		"content_scripts": [
+			{
+				"matches": [
+					"https://youtube.com/*",
+					"https://www.youtube.com/*",
+					"https://m.youtube.com/*"
+				],
+				"run_at": "document_idle"
+			}
+		]
+	}
+}

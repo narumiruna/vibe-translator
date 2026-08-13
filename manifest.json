@@ -11,7 +11,8 @@
 	],
 	"optional_host_permissions": ["http://*/*", "https://*/*"],
 	"background": {
-		"service_worker": "src/background.js"
+		"service_worker": "src/background/index.js",
+		"type": "module"
 	},
 	"content_scripts": [
 		{
@@ -20,18 +21,7 @@
 				"https://www.youtube.com/*",
 				"https://m.youtube.com/*"
 			],
-			"js": [
-				"src/translation-appearance.js",
-				"src/content-viewport.js",
-				"src/content-selection-panel.js",
-				"src/content-site-profiles.js",
-				"src/content-subtitles.js",
-				"src/content-extraction.js",
-				"src/translator-messages.js",
-				"src/youtube-diagnostics.js",
-				"src/youtube-player-control.js",
-				"src/content.js"
-			],
+			"js": ["src/content.js"],
 			"run_at": "document_idle"
 		}
 	],
@@ -50,5 +40,5 @@
 			"128": "icons/icon-128.png"
 		}
 	},
-	"options_page": "src/options.html"
+	"options_page": "src/options/index.html"
 }

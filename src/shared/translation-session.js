@@ -1,0 +1,235 @@
+const DEFAULT_CONCURRENCY = 5;
+const DEFAULT_BATCH_SIZE = 8;
+
+function createSessionId() {
+	return `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizePositiveInteger(value, fallback) {
+	const number = Math.floor(Number(value));
+
+	return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function shouldKeepPageTranslationSession(extraction) {
+	return Boolean(
+		extraction?.keepAlive ||
+			Number(extraction?.totalSegments) > 0 ||
+			(Array.isArray(extraction?.items) && extraction.items.length > 0),
+	);
+}
+
+function createPageTranslationQueue(options = {}) {
+	const concurrency = normalizePositiveInteger(
+		options.concurrency,
+		DEFAULT_CONCURRENCY,
+	);
+	const batchSize = normalizePositiveInteger(
+		options.batchSize,
+		DEFAULT_BATCH_SIZE,
+	);
+	const processBatch =
+		typeof options.processBatch === "function"
+			? options.processBatch
+			: async () => {};
+	const onError =
+		typeof options.onError === "function" ? options.onError : () => {};
+	const sessions = new Map();
+
+	function getSessionKey(tabId, frameId = 0) {
+		return `${tabId}:${frameId}`;
+	}
+
+	function create(tabId, settings, frameId = 0) {
+		const session = {
+			tabId,
+			frameId,
+			sessionId: createSessionId(),
+			settings,
+			pendingItems: [],
+			pendingIds: new Set(),
+			translatedIds: new Set(),
+			inFlightCount: 0,
+		};
+
+		sessions.set(getSessionKey(tabId, frameId), session);
+
+		return session;
+	}
+
+	function get(tabId, sessionId, frameId) {
+		if (Number.isInteger(frameId) && frameId >= 0) {
+			const session = sessions.get(getSessionKey(tabId, frameId));
+
+			return !session || (sessionId && session.sessionId !== sessionId)
+				? null
+				: session;
+		}
+
+		if (!sessionId) {
+			return sessions.get(getSessionKey(tabId, 0)) || null;
+		}
+
+		for (const session of sessions.values()) {
+			if (session.tabId === tabId && session.sessionId === sessionId) {
+				return session;
+			}
+		}
+
+		return null;
+	}
+
+	function remove(tabId, frameId) {
+		if (Number.isInteger(frameId) && frameId >= 0) {
+			sessions.delete(getSessionKey(tabId, frameId));
+			return;
+		}
+
+		for (const [key, session] of sessions) {
+			if (session.tabId === tabId) {
+				sessions.delete(key);
+			}
+		}
+	}
+
+	function getTranslatedCount(tabId) {
+		let count = 0;
+
+		for (const session of sessions.values()) {
+			if (session.tabId === tabId) {
+				count += session.translatedIds.size;
+			}
+		}
+
+		return count;
+	}
+
+	function markTranslated(tabId, sessionId, ids, frameId) {
+		const session = get(tabId, sessionId, frameId);
+
+		if (!session) {
+			return 0;
+		}
+
+		let count = 0;
+
+		for (const id of ids || []) {
+			if (typeof id !== "string") {
+				continue;
+			}
+
+			if (!session.translatedIds.has(id)) {
+				count += 1;
+			}
+
+			session.translatedIds.add(id);
+		}
+
+		return count;
+	}
+
+	function continueProcessing(tabId, sessionId, frameId) {
+		const session = get(tabId, sessionId, frameId);
+
+		if (!session) {
+			return;
+		}
+
+		while (
+			session.pendingItems.length > 0 &&
+			session.inFlightCount < concurrency
+		) {
+			const items = session.pendingItems.splice(0, batchSize);
+
+			if (items.length === 0) {
+				break;
+			}
+
+			session.inFlightCount += 1;
+
+			Promise.resolve()
+				.then(() =>
+					processBatch({
+						tabId,
+						frameId: session.frameId,
+						sessionId,
+						items,
+						session,
+					}),
+				)
+				.catch((error) => {
+					onError(error, {
+						tabId,
+						frameId: session.frameId,
+						sessionId,
+						items,
+					});
+				})
+				.finally(() => {
+					const currentSession = get(tabId, sessionId, frameId);
+
+					if (!currentSession) {
+						return;
+					}
+
+					for (const item of items) {
+						currentSession.pendingIds.delete(item.id);
+					}
+
+					currentSession.inFlightCount = Math.max(
+						0,
+						currentSession.inFlightCount - 1,
+					);
+
+					continueProcessing(tabId, sessionId, frameId);
+				});
+		}
+	}
+
+	function enqueue(tabId, sessionId, items, frameId) {
+		const session = get(tabId, sessionId, frameId);
+
+		if (!session) {
+			return { queued: 0 };
+		}
+
+		const queuedItems = [];
+
+		for (const item of items || []) {
+			if (
+				!item ||
+				typeof item.id !== "string" ||
+				session.pendingIds.has(item.id)
+			) {
+				continue;
+			}
+
+			session.pendingIds.add(item.id);
+			queuedItems.push(item);
+		}
+
+		if (queuedItems.length > 0) {
+			session.pendingItems = queuedItems.concat(session.pendingItems);
+			continueProcessing(tabId, session.sessionId, session.frameId);
+		}
+
+		return { queued: queuedItems.length };
+	}
+
+	return {
+		create,
+		enqueue,
+		get,
+		getTranslatedCount,
+		markTranslated,
+		remove,
+	};
+}
+
+const api = {
+	createPageTranslationQueue,
+	shouldKeepPageTranslationSession,
+};
+
+export { createPageTranslationQueue, shouldKeepPageTranslationSession };
+export default api;

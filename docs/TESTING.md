@@ -2,7 +2,7 @@
 
 ## Test pages
 
-1. Load the extension from `chrome://extensions/`
+1. Run `npm run build`, then load `dist/chrome` from `chrome://extensions/`
 2. Serve `test/fixture-page.html` from a local HTTP server and open it in Chrome
 3. Prepare one additional article-style page with more content than one viewport so scroll-triggered queuing is easy to verify
 4. Prepare one page containing inline code, file paths, URLs, or math so protected fragment rendering can be checked
@@ -113,6 +113,16 @@
 4. Select text on the same page and choose **Translate selected text**
 5. Confirm selection translation is also blocked
 6. Remove the hostname from **Disabled Domains**, save again, and confirm both page and selection translation work normally
+
+## Extension.js development and reinjection
+
+1. Run `npm run dev` and confirm Extension.js reports background, content, options, and page contexts with timestamps
+2. Open `dist/extension-js/chrome/ready.json` and confirm the development build reaches a ready state
+3. Start page translation, edit a content entry module, and confirm one reload occurs without duplicate notes, runtime responses, observers, or API requests
+4. On YouTube, edit a content or control module and confirm only one Vibe Translator control and one delegated click handler remain
+5. Open and dismiss a selection panel, trigger reinjection, and confirm `Escape` and resize behavior run once
+6. Filter development logs by context label, URL, tab, and event name and confirm API keys, authorization values, prompts, selected text, source text, and response bodies are absent
+7. Run `PLAYWRIGHT_HEADLESS=1 npm run e2e:mock` twice with temporary profiles and confirm both runs pass
 
 ## Session teardown
 

@@ -1,7 +1,7 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import test from "node:test";
+import assert from "node:assert/strict";
 
-const { createTranslationCache } = require("../src/api-cache.js");
+import { createTranslationCache } from "../src/translation/cache.js";
 
 function buildSettings(overrides = {}) {
 	return {

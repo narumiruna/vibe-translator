@@ -1,18 +1,19 @@
 # Playwright E2E Tests
 
-This repository now includes Playwright E2E scripts that load the unpacked Chrome extension and exercise the real MV3 runtime.
+This repository includes Playwright E2E scripts that copy and load the production `dist/chrome` artifact and exercise the real MV3 runtime.
+Run `npm run build` first; the harness never loads raw files from `src/`.
 
 ## Smoke Coverage
 
 1. Opens the extension options page
 2. Saves API settings from environment variables or `.env`
-3. Pre-seeds the configured API origin and local fixture-page permissions in the Chromium test profile
+3. Copies `dist/chrome` into a temporary extension directory and adds only test host permissions to that copy
 4. Runs **Test Connection**
 5. Opens `test/fixture-page.html`
-6. Triggers full-page translation from the background service worker
+6. Triggers full-page translation through a validated extension runtime command
 7. Scrolls a nested overflow container and verifies newly visible text is queued
-8. Triggers selected-text translation from the background service worker
-9. Verifies the split helper scripts are loaded in the options page, service worker, and injected content page
+8. Triggers selected-text translation through the same background controller used by user entrypoints
+9. Verifies bundled background, content, and options health without requiring private globals
 10. Saves screenshots in `e2e-artifacts/`
 
 ## Antirez Comment Regression Coverage
@@ -41,15 +42,16 @@ The repository also includes a dedicated regression script for Syosetu directory
 4. Verifies that the summary, chapter titles, and episode titles are translated
 5. Verifies that episode metadata, pager UI, and recommendation blocks stay untranslated
 
-## Why It Uses the Background Service Worker
+## Why It Uses Controller Commands
 
-The smoke suite intentionally avoids Chrome's toolbar button and native context menu. Those browser UI entry points are harder to automate reliably than the extension's existing background functions.
+The smoke suite intentionally avoids Chrome's toolbar button and native context menu because those browser UI surfaces are harder to automate reliably.
+An extension options-page bridge sends validated internal commands to the background controller, so tests use the same page and selection orchestration as toolbar and context-menu entrypoints without accessing private worker globals.
 
 The test still exercises the real extension stack:
 
-1. MV3 service worker
-2. Content script injection, including helper-file load order
-3. Options page helper scripts used by prompt preview and Test Connection
+1. Bundled MV3 module service worker
+2. Bundled content script injection and frame routing
+3. Bundled options entrypoint used by prompt preview and Test Connection
 4. `chrome.storage` settings
 5. Host permission checks
 6. Real API requests
@@ -112,6 +114,7 @@ If these return no results, some pages may show missing glyphs even when the pag
 
 ```bash
 npm install
+npm run build
 ```
 
 ## Run
@@ -144,4 +147,6 @@ just e2e-syosetu
 
 1. The smoke suite is intentionally minimal and uses `test/fixture-page.html`.
 2. `npm run e2e:syosetu` is a live-site regression test and depends on the current Syosetu page structure.
-3. The harness seeds host permission in the test profile, so it does not rely on manually clicking Chrome's permission prompt.
+3. The harness modifies only its temporary artifact copy; `dist/chrome/manifest.json` remains unchanged.
+4. Production paths are derived from the generated manifest and service-worker discovery.
+5. For lifecycle validation, run twice with independent temporary profiles: `PLAYWRIGHT_HEADLESS=1 npm run e2e:mock && PLAYWRIGHT_HEADLESS=1 npm run e2e:mock`.

@@ -1,13 +1,13 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import test from "node:test";
+import assert from "node:assert/strict";
 
-const SiteProfiles = require("../src/content-site-profiles.js");
-const {
+import SiteProfiles from "../src/content/extraction/site-profiles.js";
+import {
 	discoverEmbeddedFrames,
 	filterEmbeddedFrameResults,
 	getEmbeddedFramePatterns,
 	matchesFramePattern,
-} = require("../src/embedded-frames.js");
+} from "../src/shared/embedded-frames.js";
 
 test("embedded frame patterns come from the top-page site profile", () => {
 	assert.deepEqual(

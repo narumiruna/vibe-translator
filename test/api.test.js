@@ -1,12 +1,9 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import test from "node:test";
+import assert from "node:assert/strict";
 
-require("../src/api-protected-fragments.js");
-require("../src/api-cache.js");
-require("../src/api-chunk-plan.js");
-const { validateTranslationCoverage } = require("../src/api-responses.js");
+import { validateTranslationCoverage } from "../src/translation/responses.js";
 
-const {
+import {
 	buildResponsesRequest,
 	buildTranslationInput,
 	chunkTranslationItems,
@@ -25,7 +22,7 @@ const {
 	splitTextRecursively,
 	unmaskProtectedFragments,
 	validateProtectedFragments,
-} = require("../src/api.js");
+} from "../src/translation/api.js";
 
 function buildSettings(overrides) {
 	return {

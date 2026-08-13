@@ -1,9 +1,9 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import test from "node:test";
+import assert from "node:assert/strict";
 
-const YoutubeDiagnostics = require("../src/youtube-diagnostics.js");
+import YoutubeDiagnostics from "../src/content/youtube/diagnostics.js";
 
-const {
+import {
 	CONTROL_ATTR,
 	CONTROL_SELECTOR,
 	createYoutubePlayerControl,
@@ -13,7 +13,8 @@ const {
 	isYoutubeWatchLocation,
 	mountYoutubePlayerControl,
 	turnOnNativeYoutubeCaptions,
-} = require("../src/youtube-player-control.js");
+	unbindYoutubePlayerControl,
+} from "../src/content/youtube/player-control.js";
 
 test("YouTube diagnostics describe the current player without secrets", () => {
 	const control = {
@@ -384,6 +385,30 @@ test("delegated clicks survive YouTube replacing the mounted control", () => {
 		},
 	});
 	assert.equal(clickedControl, replacementButton);
+});
+
+test("YouTube delegated control binding can be removed for reinjection", () => {
+	const listeners = [];
+	const removed = [];
+	const documentLike = {
+		addEventListener(type, listener, capture) {
+			listeners.push({ capture, listener, type });
+		},
+		removeEventListener(type, listener, capture) {
+			removed.push({ capture, listener, type });
+		},
+	};
+
+	assert.equal(
+		mountYoutubePlayerControl({
+			document: documentLike,
+			location: { hostname: "example.com", pathname: "/", search: "" },
+		}),
+		null,
+	);
+	assert.equal(unbindYoutubePlayerControl(documentLike), true);
+	assert.deepEqual(removed, listeners);
+	assert.equal(unbindYoutubePlayerControl(documentLike), false);
 });
 
 test("repeated mounting does not move an already positioned control", () => {

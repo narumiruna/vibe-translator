@@ -5,7 +5,7 @@ default:
 
 help:
     @echo "Available recipes:"
-    @echo "  just check  - Run JavaScript syntax checks and unit tests"
+    @echo "  just check  - Run module checks, unit tests, build, and artifact verification"
     @echo "  just e2e    - Run Playwright extension smoke tests"
     @echo "  just e2e-mock - Run Playwright extension smoke tests with mock API"
     @echo "  just e2e-antirez - Run Antirez article and Disqus comment regression test"
@@ -14,8 +14,8 @@ help:
     @echo "  just format - Run Biome formatter with writes enabled"
     @echo "  just lint   - Run Biome lint with safe fixes"
     @echo "  just test   - Run unit tests"
-    @echo "  just zip    - Create a zip for Chrome Web Store upload"
-    @echo "  just clean  - Remove generated zip files"
+    @echo "  just zip    - Create and verify a Chrome Web Store zip"
+    @echo "  just clean  - Remove generated builds and zip files"
 
 format:
     @biome format --write --files-ignore-unknown=true .
@@ -24,36 +24,29 @@ lint:
     @biome lint --write --files-ignore-unknown=true .
 
 check:
-    @for file in src/*.js; do node --check "$file"; done
-    @just test
+    @npm run check
 
 test:
     @node --test test/*.test.js
 
 e2e:
-    @node e2e/extension-smoke.js
+    @npm run e2e:smoke
 
 e2e-mock:
-    @PLAYWRIGHT_MOCK_API=1 node e2e/extension-smoke.js
+    @npm run e2e:mock
 
 e2e-antirez:
-    @node e2e/antirez-comments.js
+    @npm run e2e:antirez
 
 e2e-syosetu:
-    @node e2e/syosetu-directory.js
+    @npm run e2e:syosetu
 
 e2e-youtube:
-    @PLAYWRIGHT_MOCK_API=1 node e2e/youtube-subtitles.js
+    @npm run e2e:youtube
 
 zip:
-    @version="$(grep -o '"version": "[^"]*"' manifest.json | cut -d'"' -f4)"; \
-    zip_name="chrome-translator-$version.zip"; \
-    if [[ -e "$zip_name" ]]; then \
-      echo "Error: $zip_name already exists. Run 'just clean' first."; \
-      exit 1; \
-    fi; \
-    python3 scripts/package-extension.py "$zip_name"; \
-    echo "Created $zip_name"
+    @npm run zip
 
 clean:
-    @rm -f chrome-translator-*.zip
+    @rm -rf dist/chrome dist/firefox
+    @rm -f chrome-translator-*.zip vibe-translator-*.zip
