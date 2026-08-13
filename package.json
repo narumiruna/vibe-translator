@@ -2,15 +2,22 @@
 	"name": "vibe-translator",
 	"private": true,
 	"scripts": {
-		"check": "for file in src/*.js; do node --check \"$file\"; done && npm test",
+		"check": "npx --no-install biome ci && npm run lint:modules && npm test && npm run build && npm run verify:build",
+		"lint:modules": "find src scripts -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
 		"test": "node --test test/*.test.js",
-		"e2e:smoke": "node e2e/extension-smoke.js",
-		"e2e:mock": "PLAYWRIGHT_MOCK_API=1 node e2e/extension-smoke.js",
-		"e2e:antirez": "node e2e/antirez-comments.js",
-		"e2e:syosetu": "node e2e/syosetu-directory.js",
-		"e2e:youtube": "PLAYWRIGHT_MOCK_API=1 node e2e/youtube-subtitles.js",
+		"e2e:smoke": "node e2e/extension-smoke.cjs",
+		"e2e:mock": "PLAYWRIGHT_MOCK_API=1 node e2e/extension-smoke.cjs",
+		"e2e:antirez": "node e2e/antirez-comments.cjs",
+		"e2e:syosetu": "node e2e/syosetu-directory.cjs",
+		"e2e:youtube": "PLAYWRIGHT_MOCK_API=1 node e2e/youtube-subtitles.cjs",
 		"icons": "node scripts/render-icons.mjs",
-		"prepare": "husky"
+		"prepare": "husky",
+		"dev": "EXTENSION_TELEMETRY_DISABLED=1 extension dev --browser=chrome",
+		"build": "EXTENSION_TELEMETRY_DISABLED=1 extension build --browser=chrome",
+		"preview": "EXTENSION_TELEMETRY_DISABLED=1 extension preview --browser=chrome",
+		"zip": "EXTENSION_TELEMETRY_DISABLED=1 extension build --browser=chrome --zip && node scripts/verify-build.mjs",
+		"build:firefox": "EXTENSION_TELEMETRY_DISABLED=1 extension build --browser=firefox",
+		"verify:build": "node scripts/verify-build.mjs"
 	},
 	"lint-staged": {
 		"*.{js,jsx,ts,tsx,cjs,cts,mjs,mts,json,jsonc,css,svelte,vue,astro,graphql,gql}": "biome check --write --files-ignore-unknown=true --no-errors-on-unmatched"
@@ -19,6 +26,12 @@
 		"@biomejs/biome": "2.4.9",
 		"husky": "9.1.7",
 		"lint-staged": "17.3.0",
-		"playwright": "1.57.0"
+		"playwright": "1.57.0",
+		"extension": "4.0.32"
+	},
+	"type": "module",
+	"overrides": {
+		"less": "4.8.1",
+		"image-size": "2.0.2"
 	}
 }

@@ -1,19 +1,13 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-
-require("../src/api-protected-fragments.js");
-require("../src/api-cache.js");
-require("../src/api-chunk-plan.js");
-const { validateTranslationCoverage } = require("../src/api-responses.js");
-
-const {
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
 	buildResponsesRequest,
 	buildTranslationInput,
 	chunkTranslationItems,
 	clearTranslationCache,
 	consumeProgressiveTranslations,
-	createRecursiveChunkPlan,
 	createProgressiveMergeState,
+	createRecursiveChunkPlan,
 	extractOutputText,
 	getIncompleteSegmentIds,
 	maskProtectedFragments,
@@ -25,7 +19,8 @@ const {
 	splitTextRecursively,
 	unmaskProtectedFragments,
 	validateProtectedFragments,
-} = require("../src/api.js");
+} from "../src/translation/api.js";
+import { validateTranslationCoverage } from "../src/translation/responses.js";
 
 function buildSettings(overrides) {
 	return {

@@ -1,5 +1,5 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import assert from "node:assert/strict";
+import test from "node:test";
 
 const originalWindow = global.window;
 const originalDocument = global.document;
@@ -15,10 +15,6 @@ global.Node = {
 
 global.window = {
 	__OPENAI_TRANSLATOR_CONTENT__: false,
-	TranslatorContentExtraction: require("../src/content-extraction.js"),
-	TranslatorContentSubtitles: require("../src/content-subtitles.js"),
-	TranslatorMessages: require("../src/translator-messages.js"),
-	TranslatorYoutubeDiagnostics: require("../src/youtube-diagnostics.js"),
 	clearTimeout,
 	getComputedStyle() {
 		return {
@@ -47,6 +43,20 @@ global.chrome = {
 	},
 };
 
+import { createExtractionSelectorsForProfile } from "../src/content/extraction/rules.js";
+import {
+	ANTIREZ_PROSE_CONTAINER_SELECTOR,
+	ANTIREZ_PROSE_TEXT_SELECTOR,
+	resolveSiteProfile,
+	SCHIIT_ARTICLE_TEXT_SELECTOR,
+	THREADS_TEXT_BLOCK_SELECTOR,
+	X_CURRENT_POST_TEXT_SELECTOR,
+	X_TWEET_TEXT_SELECTOR,
+} from "../src/content/extraction/site-profiles.js";
+import { createContentRuntime } from "../src/content.js";
+
+const contentTestApi = createContentRuntime({ mount: false }).__TEST__;
+
 const {
 	ARTICLE_CONTENT_SELECTOR,
 	READABLE_BLOCK_SELECTOR,
@@ -72,19 +82,7 @@ const {
 	isUnsupportedElement,
 	scoreCandidateBlock,
 	scoreTranslationRoot,
-} = require("../src/content.js");
-const {
-	createExtractionSelectorsForProfile,
-} = require("../src/content-extraction.js");
-const {
-	ANTIREZ_PROSE_CONTAINER_SELECTOR,
-	ANTIREZ_PROSE_TEXT_SELECTOR,
-	SCHIIT_ARTICLE_TEXT_SELECTOR,
-	THREADS_TEXT_BLOCK_SELECTOR,
-	X_CURRENT_POST_TEXT_SELECTOR,
-	X_TWEET_TEXT_SELECTOR,
-	resolveSiteProfile,
-} = require("../src/content-site-profiles.js");
+} = contentTestApi;
 
 function splitSelector(selector) {
 	return String(selector)

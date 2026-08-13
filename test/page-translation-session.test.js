@@ -1,10 +1,10 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import assert from "node:assert/strict";
+import test from "node:test";
 
-const {
+import {
 	createPageTranslationQueue,
 	shouldKeepPageTranslationSession,
-} = require("../src/page-translation-session.js");
+} from "../src/shared/translation-session.js";
 
 test("persistent dynamic profiles keep an empty translation session alive", () => {
 	assert.equal(

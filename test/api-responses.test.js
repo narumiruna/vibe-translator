@@ -1,14 +1,12 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import assert from "node:assert/strict";
+import test from "node:test";
 
-require("../src/api-protected-fragments.js");
-
-const {
+import {
 	buildResponsesRequest,
 	buildTranslationInput,
 	extractOutputText,
 	parseTranslationResponse,
-} = require("../src/api-responses.js");
+} from "../src/translation/responses.js";
 
 function buildSettings(overrides = {}) {
 	return {

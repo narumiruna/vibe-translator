@@ -3,3 +3,8 @@
 node_modules/
 e2e-artifacts/
 .e2e-user-data/
+dist/
+.extension-js/
+extension-env.d.ts
+chrome-translator-*.zip
+vibe-translator-*.zip

@@ -2,17 +2,17 @@
 
 ## Project Structure & Module Organization
 
-This repository is a plain Manifest V3 Chrome extension. Shipped source lives in `src/`: `background.js` handles actions, context menus, permissions, and orchestration; `content.js` handles DOM extraction and inline bilingual rendering; `api.js` handles OpenAI-compatible requests and chunking; and `storage.js` handles settings validation and persistence. The options UI is `src/options.html`, `src/options.css`, and `src/options.js`. Tests are in `test/`, with manual QA notes in `docs/TESTING.md`.
+This repository is a bundled Manifest V3 Chrome extension built with Extension.js. Source lives in `src/`: `background/` owns listeners and orchestration; `content.js` and `content/` own lifecycle, extraction, and rendering; `translation/` owns OpenAI-compatible requests and chunking; and `shared/` owns settings and cross-context contracts. The options UI is in `src/options/`. Generated artifacts live in `dist/` and must not be edited. Tests are in `test/`, with manual QA notes in `docs/TESTING.md`.
 
 ## Build, Test, and Development Commands
 
-- `just check`: runs JavaScript syntax checks for all shipped scripts, then runs unit tests.
+- `just check`: runs module syntax checks, unit tests, a production build, and artifact verification.
 - `just test`: runs `node --test test/*.test.js`.
-- `just zip`: creates a versioned Chrome Web Store zip from the extension files.
+- `just zip`: creates and verifies the versioned Extension.js Chrome Web Store zip.
 - `just clean`: removes generated `chrome-translator-*.zip` archives.
 - When code changes are made, run `biome format --write && biome lint --write`.
 
-Load the extension through `chrome://extensions/` with **Developer mode** enabled, then use **Load unpacked** on this directory.
+Use `npm run dev` for development. For manual production checks, run `npm run build`, then use **Load unpacked** on `dist/chrome`.
 
 ## Coding Style & Naming Conventions
 

@@ -1,22 +1,21 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-
-const {
+import assert from "node:assert/strict";
+import test from "node:test";
+import { resolveSiteProfile } from "../src/content/extraction/site-profiles.js";
+import {
 	findMatchingSubtitleSource,
 	getMeaningfulCharacterMinimum,
 	getSegmentKind,
 	isSubtitleProfile,
 	prepareSubtitleNote,
+	removeDetachedSubtitleSources,
 	replaceSubtitleSource,
+	resetChangedSubtitleSource,
 	resolvePlayerControlError,
 	resolvePlayerControlState,
-	removeDetachedSubtitleSources,
-	resetChangedSubtitleSource,
 	shouldAllowAncestorTransforms,
 	shouldKeepSessionAlive,
 	shouldRenderPlaceholder,
-} = require("../src/content-subtitles.js");
-const { resolveSiteProfile } = require("../src/content-site-profiles.js");
+} from "../src/content/youtube/subtitles.js";
 
 const youtubeProfile = resolveSiteProfile("www.youtube.com");
 const defaultProfile = resolveSiteProfile("example.com");

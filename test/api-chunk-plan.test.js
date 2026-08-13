@@ -1,16 +1,14 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import assert from "node:assert/strict";
+import test from "node:test";
 
-require("../src/api-protected-fragments.js");
-
-const {
+import {
 	chunkTranslationItems,
 	consumeProgressiveTranslations,
 	createProgressiveMergeState,
 	createRecursiveChunkPlan,
 	mergeRecursiveTranslations,
 	splitTextRecursively,
-} = require("../src/api-chunk-plan.js");
+} from "../src/translation/chunk-plan.js";
 
 test("chunk plan chunks items by character limit", () => {
 	const chunks = chunkTranslationItems(

@@ -1,13 +1,13 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import assert from "node:assert/strict";
+import test from "node:test";
 
-const {
+import {
 	DEFAULT_PREFETCH_VIEWPORTS,
 	getTranslationWindowPriority,
 	isRectWithinTranslationWindow,
 	normalizeViewportOptions,
 	selectWindowCandidates,
-} = require("../src/content-viewport.js");
+} from "../src/content/page/viewport.js";
 
 test("normalizeViewportOptions fills defaults", () => {
 	assert.deepEqual(normalizeViewportOptions({ viewportHeight: 720 }), {

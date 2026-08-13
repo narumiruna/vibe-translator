@@ -1,7 +1,7 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import assert from "node:assert/strict";
+import test from "node:test";
 
-const {
+import {
 	DEFAULT_SETTINGS,
 	DEFAULT_SYSTEM_PROMPT_TEMPLATE,
 	DEFAULT_USER_PROMPT_TEMPLATE,
@@ -9,12 +9,12 @@ const {
 	getSettings,
 	lintPromptTemplates,
 	migrateLegacyPromptSettings,
-	normalizeDisabledDomains,
 	normalizeBaseUrl,
-	normalizeShowTranslationDebugInfo,
+	normalizeDisabledDomains,
 	normalizeSelectionPanelPositionMode,
+	normalizeShowTranslationDebugInfo,
 	validateSettings,
-} = require("../src/storage.js");
+} from "../src/shared/settings.js";
 
 test("normalizeBaseUrl trims trailing slash", () => {
 	assert.equal(

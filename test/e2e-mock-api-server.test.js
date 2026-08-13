@@ -1,12 +1,14 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import test from "node:test";
 
+const require = createRequire(import.meta.url);
 const {
 	buildMockTranslations,
 	createMockApiServer,
 	extractJsonObject,
 	stringifyMessageContent,
-} = require("../e2e/lib/mock-api-server.js");
+} = require("../e2e/lib/mock-api-server.cjs");
 
 test("mock API extracts source payload JSON from prompt text", () => {
 	assert.deepEqual(

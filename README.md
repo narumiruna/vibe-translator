@@ -21,31 +21,24 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 |---|---|
 | `manifest.json` | Manifest V3 configuration |
 | `icons/` | Extension icon source and generated PNG sizes |
-| `src/background.js` | Action click, context menus, permission flow, session orchestration |
-| `src/content-viewport.js` | Viewport measurement for progressive page translation |
-| `src/content-selection-panel.js` | Floating selected-text translation panel rendering and positioning |
-| `src/translation-appearance.js` | Appearance presets, validation, contrast calculation, and safe style mappings |
-| `src/content-extraction.js` | Page content selector, scoring, and extraction helper logic |
-| `src/content-subtitles.js` | Subtitle lifecycle, compact presentation, and changing-cue behavior |
-| `src/youtube-diagnostics.js` | Safe in-player YouTube diagnostics snapshots and reports |
-| `src/content.js` | DOM extraction, translation rendering, scroll-driven queuing |
-| `src/translator-messages.js` | Shared background/content message types and message builders |
-| `src/api-protected-fragments.js` | Placeholder masking and protected fragment validation |
-| `src/api-cache.js` | Translation cache keying and LRU cache helpers |
-| `src/api-chunk-plan.js` | Chunk planning, recursive split, and progressive merge helpers |
-| `src/api-responses.js` | Responses API prompt rendering, request building, and response parsing |
-| `src/api.js` | Translation request caching, retry, and batched request orchestration |
-| `src/storage.js` | Settings validation, normalization, and persistence |
-| `src/options.html/css/js` | Settings page UI |
-| `src/options-appearance.js` | Appearance controls, preset behavior, and live previews |
-| `test/` | Node unit tests |
+| `src/background/` | MV3 listener entrypoint, controller, permissions, injection, and orchestration |
+| `src/content.js` | Bundled content entrypoint and lifecycle owner |
+| `src/content/` | Extraction, viewport, rendering, selection, styling, and YouTube modules |
+| `src/translation/` | API requests, cache, chunking, responses, and protected fragments |
+| `src/shared/` | Settings, appearance, messages, frame rules, logging, and sessions |
+| `src/options/` | Options module entrypoint, HTML, CSS, and appearance controls |
+| `extension.config.mjs` | Extension.js development profile and context logging configuration |
+| `scripts/verify-build.mjs` | Production manifest, file-reference, content-bundle, and size checks |
+| `test/` | Node unit tests and compatibility fixtures |
+| `e2e/` | Playwright tests that load `dist/chrome` |
 | `docs/TESTING.md` | Manual QA checklist |
 
 ## Installation
 
 1. Open `chrome://extensions/`
 2. Enable **Developer mode**
-3. Click **Load unpacked** and select this directory
+3. Run `npm run build`
+4. Click **Load unpacked** and select `dist/chrome`
 4. Open the extension's **Details → Extension options** to configure the API before use
 
 ## Configuration
@@ -106,17 +99,27 @@ Videos without an available YouTube caption track are not transcribed from audio
 ## Development
 
 ```bash
-npm install  # install development dependencies and the Husky Git hook
-npm run icons # regenerate extension icon PNGs from icons/icon.svg
-just check   # syntax check + unit tests
-just test    # unit tests only
-just zip     # build a Chrome Web Store zip
-just clean   # remove generated zips
+npm install       # install exact development dependencies and the Husky hook
+npm run dev       # Extension.js development build with labeled context logs
+npm run build     # production Chrome artifact in dist/chrome
+npm run preview   # preview the production Chrome build
+npm run check     # module checks, 151 unit tests, production build, artifact verification
+npm run e2e:mock  # production-artifact Playwright smoke suite with a local API
+npm run zip       # production build plus dist/chrome/vibe-translator-<version>.zip
+npm run icons     # regenerate extension icon PNGs from icons/icon.svg
 ```
 
-The Husky pre-commit hook formats, lints, and organizes imports in staged supported files with Biome.
+Extension.js telemetry is disabled by every repository command.
+Development uses the isolated persistent profile at `dist/extension-profile-chrome` and labels background, content, options, and page logs.
+Use `dist/extension-js/chrome/ready.json` for readiness metadata and filter terminal output by the context label, tab URL, or event name.
 
-Load the extension from `chrome://extensions/` using **Load unpacked** on this directory.
+The Husky pre-commit hook formats, lints, and organizes imports in staged supported files with Biome.
+For manual production testing, load `dist/chrome` from `chrome://extensions/`.
+Do not load the repository root because source modules are not the store artifact.
+
+`npm audit` currently reports one transitive advisory as four high-severity dependency paths: `extension` → `extension-develop` → `extension-from-store` → `extract-zip` (`GHSA-jmr9-qjv8-65gv`).
+Extension.js 4.0.32 is the latest reviewed release, and its store-download helper invokes the vulnerable extractor only when importing third-party store archives.
+This project does not use that feature in `dev`, `build`, `preview`, `zip`, or CI; upgrade when Extension.js publishes a patched dependency chain.
 
 ## Notes
 
