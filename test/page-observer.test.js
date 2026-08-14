@@ -63,12 +63,15 @@ test("subtitle observer accepts only mutations involving caption segments", () =
 	);
 });
 
-test("subtitle removals reconcile exact notes before translation is scheduled", () => {
+test("subtitle replacements rebind exact notes before cleanup and scheduling", () => {
 	const events = [];
 	const timers = [];
 	let handleMutations;
 	const body = {};
 	const removedSource = createElement({ matches: selector });
+	const secondRemovedSource = createElement({ matches: selector });
+	const addedSource = createElement({ matches: selector });
+	const secondAddedSource = createElement({ matches: selector });
 	const observer = createPageObserver({
 		MutationObserver: function MutationObserver(callback) {
 			handleMutations = callback;
@@ -83,11 +86,17 @@ test("subtitle removals reconcile exact notes before translation is scheduled", 
 			isSubtitleProfile() {
 				return true;
 			},
+			rebindDetachedSubtitleSources(_profile, source, replacements) {
+				assert.ok(source === removedSource || source === secondRemovedSource);
+				assert.deepEqual(replacements, [addedSource, secondAddedSource]);
+				events.push("rebind");
+				return 1;
+			},
 			reconcileSubtitleNotes() {
 				events.push("reconcile");
 			},
 			removeDetachedSubtitleSources(_profile, source) {
-				assert.equal(source, removedSource);
+				assert.ok(source === removedSource || source === secondRemovedSource);
 				events.push("remove");
 			},
 			resetChangedSubtitleSource() {
@@ -114,6 +123,7 @@ test("subtitle removals reconcile exact notes before translation is scheduled", 
 		hasSourceTextChanged() {
 			return false;
 		},
+		insertSubtitleNote() {},
 		isInsideTranslation() {
 			return false;
 		},
@@ -124,6 +134,7 @@ test("subtitle removals reconcile exact notes before translation is scheduled", 
 		observerDebounceMs: 0,
 		processedAttr: "data-translated",
 		queuedAttr: "data-ot-queued",
+		rememberSourceText() {},
 		rootAttr: "data-ot-role",
 		setSourceQueued() {},
 		sourceAttr: "data-ot-source-id",
@@ -141,14 +152,27 @@ test("subtitle removals reconcile exact notes before translation is scheduled", 
 	observer.ensureObserver();
 	handleMutations([
 		{
-			addedNodes: [],
+			addedNodes: [addedSource],
 			removedNodes: [removedSource],
+			target: createElement(),
+			type: "childList",
+		},
+		{
+			addedNodes: [secondAddedSource],
+			removedNodes: [secondRemovedSource],
 			target: createElement(),
 			type: "childList",
 		},
 	]);
 
-	assert.deepEqual(events, ["remove", "reconcile", "schedule"]);
+	assert.deepEqual(events, [
+		"rebind",
+		"remove",
+		"rebind",
+		"remove",
+		"reconcile",
+		"schedule",
+	]);
 	assert.equal(timers.length, 0);
 });
 

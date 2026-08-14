@@ -12,6 +12,7 @@ import {
 	hasCachedSubtitleTranslation,
 	isSubtitleProfile,
 	prepareSubtitleNote,
+	rebindDetachedSubtitleSources,
 	reconcileSubtitleNotes,
 	removeDetachedSubtitleSources,
 	replaceSubtitleSource,
@@ -246,6 +247,91 @@ test("detached subtitle sources remove notes left behind by native cue replaceme
 		}),
 		0,
 	);
+});
+
+test("rendered subtitle notes move to exact replacement sources", () => {
+	const oldAttributes = new Map([
+		["data-ot-source-id", "ot-7"],
+		["data-ot-translated", "true"],
+		["data-translated", "true"],
+	]);
+	const replacementAttributes = new Map();
+	const changedAttributes = new Map();
+	const noteAttributes = new Map([
+		["data-ot-subtitle-source-text", "Stable caption"],
+		["data-ot-subtitle-display-mode", "translation-only"],
+	]);
+	const createSource = (attributes, text) => ({
+		text,
+		getAttribute(name) {
+			return attributes.get(name) || null;
+		},
+		removeAttribute(name) {
+			attributes.delete(name);
+		},
+		setAttribute(name, value) {
+			attributes.set(name, value);
+		},
+	});
+	const oldSource = createSource(oldAttributes, "Stable caption");
+	const replacementSource = createSource(
+		replacementAttributes,
+		"Stable caption",
+	);
+	const changedSource = createSource(changedAttributes, "Changed caption");
+	const note = {
+		getAttribute(name) {
+			return noteAttributes.get(name) || null;
+		},
+	};
+	let insertedNote = null;
+	let rememberedText = "";
+
+	assert.equal(
+		rebindDetachedSubtitleSources(
+			youtubeProfile,
+			{
+				matches(selector) {
+					return selector === "[data-ot-source-id]";
+				},
+				querySelectorAll() {
+					return [];
+				},
+				...oldSource,
+			},
+			[changedSource, replacementSource],
+			{
+				findNote(source, id) {
+					assert.equal(id, "ot-7");
+					assert.equal(source.text, "Stable caption");
+					return note;
+				},
+				getSourceText: (source) => source.text,
+				insertNote(source, candidateNote) {
+					assert.equal(source, replacementSource);
+					insertedNote = candidateNote;
+				},
+				processedAttribute: "data-translated",
+				queuedAttribute: "data-ot-queued",
+				rememberSourceText(_source, text) {
+					rememberedText = text;
+				},
+				sourceAttribute: "data-ot-source-id",
+				staleAttribute: "data-ot-source-stale",
+				translatedAttribute: "data-ot-translated",
+			},
+		),
+		1,
+	);
+	assert.equal(oldAttributes.has("data-ot-source-id"), false);
+	assert.equal(replacementAttributes.get("data-ot-source-id"), "ot-7");
+	assert.equal(replacementAttributes.get("data-ot-translated"), "true");
+	assert.equal(replacementAttributes.get("data-translated"), "true");
+	assert.equal(replacementAttributes.get("data-ot-queued"), "false");
+	assert.equal(replacementAttributes.get("data-ot-subtitle-replaced"), "true");
+	assert.equal(changedAttributes.size, 0);
+	assert.equal(insertedNote, note);
+	assert.equal(rememberedText, "Stable caption");
 });
 
 test("detached subtitle results rebind only to an identical visible source", () => {
