@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import YoutubeDiagnostics from "../src/content/youtube/diagnostics.js";
@@ -42,11 +43,15 @@ test("YouTube diagnostics describe the current player without secrets", () => {
 		},
 	};
 	const readyNote = {};
+	const video = { currentTime: 12.5, playbackRate: 1.5 };
 	const documentLike = {
 		elementFromPoint() {
 			return control;
 		},
 		querySelector(selector) {
+			if (selector === "#movie_player video") {
+				return video;
+			}
 			if (selector === "[data-ot-youtube-control]") {
 				return control;
 			}
@@ -104,6 +109,10 @@ test("YouTube diagnostics describe the current player without secrets", () => {
 				sourceCount: 1,
 				translatedSourceCount: 0,
 			},
+			playback: {
+				currentTimeMs: 12500,
+				playbackRate: 1.5,
+			},
 			trackCount: 1,
 			visibleCaptionCharacters: 22,
 		},
@@ -139,6 +148,92 @@ test("YouTube diagnostic store keeps only recent bounded events", () => {
 	assert.equal(store.getEvents()[0].detail, "5");
 	store.clear();
 	assert.deepEqual(store.getEvents(), []);
+});
+
+test("YouTube caption traces keep bounded timing metadata without text or secrets", async () => {
+	const fixture = JSON.parse(
+		await readFile(
+			new URL("./fixtures/youtube-auto-caption.json", import.meta.url),
+			"utf8",
+		),
+	);
+	const cue = fixture.events[0];
+	const trace = YoutubeDiagnostics.createCaptionTraceStore({ limit: 3 });
+
+	trace.addCue({
+		apiKey: "sk-private",
+		captionText: cue.segs.map((segment) => segment.utf8).join(""),
+		cueStartMs: cue.tStartMs,
+		durationMs: cue.dDurationMs,
+		wordOffsetsMs: cue.segs.map((segment) => segment.tOffsetMs || 0),
+	});
+	trace.addMutation({
+		cachePath: "exact",
+		captionText: "Build reliable",
+		characters: 14,
+		kind: "source",
+		playbackRate: 1,
+		progressive: true,
+		videoTimeMs: 1400,
+	});
+	trace.addMutation({
+		authorization: "Bearer private-token",
+		cachePath: "visible-fallback",
+		characters: 18,
+		kind: "render",
+		playbackRate: 2,
+		videoTimeMs: 1600,
+	});
+
+	assert.deepEqual(trace.getSummary(), {
+		exactCacheHits: 1,
+		progressiveSourceMutations: 1,
+		sampleCount: 3,
+		timedPrefixHits: 0,
+		visibleFallbacks: 1,
+	});
+	const serialized = JSON.stringify(trace.getSamples());
+
+	assert.doesNotMatch(
+		serialized,
+		/Build reliable|sk-private|private-token|captionText|apiKey|authorization/u,
+	);
+	assert.deepEqual(trace.getSamples()[0], {
+		cueStartMs: 1000,
+		durationMs: 3000,
+		kind: "cue",
+		wordOffsetsMs: [0, 400, 900],
+	});
+	assert.deepEqual(trace.getSamples()[1], {
+		cachePath: "exact",
+		characters: 14,
+		kind: "source",
+		playbackRate: 1,
+		progressive: true,
+		videoTimeMs: 1400,
+	});
+	assert.deepEqual(trace.getSamples()[2], {
+		cachePath: "visible-fallback",
+		characters: 18,
+		kind: "render",
+		playbackRate: 2,
+		progressive: false,
+		videoTimeMs: 1600,
+	});
+});
+
+test("YouTube caption traces normalize malformed timing inputs", () => {
+	const trace = YoutubeDiagnostics.createCaptionTraceStore({ limit: 9999 });
+
+	assert.doesNotThrow(() => trace.addCue({ wordOffsetsMs: 42 }));
+	const returnedCue = trace.addCue({ wordOffsetsMs: [100] });
+
+	returnedCue.wordOffsetsMs.push(200);
+	trace.addMutation({ kind: "source", playbackRate: 0 });
+
+	assert.deepEqual(trace.getSamples()[0].wordOffsetsMs, []);
+	assert.deepEqual(trace.getSamples()[1].wordOffsetsMs, [100]);
+	assert.equal(trace.getSamples()[2].playbackRate, 1);
 });
 
 test("YouTube control is limited to watch and Shorts video routes", () => {

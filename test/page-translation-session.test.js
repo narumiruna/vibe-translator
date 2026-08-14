@@ -88,6 +88,100 @@ test("page translation queue batches work with bounded concurrency", async () =>
 	assert.equal(queue.get(1, session.sessionId).inFlightCount, 0);
 });
 
+test("page translation queue caps 33 subtitle items at five active batch requests", async () => {
+	let active = 0;
+	let maxActive = 0;
+	const resolvers = [];
+	const batches = [];
+	const queue = createPageTranslationQueue({
+		batchSize: 8,
+		concurrency: 5,
+		processBatch({ items }) {
+			active += 1;
+			maxActive = Math.max(maxActive, active);
+			batches.push(items);
+			return new Promise((resolve) => {
+				resolvers.push(() => {
+					active -= 1;
+					resolve();
+				});
+			});
+		},
+	});
+	const session = queue.create(10, {});
+
+	queue.enqueue(
+		10,
+		session.sessionId,
+		Array.from({ length: 33 }, (_, index) => ({
+			id: `caption-${index}`,
+			kind: "subtitle",
+		})),
+	);
+	await nextTick();
+
+	assert.equal(maxActive, 5);
+	assert.equal(batches.length, 5);
+	assert.deepEqual(
+		batches.map((batch) => batch.length),
+		[8, 8, 8, 8, 1],
+	);
+	while (resolvers.length > 0) {
+		resolvers.shift()();
+		await nextTick();
+	}
+	assert.equal(session.inFlightCount, 0);
+});
+
+test("page translation queue places rolling work behind urgent work", async () => {
+	const processed = [];
+	const resolvers = [];
+	const queue = createPageTranslationQueue({
+		batchSize: 1,
+		concurrency: 1,
+		processBatch({ items }) {
+			processed.push(items[0].id);
+			return new Promise((resolve) => resolvers.push(resolve));
+		},
+	});
+	const session = queue.create(9, {});
+
+	queue.enqueue(9, session.sessionId, [{ id: "active" }]);
+	await nextTick();
+	queue.enqueue(9, session.sessionId, [{ id: "nearer-pending" }]);
+	queue.enqueue(9, session.sessionId, [{ id: "rolling-tail" }], undefined, {
+		placement: "back",
+	});
+	queue.enqueue(9, session.sessionId, [{ id: "seek-or-visible" }]);
+	resolvers.shift()();
+	await nextTick();
+
+	assert.deepEqual(processed, ["active", "seek-or-visible"]);
+	resolvers.shift()();
+	await nextTick();
+	assert.deepEqual(processed, ["active", "seek-or-visible", "nearer-pending"]);
+	resolvers.shift()();
+	await nextTick();
+	assert.deepEqual(processed, [
+		"active",
+		"seek-or-visible",
+		"nearer-pending",
+		"rolling-tail",
+	]);
+	resolvers.shift()();
+	await nextTick();
+	assert.equal(session.inFlightCount, 0);
+});
+
+test("page translation queue treats malformed placement options as urgent defaults", () => {
+	const queue = createPageTranslationQueue({ processBatch() {} });
+	const session = queue.create(11, {});
+
+	assert.doesNotThrow(() =>
+		queue.enqueue(11, session.sessionId, [{ id: "caption" }], 0, null),
+	);
+});
+
 test("page translation queue deduplicates pending item ids", async () => {
 	const processed = [];
 	const queue = createPageTranslationQueue({

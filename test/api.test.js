@@ -604,6 +604,45 @@ test("requestTranslationsBatchedProgressive emits chunks in completion order", a
 	assert.equal(result.successes.length, 3);
 });
 
+test("requestTranslationsBatchedProgressive preserves every id in a grouped subtitle request", async () => {
+	clearTranslationCache();
+
+	const plan = createRecursiveChunkPlan(
+		Array.from({ length: 8 }, (_, index) => ({
+			id: `caption-${index}`,
+			kind: "subtitle",
+			text: `Caption ${index}`,
+		})),
+	);
+	const chunks = chunkTranslationItems(plan.expandedItems);
+	let requestCount = 0;
+	const result = await requestTranslationsBatchedProgressive({
+		settings: buildSettings({ model: "grouped-subtitles" }),
+		chunks,
+		concurrency: 5,
+		async fetchImpl(_url, options) {
+			requestCount += 1;
+			const body = JSON.parse(options.body);
+			const payload = JSON.parse(body.input[1].content.split("\n\n").at(-1));
+			const translations = payload.items.map((item) => ({
+				id: item.id,
+				translatedText: `translated-${item.id}`,
+			}));
+
+			return {
+				ok: true,
+				text: async () => JSON.stringify({ output_parsed: { translations } }),
+			};
+		},
+	});
+
+	assert.equal(requestCount, 1);
+	assert.deepEqual(
+		result.successes.map((item) => item.id),
+		plan.expandedItems.map((item) => item.id),
+	);
+});
+
 test("requestTranslationsBatchedProgressive sends one item per request for normal items", async () => {
 	clearTranslationCache();
 

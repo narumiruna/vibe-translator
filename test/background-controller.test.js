@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createBackgroundController } from "../src/background/controller.js";
+import {
+	buildPageTranslationRequestChunks,
+	buildPageTranslationRequestConcurrency,
+	createBackgroundController,
+} from "../src/background/controller.js";
 import { createBackgroundPlatform } from "../src/background/platform.js";
 import Messages from "../src/shared/messages.js";
 import Settings from "../src/shared/settings.js";
+import Api from "../src/translation/api.js";
 
 function createController(options = {}) {
 	const chrome = {
@@ -65,6 +70,42 @@ function createController(options = {}) {
 		},
 	});
 }
+
+test("background controller groups short subtitle batches without changing page chunks", () => {
+	const subtitles = Array.from({ length: 33 }, (_, index) => ({
+		id: `caption-${index}`,
+		kind: "subtitle",
+		text: `Short caption ${index}`,
+	}));
+	let requestCount = 0;
+
+	for (let index = 0; index < subtitles.length; index += 8) {
+		const batch = subtitles.slice(index, index + 8);
+		const plan = Api.createRecursiveChunkPlan(batch);
+		const chunks = buildPageTranslationRequestChunks(Api, batch, plan);
+
+		assert.equal(chunks.length, 1);
+		assert.ok(chunks[0].length <= 8);
+		assert.equal(buildPageTranslationRequestConcurrency(batch, chunks, 5), 1);
+		requestCount += chunks.length;
+	}
+	assert.equal(requestCount, 5);
+
+	const pageItems = [
+		{ id: "paragraph-1", kind: "paragraph", text: "First" },
+		{ id: "paragraph-2", kind: "paragraph", text: "Second" },
+	];
+	const pagePlan = Api.createRecursiveChunkPlan(pageItems);
+
+	assert.equal(
+		buildPageTranslationRequestChunks(Api, pageItems, pagePlan),
+		pagePlan.chunks,
+	);
+	assert.equal(
+		buildPageTranslationRequestConcurrency(pageItems, pagePlan.chunks, 5),
+		2,
+	);
+});
 
 test("background controller rejects messages without the extension sender id", async () => {
 	const controller = createController();

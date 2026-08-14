@@ -3,6 +3,27 @@ const CAPTION_BUTTON_SELECTOR = ".ytp-subtitles-button";
 const CAPTION_SEGMENT_SELECTOR =
 	"#ytp-caption-window-container .ytp-caption-segment";
 const MAX_EVENTS = 30;
+const MAX_TRACE_SAMPLES = 120;
+const MAX_TRACE_WORD_OFFSETS = 32;
+const TRACE_CACHE_PATHS = new Set([
+	"exact",
+	"timed-prefix",
+	"visible-fallback",
+]);
+
+function normalizeNonNegativeNumber(value, fallback = 0) {
+	const number = Number(value);
+
+	return Number.isFinite(number) && number >= 0 ? number : fallback;
+}
+
+function normalizeTraceLimit(value) {
+	const number = Math.floor(Number(value));
+
+	return Number.isFinite(number) && number > 0
+		? Math.min(number, MAX_TRACE_SAMPLES)
+		: MAX_TRACE_SAMPLES;
+}
 
 function getVideoPageLabel(locationLike) {
 	const hostname = String(locationLike?.hostname || "");
@@ -39,6 +60,8 @@ function collectYoutubeDiagnostics(options = {}) {
 	const documentLike = options.document || globalThis.document;
 	const control = documentLike?.querySelector?.(CONTROL_SELECTOR);
 	const captionButton = documentLike?.querySelector?.(CAPTION_BUTTON_SELECTOR);
+	const video = documentLike?.querySelector?.("#movie_player video");
+	const playbackRate = Number(video?.playbackRate);
 	const captionSegments = Array.from(
 		documentLike?.querySelectorAll?.(CAPTION_SEGMENT_SELECTOR) || [],
 	);
@@ -77,6 +100,11 @@ function collectYoutubeDiagnostics(options = {}) {
 			translatedSourceCount: captionSegments.filter(
 				(segment) => segment.getAttribute?.("data-ot-translated") === "true",
 			).length,
+		},
+		playback: {
+			currentTimeMs: Math.max(0, Number(video?.currentTime) || 0) * 1000,
+			playbackRate:
+				Number.isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1,
 		},
 		trackCount: getCaptionTracks(options.playerResponse).length,
 		visibleCaptionCharacters: visibleCaptionText.length,
@@ -117,6 +145,96 @@ function createDiagnosticStore() {
 	};
 }
 
+function createCaptionTraceStore(options = {}) {
+	const limit = normalizeTraceLimit(options.limit);
+	const samples = [];
+	const counters = {
+		exactCacheHits: 0,
+		progressiveSourceMutations: 0,
+		timedPrefixHits: 0,
+		visibleFallbacks: 0,
+	};
+
+	function cloneSample(sample) {
+		return {
+			...sample,
+			...(sample.wordOffsetsMs
+				? { wordOffsetsMs: [...sample.wordOffsetsMs] }
+				: {}),
+		};
+	}
+
+	function append(sample) {
+		samples.push(sample);
+		if (samples.length > limit) {
+			samples.splice(0, samples.length - limit);
+		}
+		return cloneSample(sample);
+	}
+
+	function countSample(sample) {
+		if (sample.cachePath === "exact") {
+			counters.exactCacheHits += 1;
+		} else if (sample.cachePath === "timed-prefix") {
+			counters.timedPrefixHits += 1;
+		} else if (sample.cachePath === "visible-fallback") {
+			counters.visibleFallbacks += 1;
+		}
+
+		if (sample.kind === "source" && sample.progressive) {
+			counters.progressiveSourceMutations += 1;
+		}
+	}
+
+	return {
+		addCue(cue = {}) {
+			return append({
+				cueStartMs: normalizeNonNegativeNumber(cue.cueStartMs),
+				durationMs: normalizeNonNegativeNumber(cue.durationMs),
+				kind: "cue",
+				wordOffsetsMs: (Array.isArray(cue.wordOffsetsMs)
+					? cue.wordOffsetsMs
+					: []
+				)
+					.slice(0, MAX_TRACE_WORD_OFFSETS)
+					.map((value) => normalizeNonNegativeNumber(value)),
+			});
+		},
+		addMutation(mutation = {}) {
+			const cachePath = TRACE_CACHE_PATHS.has(mutation.cachePath)
+				? mutation.cachePath
+				: "";
+			const sample = {
+				cachePath,
+				characters: Math.floor(normalizeNonNegativeNumber(mutation.characters)),
+				kind: mutation.kind === "source" ? "source" : "render",
+				playbackRate:
+					Number.isFinite(Number(mutation.playbackRate)) &&
+					Number(mutation.playbackRate) > 0
+						? Number(mutation.playbackRate)
+						: 1,
+				progressive: Boolean(mutation.progressive),
+				videoTimeMs: normalizeNonNegativeNumber(mutation.videoTimeMs),
+			};
+
+			countSample(sample);
+			return append(sample);
+		},
+		clear() {
+			samples.length = 0;
+			for (const key of Object.keys(counters)) {
+				counters[key] = 0;
+			}
+		},
+		getSamples() {
+			return samples.map(cloneSample);
+		},
+		getSummary() {
+			return { ...counters, sampleCount: samples.length };
+		},
+	};
+}
+
 function createDiagnosticReport(snapshot, events) {
 	return [
 		"Vibe Translator YouTube diagnostics",
@@ -136,6 +254,7 @@ const api = {
 	CAPTION_SEGMENT_SELECTOR,
 	CONTROL_SELECTOR,
 	collectYoutubeDiagnostics,
+	createCaptionTraceStore,
 	createDiagnosticReport,
 	createDiagnosticStore,
 };
@@ -145,6 +264,7 @@ export {
 	CAPTION_SEGMENT_SELECTOR,
 	CONTROL_SELECTOR,
 	collectYoutubeDiagnostics,
+	createCaptionTraceStore,
 	createDiagnosticReport,
 	createDiagnosticStore,
 };

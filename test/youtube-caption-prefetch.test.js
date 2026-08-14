@@ -4,6 +4,7 @@ import test from "node:test";
 import { createYoutubeCaptionPrefetch } from "../src/background/youtube-caption-prefetch.js";
 
 function createFixture() {
+	const acceptedIds = new Set();
 	const enqueued = [];
 	const diagnostics = [];
 	const payload = {
@@ -13,12 +14,30 @@ function createFixture() {
 			{ tStartMs: 59999, dDurationMs: 1000, segs: [{ utf8: "Sixty" }] },
 			{ tStartMs: 60000, dDurationMs: 1000, segs: [{ utf8: "Boundary" }] },
 			{ tStartMs: 90000, dDurationMs: 1000, segs: [{ utf8: "Ninety" }] },
+			{ tStartMs: 119999, dDurationMs: 1000, segs: [{ utf8: "One twenty" }] },
+			{
+				tStartMs: 120000,
+				dDurationMs: 1000,
+				segs: [{ utf8: "Two minute boundary" }],
+			},
+			{
+				tStartMs: 179999,
+				dDurationMs: 1000,
+				segs: [{ utf8: "Three minutes" }],
+			},
 		],
 	};
 	const prefetch = createYoutubeCaptionPrefetch({
 		async enqueue(context) {
 			enqueued.push(context);
-			return { queued: context.items.length };
+			const accepted = context.items.filter(
+				(item) => !acceptedIds.has(item.id),
+			);
+
+			for (const item of accepted) {
+				acceptedIds.add(item.id);
+			}
+			return { queued: accepted.length };
 		},
 		async fetch() {
 			return {
@@ -47,14 +66,48 @@ test("initialization fetches JSON3 and queues the current 60-second window", asy
 			sessionId: "session-1",
 			tabId: 7,
 		}),
-		{ available: true, cueCount: 5, queued: 3 },
+		{ available: true, cueCount: 8, queued: 3 },
 	);
 	assert.match(enqueued[0].items[0].id, /^youtube-cue-0-0$/u);
 	assert.deepEqual(
 		enqueued[0].items.map((item) => item.text),
 		["Zero", "Thirty", "Sixty"],
 	);
+	assert.equal(enqueued[0].placement, "front");
+	assert.equal(enqueued[0].windowMs, 60000);
+	assert.deepEqual(diagnostics.at(-2), {
+		stage: "prefetch-window",
+		detail: "rate=1; window=60000ms; placement=front; cues=3; queued=3",
+	});
 	assert.equal(diagnostics.at(-1).stage, "prefetch-ready");
+});
+
+test("playback rate expands the media window while preserving a bounded lead", async () => {
+	for (const [playbackRate, expectedTexts, expectedWindowMs] of [
+		[1, ["Zero", "Thirty", "Sixty"], 60000],
+		[1.5, ["Zero", "Thirty", "Sixty", "Boundary"], 90000],
+		[
+			2,
+			["Zero", "Thirty", "Sixty", "Boundary", "Ninety", "One twenty"],
+			120000,
+		],
+		["fast", ["Zero", "Thirty", "Sixty"], 60000],
+	]) {
+		const { enqueued, prefetch } = createFixture();
+
+		await prefetch.initialize({
+			baseUrl: "https://www.youtube.com/api/timedtext?v=rate",
+			currentTimeMs: 0,
+			playbackRate,
+			sessionId: `session-${playbackRate}`,
+			tabId: 7,
+		});
+		assert.deepEqual(
+			enqueued[0].items.map((item) => item.text),
+			expectedTexts,
+		);
+		assert.equal(enqueued[0].windowMs, expectedWindowMs);
+	}
 });
 
 test("progress refills an overlapping window without duplicate cue IDs", async () => {
@@ -77,8 +130,9 @@ test("progress refills an overlapping window without duplicate cue IDs", async (
 	);
 	assert.deepEqual(
 		enqueued[1].items.map((item) => item.text),
-		["Boundary", "Ninety"],
+		["Thirty", "Sixty", "Boundary", "Ninety"],
 	);
+	assert.equal(enqueued[1].placement, "back");
 	assert.deepEqual(
 		await prefetch.update({
 			currentTimeMs: 31000,
@@ -132,6 +186,69 @@ test("prefetch queues every overlapping active cue for exact DOM matching", asyn
 		enqueued[0].items.map((item) => item.text),
 		["First active line", "Second active line"],
 	);
+});
+
+test("seek windows return to the front of the queue", async () => {
+	const { enqueued, prefetch } = createFixture();
+
+	await prefetch.initialize({
+		baseUrl: "https://www.youtube.com/api/timedtext?v=seek",
+		currentTimeMs: 0,
+		sessionId: "session-seek",
+		tabId: 7,
+	});
+	await prefetch.update({
+		currentTimeMs: 90000,
+		reason: "seek",
+		sessionId: "session-seek",
+		tabId: 7,
+	});
+
+	assert.equal(enqueued[1].placement, "front");
+});
+
+test("a later refill can offer failed timed cues again", async () => {
+	const enqueued = [];
+	const prefetch = createYoutubeCaptionPrefetch({
+		async enqueue(context) {
+			enqueued.push(context);
+			return { queued: context.items.length };
+		},
+		async fetch() {
+			return {
+				ok: true,
+				async json() {
+					return {
+						events: [
+							{
+								tStartMs: 1000,
+								dDurationMs: 1000,
+								segs: [{ utf8: "Retry me" }],
+							},
+						],
+					};
+				},
+			};
+		},
+	});
+
+	await prefetch.initialize({
+		baseUrl: "https://www.youtube.com/api/timedtext?v=retry",
+		currentTimeMs: 0,
+		sessionId: "session-retry",
+		tabId: 7,
+	});
+	assert.deepEqual(
+		await prefetch.update({
+			currentTimeMs: 0,
+			reason: "progress",
+			sessionId: "session-retry",
+			tabId: 7,
+		}),
+		{ available: true, queued: 1 },
+	);
+	assert.equal(enqueued.length, 2);
+	assert.equal(enqueued[1].items[0].id, enqueued[0].items[0].id);
 });
 
 test("unavailable or malformed timed captions preserve fallback behavior", async () => {

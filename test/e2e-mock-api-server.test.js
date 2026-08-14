@@ -129,6 +129,8 @@ test("mock API server exposes models and responses endpoints", async () => {
 				translations: [{ id: "a", translatedText: "[mock:Alpha]" }],
 			}),
 		});
+		assert.deepEqual(server.getResponseItemIds(), ["a"]);
+		assert.equal(server.getMaxActiveResponseCount(), 1);
 	} finally {
 		await server.close();
 	}

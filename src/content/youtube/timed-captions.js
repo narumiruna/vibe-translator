@@ -1,10 +1,25 @@
 const DEFAULT_CAPTION_WINDOW_MS = 60000;
+const MAX_CAPTION_WINDOW_MS = 180000;
 const DEFAULT_PROGRESS_REPORT_INTERVAL_MS = 10000;
 
 function normalizeNonNegativeNumber(value, fallback = 0) {
 	const number = Number(value);
 
 	return Number.isFinite(number) && number >= 0 ? number : fallback;
+}
+
+function normalizePlaybackRate(value) {
+	const rate = Number(value);
+
+	return Number.isFinite(rate) && rate > 0 ? rate : 1;
+}
+
+function getCaptionWindowMs(playbackRate) {
+	return Math.min(
+		MAX_CAPTION_WINDOW_MS,
+		DEFAULT_CAPTION_WINDOW_MS *
+			Math.max(1, normalizePlaybackRate(playbackRate)),
+	);
 }
 
 function normalizeCaptionText(value) {
@@ -91,8 +106,11 @@ function shouldReportCaptionProgress(
 
 const api = {
 	DEFAULT_CAPTION_WINDOW_MS,
+	MAX_CAPTION_WINDOW_MS,
 	buildJson3TrackUrl,
 	buildTimedCaptionItems,
+	getCaptionWindowMs,
+	normalizePlaybackRate,
 	parseJson3Captions,
 	selectCaptionWindow,
 	shouldReportCaptionProgress,
@@ -102,6 +120,9 @@ export {
 	buildJson3TrackUrl,
 	buildTimedCaptionItems,
 	DEFAULT_CAPTION_WINDOW_MS,
+	getCaptionWindowMs,
+	MAX_CAPTION_WINDOW_MS,
+	normalizePlaybackRate,
 	parseJson3Captions,
 	selectCaptionWindow,
 	shouldReportCaptionProgress,

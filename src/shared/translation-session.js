@@ -186,7 +186,7 @@ function createPageTranslationQueue(options = {}) {
 		}
 	}
 
-	function enqueue(tabId, sessionId, items, frameId) {
+	function enqueue(tabId, sessionId, items, frameId, enqueueOptions = {}) {
 		const session = get(tabId, sessionId, frameId);
 
 		if (!session) {
@@ -210,7 +210,11 @@ function createPageTranslationQueue(options = {}) {
 		}
 
 		if (queuedItems.length > 0) {
-			session.pendingItems = queuedItems.concat(session.pendingItems);
+			if (enqueueOptions?.placement === "back") {
+				session.pendingItems.push(...queuedItems);
+			} else {
+				session.pendingItems = queuedItems.concat(session.pendingItems);
+			}
 			continueProcessing(tabId, session.sessionId, session.frameId);
 		}
 

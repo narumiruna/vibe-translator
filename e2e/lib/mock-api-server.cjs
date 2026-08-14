@@ -109,8 +109,11 @@ function buildMockTranslations(requestPayload) {
 
 async function createMockApiServer(options = {}) {
 	const state = {
+		activeResponseCount: 0,
 		failOnTextIncludes: options.failOnTextIncludes || "",
+		maxActiveResponseCount: 0,
 		responseDelayMs: Number(options.responseDelayMs) || 0,
+		responseItemIds: [],
 		responseRequestCount: 0,
 	};
 	const server = http.createServer(async (request, response) => {
@@ -125,48 +128,62 @@ async function createMockApiServer(options = {}) {
 		}
 
 		if (request.method === "POST" && requestUrl.pathname === "/v1/responses") {
+			state.activeResponseCount += 1;
+			state.maxActiveResponseCount = Math.max(
+				state.maxActiveResponseCount,
+				state.activeResponseCount,
+			);
 			state.responseRequestCount += 1;
-			let requestPayload = {};
 
 			try {
-				requestPayload = JSON.parse(await readRequestBody(request));
-			} catch (_error) {
-				requestPayload = {};
-			}
+				let requestPayload = {};
 
-			if (state.responseDelayMs > 0) {
-				await new Promise((resolve) => {
-					setTimeout(resolve, state.responseDelayMs);
-				});
-			}
+				try {
+					requestPayload = JSON.parse(await readRequestBody(request));
+				} catch (_error) {
+					requestPayload = {};
+				}
 
-			if (
-				state.failOnTextIncludes &&
-				JSON.stringify(requestPayload).includes(state.failOnTextIncludes)
-			) {
-				response.writeHead(500, {
+				const translations = buildMockTranslations(requestPayload);
+
+				state.responseItemIds.push(
+					...translations.map((translation) => translation.id),
+				);
+
+				if (state.responseDelayMs > 0) {
+					await new Promise((resolve) => {
+						setTimeout(resolve, state.responseDelayMs);
+					});
+				}
+
+				if (
+					state.failOnTextIncludes &&
+					JSON.stringify(requestPayload).includes(state.failOnTextIncludes)
+				) {
+					response.writeHead(500, {
+						"Content-Type": "application/json; charset=utf-8",
+					});
+					response.end(
+						JSON.stringify({
+							error: { message: "Mock translation failure." },
+						}),
+					);
+					return;
+				}
+
+				response.writeHead(200, {
 					"Content-Type": "application/json; charset=utf-8",
 				});
 				response.end(
 					JSON.stringify({
-						error: { message: "Mock translation failure." },
+						output_parsed: { translations },
+						output_text: JSON.stringify({ translations }),
 					}),
 				);
 				return;
+			} finally {
+				state.activeResponseCount = Math.max(0, state.activeResponseCount - 1);
 			}
-
-			const translations = buildMockTranslations(requestPayload);
-
-			response.writeHead(200, {
-				"Content-Type": "application/json; charset=utf-8",
-			});
-			response.end(
-				JSON.stringify({
-					output_parsed: { translations },
-					output_text: JSON.stringify({ translations }),
-				}),
-			);
-			return;
 		}
 
 		response.writeHead(404, {
@@ -186,6 +203,12 @@ async function createMockApiServer(options = {}) {
 	return {
 		origin: `http://127.0.0.1:${port}`,
 		baseUrl: `http://127.0.0.1:${port}/v1`,
+		getMaxActiveResponseCount() {
+			return state.maxActiveResponseCount;
+		},
+		getResponseItemIds() {
+			return [...state.responseItemIds];
+		},
 		getResponseRequestCount() {
 			return state.responseRequestCount;
 		},

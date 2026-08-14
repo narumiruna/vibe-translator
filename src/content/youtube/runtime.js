@@ -14,12 +14,19 @@ export function createYoutubeRuntime(options = {}) {
 		Messages,
 	} = options;
 	function getYoutubeDiagnosticSnapshot() {
-		return YoutubeDiagnosticsApi.collectYoutubeDiagnostics({
-			document,
-			extensionVersion: chrome.runtime.getManifest?.().version || "unknown",
-			location: window.location,
-			playerResponse: window.ytInitialPlayerResponse,
-		});
+		const events = pageState.youtubeDiagnostics.store.getEvents();
+
+		return {
+			...YoutubeDiagnosticsApi.collectYoutubeDiagnostics({
+				document,
+				extensionVersion: chrome.runtime.getManifest?.().version || "unknown",
+				location: window.location,
+				playerResponse: window.ytInitialPlayerResponse,
+			}),
+			captionTrace: pageState.youtubeDiagnostics.captionTrace?.getSummary?.(),
+			failureCount: events.filter((event) => event.stage === "api-error")
+				.length,
+		};
 	}
 
 	function getYoutubeDiagnosticReport() {
@@ -96,6 +103,39 @@ export function createYoutubeRuntime(options = {}) {
 		}
 	}
 
+	function recordYoutubeCachePaths(matched = {}) {
+		const cached = matched.cached || [];
+		const missing = matched.missing || [];
+		const video = document.querySelector("#movie_player video");
+		const playback = {
+			playbackRate: video?.playbackRate,
+			videoTimeMs: Math.max(0, Number(video?.currentTime) || 0) * 1000,
+		};
+
+		for (const item of cached) {
+			pageState.youtubeDiagnostics.captionTrace?.addMutation?.({
+				...playback,
+				cachePath: "exact",
+				characters: item.sourceText?.length,
+				kind: "render",
+			});
+		}
+		for (const item of missing) {
+			pageState.youtubeDiagnostics.captionTrace?.addMutation?.({
+				...playback,
+				cachePath: "visible-fallback",
+				characters: item.text?.length,
+				kind: "source",
+			});
+		}
+		if (cached.length > 0 || missing.length > 0) {
+			recordYoutubeDiagnostic(
+				"cache-path",
+				`exact=${cached.length}; timed-prefix=0; visible-fallback=${missing.length}`,
+			);
+		}
+	}
+
 	function applyYoutubeControlPresentation(button, presentation) {
 		if (!button || !presentation) {
 			return;
@@ -138,7 +178,7 @@ export function createYoutubeRuntime(options = {}) {
 		}
 	}
 
-	function reportYoutubePrefetchProgress(force = false) {
+	function reportYoutubePrefetchProgress(reason, force = false) {
 		const video = pageState.youtubeControl.prefetchVideo;
 		const currentTimeMs = Math.max(0, Number(video?.currentTime) || 0) * 1000;
 
@@ -155,17 +195,29 @@ export function createYoutubeRuntime(options = {}) {
 
 		pageState.youtubeControl.lastPrefetchTimeMs = currentTimeMs;
 		chrome.runtime
-			.sendMessage(Messages.prefetchYoutubeSubtitles({ currentTimeMs }))
+			.sendMessage(
+				Messages.prefetchYoutubeSubtitles({
+					currentTimeMs,
+					playbackRate: TimedCaptionApi.normalizePlaybackRate(
+						video.playbackRate,
+					),
+					reason,
+				}),
+			)
 			.catch?.(() => {});
 		return true;
 	}
 
 	function handleYoutubePlaybackProgress() {
-		reportYoutubePrefetchProgress(false);
+		reportYoutubePrefetchProgress("progress", false);
 	}
 
 	function handleYoutubePlaybackSeek() {
-		reportYoutubePrefetchProgress(true);
+		reportYoutubePrefetchProgress("seek", true);
+	}
+
+	function handleYoutubePlaybackRateChange() {
+		reportYoutubePrefetchProgress("ratechange", true);
 	}
 
 	function clearYoutubePrefetchTracking() {
@@ -173,6 +225,7 @@ export function createYoutubeRuntime(options = {}) {
 
 		video?.removeEventListener?.("timeupdate", handleYoutubePlaybackProgress);
 		video?.removeEventListener?.("seeking", handleYoutubePlaybackSeek);
+		video?.removeEventListener?.("ratechange", handleYoutubePlaybackRateChange);
 		pageState.youtubeControl.prefetchVideo = null;
 		pageState.youtubeControl.lastPrefetchTimeMs = 0;
 	}
@@ -193,6 +246,7 @@ export function createYoutubeRuntime(options = {}) {
 			Math.max(0, Number(video.currentTime) || 0) * 1000;
 		video.addEventListener?.("timeupdate", handleYoutubePlaybackProgress);
 		video.addEventListener?.("seeking", handleYoutubePlaybackSeek);
+		video.addEventListener?.("ratechange", handleYoutubePlaybackRateChange);
 		return true;
 	}
 
@@ -313,6 +367,7 @@ export function createYoutubeRuntime(options = {}) {
 			pageState.youtubeControl.videoKey = videoKey;
 			pageState.youtubeControl.state = "idle";
 			pageState.youtubeDiagnostics.store.clear();
+			pageState.youtubeDiagnostics.captionTrace?.clear?.();
 			pageState.youtubeDiagnostics.status = "Ready";
 			closeYoutubeDiagnostics();
 			pageState.pageTranslation.active = false;
@@ -397,6 +452,7 @@ export function createYoutubeRuntime(options = {}) {
 		clearYoutubeCaptionCheck,
 		closeYoutubeDiagnostics,
 		ensureYoutubeControl,
+		recordYoutubeCachePaths,
 		recordYoutubeDiagnostic,
 		scheduleYoutubeControlMount,
 	};

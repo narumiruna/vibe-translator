@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
 	buildTimedCaptionItems,
+	getCaptionWindowMs,
+	normalizePlaybackRate,
 	parseJson3Captions,
 	selectCaptionWindow,
 	shouldReportCaptionProgress,
@@ -101,4 +103,19 @@ test("playback progress reports every ten seconds and immediately after a seek",
 	assert.equal(shouldReportCaptionProgress(10000, 20000), true);
 	assert.equal(shouldReportCaptionProgress(50000, 12000), true);
 	assert.equal(shouldReportCaptionProgress(0, 1000, { force: true }), true);
+});
+
+test("caption windows preserve one minute of lead across playback rates", () => {
+	assert.equal(normalizePlaybackRate(1), 1);
+	assert.equal(normalizePlaybackRate(1.5), 1.5);
+	assert.equal(normalizePlaybackRate(2), 2);
+	assert.equal(normalizePlaybackRate(0), 1);
+	assert.equal(normalizePlaybackRate(-1), 1);
+	assert.equal(normalizePlaybackRate(Number.NaN), 1);
+	assert.equal(normalizePlaybackRate("fast"), 1);
+	assert.equal(getCaptionWindowMs(0.5), 60000);
+	assert.equal(getCaptionWindowMs(1), 60000);
+	assert.equal(getCaptionWindowMs(1.5), 90000);
+	assert.equal(getCaptionWindowMs(2), 120000);
+	assert.equal(getCaptionWindowMs(10), 180000);
 });
