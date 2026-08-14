@@ -1,3 +1,5 @@
+import { createCaptionFallbackStore } from "./caption-fallback.js";
+
 export function createYoutubeRuntime(options = {}) {
 	const {
 		document,
@@ -12,17 +14,29 @@ export function createYoutubeRuntime(options = {}) {
 		YoutubePlayerControlApi,
 		TimedCaptionApi,
 		Messages,
+		scheduleVisibleTranslation,
 	} = options;
+	const captionFallbackStore = createCaptionFallbackStore();
+
+	pageState.youtubeDiagnostics.captionStatus ||= {
+		hasTrack: false,
+		prefetchAvailable: false,
+		timedTrackAvailable: false,
+		trackCount: 0,
+		trackSource: "none",
+	};
+
 	function getYoutubeDiagnosticSnapshot() {
 		const events = pageState.youtubeDiagnostics.store.getEvents();
 
 		return {
 			...YoutubeDiagnosticsApi.collectYoutubeDiagnostics({
+				captionStatus: pageState.youtubeDiagnostics.captionStatus,
 				document,
 				extensionVersion: chrome.runtime.getManifest?.().version || "unknown",
 				location: window.location,
-				playerResponse: window.ytInitialPlayerResponse,
 			}),
+			captionFallback: captionFallbackStore.getSummary(),
 			captionTrace: pageState.youtubeDiagnostics.captionTrace?.getSummary?.(),
 			failureCount: events.filter((event) => event.stage === "api-error")
 				.length,
@@ -97,10 +111,39 @@ export function createYoutubeRuntime(options = {}) {
 	function recordYoutubeDiagnostic(stage, detail, options = {}) {
 		pageState.youtubeDiagnostics.store.add(stage, detail);
 		pageState.youtubeDiagnostics.status = detail || stage;
+		pageState.youtubeDiagnostics.captionTrace?.addOutcomes?.(options.outcomes);
 
+		if (Number(options.outcomes?.rendered) > 0) {
+			recoverYoutubeCaptionTimeout();
+		}
 		if (options.show || pageState.youtubeDiagnostics.panel?.isConnected) {
 			renderYoutubeDiagnostics();
 		}
+	}
+
+	function getYoutubeCurrentTimeMs() {
+		const video = document.querySelector("#movie_player video");
+
+		return Math.max(0, Number(video?.currentTime) || 0) * 1000;
+	}
+
+	function recoverYoutubeCaptionTimeout() {
+		const button = pageState.youtubeControl.button;
+
+		if (
+			pageState.youtubeControl.errorReason !== "caption-timeout" ||
+			!button ||
+			!YoutubePlayerControlApi?.getVisibleYoutubeCaptionText(document)
+		) {
+			return false;
+		}
+
+		applyYoutubeControlState(button, "active");
+		recordYoutubeDiagnostic(
+			"caption-recovered",
+			"YouTube captions became visible; translation remains active",
+		);
+		return true;
 	}
 
 	function recordYoutubeCachePaths(matched = {}) {
@@ -115,28 +158,153 @@ export function createYoutubeRuntime(options = {}) {
 		for (const item of cached) {
 			pageState.youtubeDiagnostics.captionTrace?.addMutation?.({
 				...playback,
-				cachePath: "exact",
+				cachePath: item.cachePath || "exact",
 				characters: item.sourceText?.length,
 				kind: "render",
 			});
 		}
-		for (const item of missing) {
-			pageState.youtubeDiagnostics.captionTrace?.addMutation?.({
-				...playback,
-				cachePath: "visible-fallback",
-				characters: item.text?.length,
-				kind: "source",
-			});
-		}
 		if (cached.length > 0 || missing.length > 0) {
+			const exact = cached.filter(
+				(item) => item.cachePath !== "timed-prefix",
+			).length;
+			const timedPrefix = cached.length - exact;
+
 			recordYoutubeDiagnostic(
 				"cache-path",
-				`exact=${cached.length}; timed-prefix=0; visible-fallback=${missing.length}`,
+				`exact=${exact}; timed-prefix=${timedPrefix}; visible-fallback=${missing.length}`,
 			);
+			recoverYoutubeCaptionTimeout();
 		}
 	}
 
-	function applyYoutubeControlPresentation(button, presentation) {
+	function getCaptionSlots() {
+		const sources = Array.from(
+			document.querySelectorAll?.(
+				YoutubeDiagnosticsApi.CAPTION_SEGMENT_SELECTOR,
+			) || [],
+		);
+		const slotBySourceId = new Map();
+		const activeSlotIds = new Set();
+
+		for (let index = 0; index < sources.length; index += 1) {
+			const slotId = `caption-${index}`;
+			const sourceId = sources[index].getAttribute?.("data-ot-source-id");
+
+			activeSlotIds.add(slotId);
+			if (sourceId) {
+				slotBySourceId.set(sourceId, slotId);
+			}
+		}
+
+		return { activeSlotIds, slotBySourceId };
+	}
+
+	function prepareYoutubeCaptionFallbacks(matched = {}) {
+		const before = captionFallbackStore.getSummary();
+		const { activeSlotIds, slotBySourceId } = getCaptionSlots();
+		const accepted = [];
+
+		captionFallbackStore.retain(activeSlotIds);
+		for (const item of matched.missing || []) {
+			const slotId = slotBySourceId.get(item.id);
+			const result = captionFallbackStore.offer(slotId, item);
+			const video = document.querySelector("#movie_player video");
+			const trace = {
+				characters: item.text?.length,
+				kind: "source",
+				playbackRate: video?.playbackRate,
+				videoTimeMs: getYoutubeCurrentTimeMs(),
+			};
+
+			if (result.accepted) {
+				accepted.push(item);
+				pageState.youtubeDiagnostics.captionTrace?.addMutation?.({
+					...trace,
+					cachePath: "visible-fallback",
+				});
+			} else if (result.coalesced) {
+				pageState.youtubeDiagnostics.captionTrace?.addMutation?.({
+					...trace,
+					progressive: true,
+				});
+			}
+		}
+
+		const after = captionFallbackStore.getSummary();
+		const coalesced =
+			after.coalescedFallbackCount - before.coalescedFallbackCount;
+
+		if (coalesced > 0) {
+			recordYoutubeDiagnostic(
+				"fallback-coalesced",
+				`coalesced=${coalesced}; active-slots=${after.activeSlotCount}; latest-pending=${after.latestPendingCount}`,
+			);
+		}
+		return accepted;
+	}
+
+	function matchYoutubeCaptionItems(items) {
+		const matched = SubtitleApi.consumeCachedSubtitleTranslations(
+			pageState.youtubeSubtitleTranslations,
+			items,
+			{ currentTimeMs: getYoutubeCurrentTimeMs() },
+		);
+
+		recordYoutubeCachePaths(matched);
+		return {
+			cached: matched.cached,
+			missing: prepareYoutubeCaptionFallbacks(matched),
+		};
+	}
+
+	function hasYoutubeCachedTranslation(sourceTexts) {
+		return SubtitleApi.hasCachedSubtitleTranslation(
+			pageState.youtubeSubtitleTranslations,
+			sourceTexts,
+			{ currentTimeMs: getYoutubeCurrentTimeMs() },
+		);
+	}
+
+	function settleYoutubeCaptionFallbacks(items) {
+		const settledIds = new Set();
+		const supersededIds = new Set();
+		let shouldRetry = false;
+
+		for (const item of items || []) {
+			const id = typeof item === "string" ? item : item?.id;
+			const result = captionFallbackStore.settle(id);
+
+			if (!result.tracked) {
+				continue;
+			}
+			settledIds.add(id);
+			if (result.superseded) {
+				supersededIds.add(id);
+			}
+			shouldRetry ||= result.shouldRetry;
+		}
+
+		if (shouldRetry) {
+			scheduleVisibleTranslation?.();
+		}
+		return { settledIds, supersededIds };
+	}
+
+	function resetYoutubeCaptionFallbacks() {
+		captionFallbackStore.clear();
+	}
+
+	function setYoutubeCaptionStatus(captions = {}, prefetch = {}) {
+		pageState.youtubeDiagnostics.captionStatus = {
+			hasTrack: Boolean(captions.hasTrack),
+			prefetchAvailable: Boolean(prefetch.available),
+			timedTrackAvailable: Boolean(captions.timedTrackAvailable),
+			trackCount: Math.max(0, Number(captions.trackCount) || 0),
+			trackSource: String(captions.trackSource || "none"),
+		};
+	}
+
+	function applyYoutubeControlPresentation(button, presentation, options = {}) {
 		if (!button || !presentation) {
 			return;
 		}
@@ -149,6 +317,8 @@ export function createYoutubeRuntime(options = {}) {
 		button.disabled = presentation.state === "loading";
 		pageState.youtubeControl.button = button;
 		pageState.youtubeControl.state = presentation.state;
+		pageState.youtubeControl.errorReason =
+			presentation.state === "error" ? options.errorReason || "fatal" : "";
 	}
 
 	function applyYoutubeControlState(button, state) {
@@ -158,7 +328,12 @@ export function createYoutubeRuntime(options = {}) {
 
 		const resolved = SubtitleApi.resolvePlayerControlState(state);
 
-		applyYoutubeControlPresentation(button, resolved);
+		applyYoutubeControlPresentation(button, resolved, {
+			errorReason:
+				state === "error"
+					? pageState.youtubeControl.errorReason || "fatal"
+					: "",
+		});
 	}
 
 	function getYoutubeVideoKey() {
@@ -263,7 +438,9 @@ export function createYoutubeRuntime(options = {}) {
 		const presentation = SubtitleApi.resolvePlayerControlError({
 			error: "YouTube captions are not visible. Turn on CC and play the video",
 		});
-		applyYoutubeControlPresentation(button, presentation);
+		applyYoutubeControlPresentation(button, presentation, {
+			errorReason: "caption-timeout",
+		});
 		recordYoutubeDiagnostic("caption-timeout", presentation.title, {
 			show: true,
 		});
@@ -323,6 +500,7 @@ export function createYoutubeRuntime(options = {}) {
 			}
 
 			applyYoutubeControlState(button, "active");
+			setYoutubeCaptionStatus(response.captions, response.prefetch);
 			if (response.prefetch?.available) {
 				bindYoutubePrefetchTracking();
 			} else {
@@ -366,8 +544,11 @@ export function createYoutubeRuntime(options = {}) {
 			clearYoutubePrefetchTracking();
 			pageState.youtubeControl.videoKey = videoKey;
 			pageState.youtubeControl.state = "idle";
+			pageState.youtubeControl.errorReason = "";
 			pageState.youtubeDiagnostics.store.clear();
 			pageState.youtubeDiagnostics.captionTrace?.clear?.();
+			captionFallbackStore.clear();
+			setYoutubeCaptionStatus();
 			pageState.youtubeDiagnostics.status = "Ready";
 			closeYoutubeDiagnostics();
 			pageState.pageTranslation.active = false;
@@ -402,6 +583,7 @@ export function createYoutubeRuntime(options = {}) {
 
 	function cleanupYoutubeRuntime() {
 		clearYoutubeCaptionCheck();
+		captionFallbackStore.clear();
 		clearYoutubePrefetchTracking();
 		if (pageState.youtubeControl.mountTimer) {
 			window.clearTimeout(pageState.youtubeControl.mountTimer);
@@ -452,8 +634,13 @@ export function createYoutubeRuntime(options = {}) {
 		clearYoutubeCaptionCheck,
 		closeYoutubeDiagnostics,
 		ensureYoutubeControl,
+		hasYoutubeCachedTranslation,
+		matchYoutubeCaptionItems,
 		recordYoutubeCachePaths,
 		recordYoutubeDiagnostic,
+		recoverYoutubeCaptionTimeout,
+		resetYoutubeCaptionFallbacks,
+		settleYoutubeCaptionFallbacks,
 		scheduleYoutubeControlMount,
 	};
 }

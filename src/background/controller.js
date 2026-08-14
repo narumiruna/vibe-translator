@@ -1,5 +1,6 @@
 import { getSelectionAnchor } from "./selection-anchor.js";
 import { createYoutubeCaptionPrefetch } from "./youtube-caption-prefetch.js";
+import { resolveYoutubeCaptionTracks } from "./youtube-caption-tracks.js";
 
 export function buildPageTranslationRequestChunks(Api, items, chunkPlan) {
 	const canGroupSubtitles =
@@ -553,15 +554,29 @@ export function createBackgroundController(options = {}) {
 					captionButton.click();
 				}
 
+				const initialResponse = globalThis.ytInitialPlayerResponse;
+				let playerResponse = null;
+
+				try {
+					playerResponse = player.getPlayerResponse?.() || null;
+				} catch (_error) {
+					playerResponse = null;
+				}
+
 				const responseTracks =
-					globalThis.ytInitialPlayerResponse?.captions
-						?.playerCaptionsTracklistRenderer?.captionTracks;
+					initialResponse?.captions?.playerCaptionsTracklistRenderer
+						?.captionTracks;
+				const currentResponseTracks =
+					playerResponse?.captions?.playerCaptionsTracklistRenderer
+						?.captionTracks;
 				const playerTracks = player.getOption?.("captions", "tracklist");
-				const tracks = Array.isArray(responseTracks)
-					? responseTracks
-					: Array.isArray(playerTracks)
-						? playerTracks
-						: [];
+				const tracks = Array.isArray(currentResponseTracks)
+					? currentResponseTracks
+					: Array.isArray(responseTracks)
+						? responseTracks
+						: Array.isArray(playerTracks)
+							? playerTracks
+							: [];
 
 				if (
 					captionButton.getAttribute("aria-pressed") !== "true" &&
@@ -575,16 +590,21 @@ export function createBackgroundController(options = {}) {
 					});
 				}
 				const selectedTrack = player.getOption?.("captions", "track");
-				const timedTrack =
-					tracks.find(
-						(track) =>
-							track?.baseUrl &&
-							selectedTrack?.languageCode === track.languageCode,
-					) || tracks.find((track) => track?.baseUrl);
 				const video =
 					player.querySelector?.("video") || document.querySelector("video");
 
 				const playbackRate = Number(video?.playbackRate);
+				const currentVideoId = String(
+					player.getVideoData?.()?.video_id ||
+						new URLSearchParams(globalThis.location?.search || "").get("v") ||
+						"",
+				);
+				const copyTracks = (value) =>
+					(Array.isArray(value) ? value : []).map((track) => ({
+						baseUrl: String(track?.baseUrl || ""),
+						kind: String(track?.kind || ""),
+						languageCode: String(track?.languageCode || ""),
+					}));
 
 				return {
 					currentTimeMs: Math.max(0, Number(video?.currentTime) || 0) * 1000,
@@ -594,12 +614,50 @@ export function createBackgroundController(options = {}) {
 							? playbackRate
 							: 1,
 					hasTrack: tracks.length > 0,
-					trackBaseUrl: String(timedTrack?.baseUrl || ""),
+					trackCandidates: {
+						currentVideoId,
+						initialResponse: {
+							tracks: copyTracks(responseTracks),
+							videoId: String(initialResponse?.videoDetails?.videoId || ""),
+						},
+						playerOption: { tracks: copyTracks(playerTracks) },
+						playerResponse: {
+							tracks: copyTracks(currentResponseTracks),
+							videoId: String(playerResponse?.videoDetails?.videoId || ""),
+						},
+						selectedTrack: selectedTrack
+							? {
+									kind: String(selectedTrack.kind || ""),
+									languageCode: String(selectedTrack.languageCode || ""),
+								}
+							: null,
+					},
 				};
 			},
 		});
+		const captionState = result?.result;
 
-		return result?.result || { enabled: false, hasTrack: false };
+		if (!captionState) {
+			return {
+				enabled: false,
+				hasTrack: false,
+				trackBaseUrl: "",
+				trackCount: 0,
+				trackSource: "none",
+				timedTrackAvailable: false,
+			};
+		}
+
+		const resolvedTracks = resolveYoutubeCaptionTracks(
+			captionState.trackCandidates,
+		);
+
+		return {
+			currentTimeMs: captionState.currentTimeMs,
+			enabled: captionState.enabled,
+			playbackRate: captionState.playbackRate,
+			...resolvedTracks,
+		};
 	}
 
 	async function startYoutubeSubtitleTranslation(sender) {
@@ -635,7 +693,9 @@ export function createBackgroundController(options = {}) {
 				sessionId: translation?.sessionId,
 				tabId: tab.id,
 			});
-			return { ok: true, captions, prefetch };
+			const { trackBaseUrl: _trackBaseUrl, ...captionStatus } = captions;
+
+			return { ok: true, captions: captionStatus, prefetch };
 		} catch (error) {
 			return {
 				ok: false,

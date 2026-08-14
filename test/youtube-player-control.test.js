@@ -76,17 +76,19 @@ test("YouTube diagnostics describe the current player without secrets", () => {
 
 	assert.deepEqual(
 		YoutubeDiagnostics.collectYoutubeDiagnostics({
+			captionStatus: {
+				hasTrack: true,
+				prefetchAvailable: true,
+				timedTrackAvailable: true,
+				trackCount: 1,
+				trackSource: "player-response",
+			},
 			document: documentLike,
 			extensionVersion: "0.1.3",
 			location: {
 				hostname: "www.youtube.com",
 				pathname: "/watch",
 				search: "?v=abc123&t=5",
-			},
-			playerResponse: {
-				captions: {
-					playerCaptionsTracklistRenderer: { captionTracks: [{ kind: "asr" }] },
-				},
 			},
 		}),
 		{
@@ -112,6 +114,12 @@ test("YouTube diagnostics describe the current player without secrets", () => {
 			playback: {
 				currentTimeMs: 12500,
 				playbackRate: 1.5,
+			},
+			captionTrack: {
+				hasTrack: true,
+				prefetchAvailable: true,
+				timedTrackAvailable: true,
+				trackSource: "player-response",
 			},
 			trackCount: 1,
 			visibleCaptionCharacters: 22,
@@ -185,10 +193,14 @@ test("YouTube caption traces keep bounded timing metadata without text or secret
 		videoTimeMs: 1600,
 	});
 
+	trace.addOutcomes({ cached: 2, rendered: 1, superseded: 3 });
 	assert.deepEqual(trace.getSummary(), {
+		cachedResults: 2,
 		exactCacheHits: 1,
 		progressiveSourceMutations: 1,
+		renderedResults: 1,
 		sampleCount: 3,
+		supersededResults: 3,
 		timedPrefixHits: 0,
 		visibleFallbacks: 1,
 	});

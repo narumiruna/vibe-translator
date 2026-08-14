@@ -128,6 +128,27 @@ function chunkTranslationItems(items, maxChars) {
 	return chunks;
 }
 
+function getTimedSubtitleMetadata(item) {
+	const cueStartMs = Number(item?.cueStartMs);
+	const durationMs = Number(item?.durationMs);
+
+	if (
+		item?.kind !== "subtitle" ||
+		!Number.isFinite(cueStartMs) ||
+		cueStartMs < 0 ||
+		!Number.isFinite(durationMs) ||
+		durationMs < 0
+	) {
+		return {};
+	}
+
+	return {
+		cueId: String(item.cueId || item.id || ""),
+		cueStartMs,
+		durationMs,
+	};
+}
+
 function createRecursiveChunkPlan(items, maxChars) {
 	const limit = maxChars || DEFAULT_MAX_BATCH_CHARS;
 	const normalizedItems = [];
@@ -151,6 +172,7 @@ function createRecursiveChunkPlan(items, maxChars) {
 		if (parts.length <= 1) {
 			expandedItems.push({
 				id: item.id,
+				...getTimedSubtitleMetadata(item),
 				kind: item.kind || "paragraph",
 				text: parts[0]
 					? parts[0].text
@@ -179,6 +201,7 @@ function createRecursiveChunkPlan(items, maxChars) {
 
 			expandedItems.push({
 				id: partId,
+				...getTimedSubtitleMetadata(item),
 				kind: item.kind || "paragraph",
 				text: parts[index].text,
 				sourceId: item.id,
@@ -272,6 +295,7 @@ function consumeProgressiveTranslations(plan, state, translations) {
 
 		completed.push({
 			id: sourceId,
+			...getTimedSubtitleMetadata(sourceItem),
 			kind: sourceItem ? sourceItem.kind || "paragraph" : "paragraph",
 			sourceText: sourceItem?.text || "",
 			translation: unmaskProtectedFragments(
@@ -327,6 +351,7 @@ function mergeRecursiveTranslations(plan, translations) {
 
 		merged.push({
 			id: item.id,
+			...getTimedSubtitleMetadata(item),
 			kind: item.kind || "paragraph",
 			sourceText: item.text || "",
 			translation: unmaskProtectedFragments(

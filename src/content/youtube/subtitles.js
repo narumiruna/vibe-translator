@@ -7,6 +7,7 @@ const SUBTITLE_FONT_SIZE_PROPERTY = "--ot-subtitle-font-size";
 const SUBTITLE_REPLACED_ATTR = "data-ot-subtitle-replaced";
 const SUBTITLE_SOURCE_TEXT_ATTR = "data-ot-subtitle-source-text";
 const YOUTUBE_CAPTION_SEGMENT_SELECTOR = ".ytp-caption-segment";
+const TIMED_CAPTION_TOLERANCE_MS = 500;
 
 const PLAYER_CONTROL_STATES = Object.freeze({
 	active: Object.freeze({
@@ -69,6 +70,7 @@ function cacheSubtitleTranslations(cache, translations) {
 	for (const item of translations || []) {
 		if (
 			item?.kind !== "subtitle" ||
+			item.cachePath === "timed-prefix" ||
 			!String(item.sourceText || "").trim() ||
 			!String(item.translation || "").trim()
 		) {
@@ -82,33 +84,181 @@ function cacheSubtitleTranslations(cache, translations) {
 	return cached;
 }
 
-function consumeCachedSubtitleTranslations(cache, items) {
+function getTimedCaptionMetadata(item) {
+	const cueId = String(item?.cueId || item?.id || "");
+	const cueStartMs = Number(item?.cueStartMs);
+	const durationMs = Number(item?.durationMs);
+
+	if (
+		!cueId ||
+		!Number.isFinite(cueStartMs) ||
+		cueStartMs < 0 ||
+		!Number.isFinite(durationMs) ||
+		durationMs <= 0
+	) {
+		return null;
+	}
+
+	return {
+		cueId,
+		cueStartMs,
+		durationMs,
+	};
+}
+
+function isProgressiveCaptionPrefix(fullText, visibleText) {
+	if (!fullText.startsWith(visibleText) || fullText === visibleText) {
+		return false;
+	}
+
+	const lastVisible = visibleText.at(-1) || "";
+	const nextFull = fullText.slice(visibleText.length, visibleText.length + 1);
+
+	return !(/[A-Za-z0-9]/u.test(lastVisible) && /[A-Za-z0-9]/u.test(nextFull));
+}
+
+function findUniqueTimedCaptionTranslation(
+	translations,
+	visibleText,
+	currentTimeMs,
+	options = {},
+) {
+	const normalizedVisible = normalizeSubtitleSourceText(visibleText);
+	const currentTime = Number(currentTimeMs);
+	const toleranceMs = Math.max(
+		0,
+		Number.isFinite(Number(options.toleranceMs))
+			? Number(options.toleranceMs)
+			: TIMED_CAPTION_TOLERANCE_MS,
+	);
+
+	if (!normalizedVisible || !Number.isFinite(currentTime) || currentTime < 0) {
+		return null;
+	}
+
+	const candidates = [];
+
+	for (const item of translations || []) {
+		const metadata = getTimedCaptionMetadata(item);
+		const sourceText = normalizeSubtitleSourceText(item?.sourceText);
+
+		if (
+			!metadata ||
+			!String(item?.translation || "").trim() ||
+			!isProgressiveCaptionPrefix(sourceText, normalizedVisible) ||
+			currentTime < metadata.cueStartMs - toleranceMs ||
+			currentTime > metadata.cueStartMs + metadata.durationMs + toleranceMs
+		) {
+			continue;
+		}
+
+		candidates.push({ item, metadata });
+	}
+
+	return candidates.length === 1 ? candidates[0] : null;
+}
+
+function buildCachedSubtitle(item, cachedItem, cachePath, metadata) {
+	return {
+		id: item.id,
+		cachePath,
+		...(metadata || {}),
+		kind: "subtitle",
+		sourceText: item.text,
+		translation: cachedItem.translation,
+	};
+}
+
+function findCachedSubtitleTranslation(cache, item, options = {}) {
+	const exact = item?.text ? cache?.get?.(item.text) : null;
+
+	if (exact?.translation) {
+		return buildCachedSubtitle(
+			item,
+			exact,
+			"exact",
+			getTimedCaptionMetadata(exact),
+		);
+	}
+
+	const timed = findUniqueTimedCaptionTranslation(
+		cache?.values?.() || [],
+		item?.text,
+		options.currentTimeMs,
+		options,
+	);
+
+	return timed
+		? buildCachedSubtitle(item, timed.item, "timed-prefix", timed.metadata)
+		: null;
+}
+
+function consumeCachedSubtitleTranslations(cache, items, options = {}) {
 	const cached = [];
 	const missing = [];
 
 	for (const item of items || []) {
-		const cachedItem = item?.text ? cache?.get?.(item.text) : null;
+		const cachedItem = findCachedSubtitleTranslation(cache, item, options);
 
-		if (!cachedItem?.translation) {
+		if (cachedItem) {
+			cached.push(cachedItem);
+		} else {
 			missing.push(item);
-			continue;
 		}
-
-		cached.push({
-			id: item.id,
-			kind: "subtitle",
-			sourceText: item.text,
-			translation: cachedItem.translation,
-		});
 	}
 
 	return { cached, missing };
 }
 
-function hasCachedSubtitleTranslation(cache, sourceTexts) {
-	return (sourceTexts || []).some((sourceText) =>
-		Boolean(sourceText && cache?.get?.(sourceText)?.translation),
+function hasCachedSubtitleTranslation(cache, sourceTexts, options = {}) {
+	return (sourceTexts || []).some((sourceText, index) =>
+		Boolean(
+			findCachedSubtitleTranslation(
+				cache,
+				{ id: `visible-${index}`, text: sourceText },
+				options,
+			),
+		),
 	);
+}
+
+function findSubtitleSourceMatch(
+	profile,
+	sources,
+	translation,
+	getSourceText,
+	excludedSources = new Set(),
+	options = {},
+) {
+	if (!isSubtitleProfile(profile) || !translation?.sourceText) {
+		return null;
+	}
+
+	const availableSources = (sources || []).filter(
+		(source) => source && !excludedSources.has(source),
+	);
+	const exact = availableSources.find(
+		(source) => getSourceText?.(source) === translation.sourceText,
+	);
+
+	if (exact) {
+		return { cachePath: "exact", source: exact };
+	}
+
+	const timedMatches = availableSources.filter((source) =>
+		Boolean(
+			findUniqueTimedCaptionTranslation(
+				[translation],
+				getSourceText?.(source),
+				options.currentTimeMs,
+				options,
+			),
+		),
+	);
+
+	return timedMatches.length === 1
+		? { cachePath: "timed-prefix", source: timedMatches[0] }
+		: null;
 }
 
 function findMatchingSubtitleSource(
@@ -118,23 +268,15 @@ function findMatchingSubtitleSource(
 	getSourceText,
 	excludedSources = new Set(),
 ) {
-	if (!isSubtitleProfile(profile) || !sourceText) {
-		return null;
-	}
-
-	for (const source of sources || []) {
-		if (
-			!source ||
-			excludedSources.has(source) ||
-			getSourceText?.(source) !== sourceText
-		) {
-			continue;
-		}
-
-		return source;
-	}
-
-	return null;
+	return (
+		findSubtitleSourceMatch(
+			profile,
+			sources,
+			{ sourceText },
+			getSourceText,
+			excludedSources,
+		)?.source || null
+	);
 }
 
 function aliasClaimedSubtitleTranslation(
@@ -428,6 +570,9 @@ const api = {
 	bindSubtitleNote,
 	cacheSubtitleTranslations,
 	consumeCachedSubtitleTranslations,
+	findCachedSubtitleTranslation,
+	findSubtitleSourceMatch,
+	findUniqueTimedCaptionTranslation,
 	hasCachedSubtitleTranslation,
 	SUBTITLE_DISPLAY_MODE_ATTR,
 	SUBTITLE_FONT_SIZE_PROPERTY,
@@ -460,7 +605,10 @@ export {
 	bindSubtitleNote,
 	cacheSubtitleTranslations,
 	consumeCachedSubtitleTranslations,
+	findCachedSubtitleTranslation,
 	findMatchingSubtitleSource,
+	findSubtitleSourceMatch,
+	findUniqueTimedCaptionTranslation,
 	getMeaningfulCharacterMinimum,
 	getSegmentKind,
 	hasCachedSubtitleTranslation,

@@ -35,13 +35,6 @@ function getVideoPageLabel(locationLike) {
 	return `${hostname}${pathname}${videoId ? `?v=${videoId}` : ""}`;
 }
 
-function getCaptionTracks(playerResponse) {
-	const tracks =
-		playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-
-	return Array.isArray(tracks) ? tracks : [];
-}
-
 function getControlHitTarget(documentLike, control) {
 	if (!control?.getBoundingClientRect || !documentLike?.elementFromPoint) {
 		return false;
@@ -69,6 +62,7 @@ function collectYoutubeDiagnostics(options = {}) {
 		.map((segment) => String(segment.textContent || "").trim())
 		.filter(Boolean)
 		.join("\n");
+	const captionStatus = options.captionStatus || {};
 	const readyNotes = Array.from(
 		documentLike?.querySelectorAll?.(
 			'#ytp-caption-window-container [data-ot-role="note"][data-phase="ready"]',
@@ -106,7 +100,13 @@ function collectYoutubeDiagnostics(options = {}) {
 			playbackRate:
 				Number.isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1,
 		},
-		trackCount: getCaptionTracks(options.playerResponse).length,
+		captionTrack: {
+			hasTrack: Boolean(captionStatus.hasTrack),
+			prefetchAvailable: Boolean(captionStatus.prefetchAvailable),
+			timedTrackAvailable: Boolean(captionStatus.timedTrackAvailable),
+			trackSource: String(captionStatus.trackSource || "none"),
+		},
+		trackCount: Math.max(0, Number(captionStatus.trackCount) || 0),
 		visibleCaptionCharacters: visibleCaptionText.length,
 	};
 }
@@ -149,8 +149,11 @@ function createCaptionTraceStore(options = {}) {
 	const limit = normalizeTraceLimit(options.limit);
 	const samples = [];
 	const counters = {
+		cachedResults: 0,
 		exactCacheHits: 0,
 		progressiveSourceMutations: 0,
+		renderedResults: 0,
+		supersededResults: 0,
 		timedPrefixHits: 0,
 		visibleFallbacks: 0,
 	};
@@ -219,6 +222,17 @@ function createCaptionTraceStore(options = {}) {
 
 			countSample(sample);
 			return append(sample);
+		},
+		addOutcomes(outcomes = {}) {
+			for (const [counter, value] of [
+				["cachedResults", outcomes.cached],
+				["renderedResults", outcomes.rendered],
+				["supersededResults", outcomes.superseded],
+				["timedPrefixHits", outcomes.timedPrefix],
+			]) {
+				counters[counter] += Math.floor(normalizeNonNegativeNumber(value));
+			}
+			return { ...counters, sampleCount: samples.length };
 		},
 		clear() {
 			samples.length = 0;

@@ -34,6 +34,8 @@ export function createContentRenderer(options = {}) {
 		activatePageTranslationSession,
 		applyYoutubeControlState,
 		recordYoutubeDiagnostic,
+		resetYoutubeCaptionFallbacks,
+		settleYoutubeCaptionFallbacks,
 		isDebugInfoEnabled,
 	} = options;
 	function getNoteElementTagName(sourceElement) {
@@ -483,10 +485,22 @@ export function createContentRenderer(options = {}) {
 		const translationMap = new Map(
 			(payload.translations || []).map((item) => [item.id, item]),
 		);
+		const receivedCount = translationMap.size;
+		const fallbackSettlements = SubtitleApi.isSubtitleProfile(
+			ACTIVE_SITE_PROFILE,
+		)
+			? settleYoutubeCaptionFallbacks?.(payload.translations) || {
+					settledIds: new Set(),
+					supersededIds: new Set(),
+				}
+			: { settledIds: new Set(), supersededIds: new Set() };
 		const reboundSources = new Set();
 		let rendered = 0;
 		let rebound = 0;
 		let stale = 0;
+		let cached = 0;
+		let superseded = 0;
+		let timedPrefix = 0;
 		let missingTarget = 0;
 
 		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
@@ -495,42 +509,74 @@ export function createContentRenderer(options = {}) {
 				captionRoot?.querySelectorAll(DIRECT_NOTE_TARGET_SELECTOR) || [],
 			);
 
+			const video = document.querySelector("#movie_player video");
+			const currentTimeMs = Math.max(0, Number(video?.currentTime) || 0) * 1000;
+
 			for (const translationItem of payload.translations || []) {
+				if (fallbackSettlements.supersededIds.has(translationItem.id)) {
+					translationMap.delete(translationItem.id);
+					superseded += 1;
+					continue;
+				}
 				if (
 					document.querySelector(`[${SOURCE_ATTR}="${translationItem.id}"]`)
 				) {
 					continue;
 				}
 
-				const matchingSource = SubtitleApi.findMatchingSubtitleSource(
+				const match = SubtitleApi.findSubtitleSourceMatch(
 					ACTIVE_SITE_PROFILE,
 					captionSources,
-					translationItem.sourceText,
+					translationItem,
 					(source) => getSegmentContent(source).text,
 					reboundSources,
+					{ currentTimeMs },
 				);
 
-				if (!matchingSource) {
-					missingTarget += 1;
+				if (!match) {
+					translationMap.delete(translationItem.id);
+					if (fallbackSettlements.settledIds.has(translationItem.id)) {
+						superseded += 1;
+					} else if (Number.isFinite(Number(translationItem.cueStartMs))) {
+						cached += 1;
+					} else {
+						missingTarget += 1;
+					}
 					continue;
 				}
 
+				const matchingSource = match.source;
+				const visibleSourceText = getSegmentContent(matchingSource).text;
+
+				if (match.cachePath === "timed-prefix") {
+					timedPrefix += 1;
+				}
+				const reboundTranslation =
+					match.cachePath === "timed-prefix"
+						? {
+								...translationItem,
+								cachePath: match.cachePath,
+								sourceText: visibleSourceText,
+							}
+						: translationItem;
 				const claimedTranslation = SubtitleApi.aliasClaimedSubtitleTranslation(
 					ACTIVE_SITE_PROFILE,
 					matchingSource,
-					translationItem,
+					reboundTranslation,
 					SOURCE_ATTR,
 				);
 
 				if (claimedTranslation) {
+					translationMap.delete(translationItem.id);
 					translationMap.set(claimedTranslation.id, claimedTranslation);
 					reboundSources.add(matchingSource);
 					continue;
 				}
 
+				translationMap.set(translationItem.id, reboundTranslation);
 				matchingSource.setAttribute(SOURCE_ATTR, translationItem.id);
 				matchingSource.setAttribute(QUEUED_ATTR, "true");
-				rememberSourceText(matchingSource, translationItem.sourceText);
+				rememberSourceText(matchingSource, reboundTranslation.sourceText);
 				reboundSources.add(matchingSource);
 				rebound += 1;
 			}
@@ -573,8 +619,11 @@ export function createContentRenderer(options = {}) {
 		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
 			recordYoutubeDiagnostic(
 				"render",
-				`Received ${translationMap.size} translation(s); rendered ${rendered}; rebound ${rebound}; stale ${stale}; missing target ${missingTarget}`,
-				{ show: stale > 0 || (missingTarget > 0 && cachedSubtitleCount === 0) },
+				`Received ${receivedCount} translation(s); rendered ${rendered}; rebound ${rebound}; cached ${cached}; superseded ${superseded}; timed-prefix=${timedPrefix}; stale ${stale}; missing target ${missingTarget}`,
+				{
+					outcomes: { cached, rendered, superseded, timedPrefix },
+					show: stale > 0 || (missingTarget > 0 && cachedSubtitleCount === 0),
+				},
 			);
 		}
 
@@ -583,6 +632,10 @@ export function createContentRenderer(options = {}) {
 
 	function clearPagePlaceholders(payload) {
 		const ids = new Set(payload.ids || []);
+
+		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
+			settleYoutubeCaptionFallbacks?.([...ids]);
+		}
 		let cleared = 0;
 
 		for (const note of document.querySelectorAll(
@@ -667,6 +720,9 @@ export function createContentRenderer(options = {}) {
 
 		pageState.pageTranslation.active = false;
 		pageState.pageTranslation.sessionId = "";
+		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
+			resetYoutubeCaptionFallbacks?.();
+		}
 		if (pageState.youtubeControl.button) {
 			applyYoutubeControlState(pageState.youtubeControl.button, "idle");
 		}

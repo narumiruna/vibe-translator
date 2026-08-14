@@ -8,6 +8,7 @@ import {
 	cacheSubtitleTranslations,
 	consumeCachedSubtitleTranslations,
 	findMatchingSubtitleSource,
+	findSubtitleSourceMatch,
 	getMeaningfulCharacterMinimum,
 	getSegmentKind,
 	hasCachedSubtitleTranslation,
@@ -47,6 +48,7 @@ test("prefetched subtitle translations are consumed by exact source text", () =>
 			cached: [
 				{
 					id: "visible-1",
+					cachePath: "exact",
 					kind: "subtitle",
 					sourceText: "Hello world",
 					translation: "哈囉世界",
@@ -62,6 +64,132 @@ test("prefetched subtitle translations are consumed by exact source text", () =>
 		true,
 	);
 	assert.equal(hasCachedSubtitleTranslation(cache, ["Unknown"]), false);
+});
+
+test("active timed cues satisfy unique progressive visible prefixes", () => {
+	const cache = new Map();
+
+	cacheSubtitleTranslations(cache, [
+		{
+			id: "youtube-cue-1000-0",
+			cueId: "youtube-cue-1000-0",
+			cueStartMs: 1000,
+			durationMs: 3000,
+			kind: "subtitle",
+			sourceText: "Build reliable tools",
+			translation: "建立可靠工具",
+		},
+	]);
+
+	const matched = consumeCachedSubtitleTranslations(
+		cache,
+		[{ id: "visible-1", kind: "subtitle", text: "Build reliable" }],
+		{ currentTimeMs: 1500 },
+	);
+
+	assert.deepEqual(matched.missing, []);
+	assert.deepEqual(matched.cached, [
+		{
+			id: "visible-1",
+			cachePath: "timed-prefix",
+			cueId: "youtube-cue-1000-0",
+			cueStartMs: 1000,
+			durationMs: 3000,
+			kind: "subtitle",
+			sourceText: "Build reliable",
+			translation: "建立可靠工具",
+		},
+	]);
+});
+
+test("timed prefix results do not poison the exact subtitle cache", () => {
+	const cache = new Map();
+
+	cacheSubtitleTranslations(cache, [
+		{
+			id: "youtube-cue-1000-0",
+			cueId: "youtube-cue-1000-0",
+			cueStartMs: 1000,
+			durationMs: 3000,
+			kind: "subtitle",
+			sourceText: "Build reliable tools",
+			translation: "建立可靠工具",
+		},
+	]);
+	const matched = consumeCachedSubtitleTranslations(
+		cache,
+		[{ id: "visible-1", kind: "subtitle", text: "Build reliable" }],
+		{ currentTimeMs: 1500 },
+	);
+
+	assert.equal(cacheSubtitleTranslations(cache, matched.cached), 0);
+	assert.equal(cache.has("Build reliable"), false);
+	assert.deepEqual(
+		consumeCachedSubtitleTranslations(
+			cache,
+			[{ id: "later-cue", kind: "subtitle", text: "Build reliable" }],
+			{ currentTimeMs: 6000 },
+		),
+		{
+			cached: [],
+			missing: [{ id: "later-cue", kind: "subtitle", text: "Build reliable" }],
+		},
+	);
+});
+
+test("timed prefix matching rejects ambiguity, reverse relations, and inactive cues", () => {
+	const cache = new Map([
+		[
+			"first",
+			{
+				cueId: "first",
+				cueStartMs: 1000,
+				durationMs: 3000,
+				kind: "subtitle",
+				sourceText: "Build reliable tools",
+				translation: "第一個",
+			},
+		],
+		[
+			"second",
+			{
+				cueId: "second",
+				cueStartMs: 1200,
+				durationMs: 2800,
+				kind: "subtitle",
+				sourceText: "Build reliable systems",
+				translation: "第二個",
+			},
+		],
+	]);
+
+	cache.set("mid-word", {
+		cueId: "mid-word",
+		cueStartMs: 1000,
+		durationMs: 3000,
+		kind: "subtitle",
+		sourceText: "catalog tools",
+		translation: "目錄工具",
+	});
+
+	for (const [text, currentTimeMs] of [
+		["Build reliable", 1500],
+		["reliable tools", 1500],
+		["Build", 6000],
+		["cat", 1500],
+	]) {
+		assert.deepEqual(
+			consumeCachedSubtitleTranslations(
+				cache,
+				[{ id: "visible", kind: "subtitle", text }],
+				{ currentTimeMs },
+			),
+			{
+				cached: [],
+				missing: [{ id: "visible", kind: "subtitle", text }],
+			},
+		);
+	}
 });
 
 test("subtitle cache ignores empty and unrelated translation results", () => {
@@ -364,6 +492,52 @@ test("prefetched results adopt a matching visible fallback identity", () => {
 			source,
 			translation,
 			"data-ot-source-id",
+		),
+		null,
+	);
+});
+
+test("timed detached results bind only to one active progressive source", () => {
+	const first = { text: "Build reliable" };
+	const second = { text: "Other cue" };
+	const translation = {
+		cueId: "youtube-cue-1000-0",
+		cueStartMs: 1000,
+		durationMs: 3000,
+		sourceText: "Build reliable tools",
+		translation: "建立可靠工具",
+	};
+
+	assert.deepEqual(
+		findSubtitleSourceMatch(
+			youtubeProfile,
+			[first, second],
+			translation,
+			(source) => source.text,
+			new Set(),
+			{ currentTimeMs: 1500 },
+		),
+		{ cachePath: "timed-prefix", source: first },
+	);
+	assert.equal(
+		findSubtitleSourceMatch(
+			youtubeProfile,
+			[first, { text: "Build" }],
+			translation,
+			(source) => source.text,
+			new Set(),
+			{ currentTimeMs: 1500 },
+		),
+		null,
+	);
+	assert.equal(
+		findSubtitleSourceMatch(
+			youtubeProfile,
+			[first],
+			translation,
+			(source) => source.text,
+			new Set(),
+			{ currentTimeMs: 6000 },
 		),
 		null,
 	);

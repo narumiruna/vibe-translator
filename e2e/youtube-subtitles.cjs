@@ -16,12 +16,18 @@ const {
 const YOUTUBE_VIDEO_URL = "https://www.youtube.com/watch?v=g7AxxkywiFI";
 const INITIAL_CAPTION = `This result must not survive ${Date.now()}.`;
 const CURRENT_CAPTION = `Pi gives you one small tool ${Date.now() + 1}.`;
+const CURRENT_CAPTION_PREFIX = "Pi gives you one";
 const NEXT_CAPTION = `The next cue stays synchronized ${Date.now() + 2}.`;
 const FINAL_CAPTION = `The final cue replaces it cleanly ${Date.now() + 3}.`;
 const SEEK_CAPTION = `A seek starts a new urgent window ${Date.now() + 4}.`;
 const BILINGUAL_CAPTIONS = [
 	`Keep this original caption visible ${Date.now() + 5}.`,
 	`Keep this sibling caption visible ${Date.now() + 6}.`,
+];
+const FALLBACK_CAPTIONS = [
+	`Fallback starts ${Date.now() + 7}.`,
+	`Fallback keeps growing ${Date.now() + 8}.`,
+	`Fallback keeps only the latest caption ${Date.now() + 9}.`,
 ];
 
 function buildTimedCaptionFixture() {
@@ -241,25 +247,59 @@ async function stopSuppressingVisibleCaptions(page) {
 	});
 }
 
-async function installCaptionTrackMetadata(page) {
-	await page.evaluate(() => {
-		window.ytInitialPlayerResponse = {
-			...(window.ytInitialPlayerResponse || {}),
-			captions: {
-				playerCaptionsTracklistRenderer: {
-					captionTracks: [
-						{
+async function installCaptionTrackMetadata(page, options = {}) {
+	await page.evaluate(
+		({ timedTrack }) => {
+			const player = document.querySelector("#movie_player");
+			const currentVideoId =
+				player?.getVideoData?.()?.video_id ||
+				new URLSearchParams(location.search).get("v") ||
+				"";
+			const track = {
+				...(timedTrack
+					? {
 							baseUrl:
 								"https://www.youtube.com/api/timedtext?v=vibe-translator-e2e",
-							kind: "asr",
-							languageCode: "en",
-							name: { simpleText: "English (auto-generated)" },
-						},
-					],
+						}
+					: {}),
+				kind: "asr",
+				languageCode: "en",
+				name: { simpleText: "English (auto-generated)" },
+			};
+			const response = {
+				captions: {
+					playerCaptionsTracklistRenderer: { captionTracks: [track] },
 				},
-			},
-		};
-	});
+				videoDetails: { videoId: currentVideoId },
+			};
+
+			window.ytInitialPlayerResponse = {
+				...(window.ytInitialPlayerResponse || {}),
+				...response,
+			};
+			if (!timedTrack && player) {
+				Object.defineProperty(player, "getPlayerResponse", {
+					configurable: true,
+					value: () => response,
+				});
+				const originalGetOption = player.getOption?.bind(player);
+
+				Object.defineProperty(player, "getOption", {
+					configurable: true,
+					value(group, key) {
+						if (group === "captions" && key === "tracklist") {
+							return [track];
+						}
+						if (group === "captions" && key === "track") {
+							return track;
+						}
+						return originalGetOption?.(group, key);
+					},
+				});
+			}
+		},
+		{ timedTrack: options.timedTrack !== false },
+	);
 }
 
 async function clearStoredSettings(context) {
@@ -390,7 +430,7 @@ async function main() {
 					.querySelector("#ytp-caption-window-container .caption-visual-line")
 					?.appendChild(replacement);
 			}
-		}, CURRENT_CAPTION);
+		}, CURRENT_CAPTION_PREFIX);
 		await waitFor(
 			async () => {
 				const currentSourceId = await source.getAttribute("data-ot-source-id");
@@ -454,6 +494,20 @@ async function main() {
 				timeoutMessage: "The in-player control did not become active.",
 			},
 		);
+
+		await waitFor(
+			async () =>
+				/timed-prefix=1/.test((await diagnosticsPanel.textContent()) || ""),
+			{
+				timeoutMs: REQUEST_TIMEOUT_MS,
+				timeoutMessage:
+					"The progressive native caption did not use the active timed cue.",
+			},
+		);
+		const progressiveDiagnostics = (await diagnosticsPanel.textContent()) || "";
+		assert.match(progressiveDiagnostics, /"prefetchAvailable": true/);
+		assert.match(progressiveDiagnostics, /"trackSource": "initial-response"/);
+		assert.doesNotMatch(progressiveDiagnostics, /api\/timedtext/u);
 
 		const readyNotes = page.locator(
 			'#ytp-caption-window-container [data-ot-role="note"][data-phase="ready"]',
@@ -709,6 +763,67 @@ async function main() {
 			});
 		}
 
+		await page.reload({ waitUntil: "domcontentloaded" });
+		await page.bringToFront();
+		await installCaptionTrackMetadata(page, { timedTrack: false });
+		const fallbackControl = page.locator(
+			"#movie_player [data-ot-youtube-control]",
+		);
+		await waitFor(async () => (await fallbackControl.count()) === 1, {
+			timeoutMessage: "The fallback player control did not appear.",
+		});
+		await fallbackControl.click();
+		await waitFor(
+			async () =>
+				(await fallbackControl.getAttribute("data-state")) === "error",
+			{
+				timeoutMs: 15000,
+				timeoutMessage:
+					"The caption visibility timeout did not enter its recoverable error state.",
+			},
+		);
+		const fallbackIdsBefore = mockApiServer
+			.getResponseItemIds()
+			.filter((id) => id.startsWith("ot-")).length;
+
+		await installCaptionFixture(page, FALLBACK_CAPTIONS[0]);
+		await waitFor(
+			async () =>
+				mockApiServer.getResponseItemIds().filter((id) => id.startsWith("ot-"))
+					.length > fallbackIdsBefore,
+			{
+				timeoutMessage: "The first visible-caption fallback was not requested.",
+			},
+		);
+		await setFirstCaptionText(page, FALLBACK_CAPTIONS[1]);
+		await page.waitForTimeout(250);
+		await setFirstCaptionText(page, FALLBACK_CAPTIONS[2]);
+		await waitForCaptionTranslation(page, FALLBACK_CAPTIONS[2]);
+		await waitFor(
+			async () =>
+				(await fallbackControl.getAttribute("data-state")) === "active",
+			{
+				timeoutMessage:
+					"Visible captions did not recover the player control from timeout.",
+			},
+		);
+		const fallbackRequestCount =
+			mockApiServer.getResponseItemIds().filter((id) => id.startsWith("ot-"))
+				.length - fallbackIdsBefore;
+		assert.ok(
+			fallbackRequestCount <= 2,
+			`Progressive fallback used ${fallbackRequestCount} requests instead of coalescing to the latest snapshot.`,
+		);
+		const fallbackDiagnostics =
+			(await page
+				.locator('[data-ot-role="youtube-diagnostics"]')
+				.textContent()) || "";
+		assert.match(fallbackDiagnostics, /fallback-coalesced|coalesced=1/);
+		assert.match(fallbackDiagnostics, /"prefetchAvailable": false/);
+		assert.match(fallbackDiagnostics, /"timedTrackAvailable": false/);
+		assert.doesNotMatch(fallbackDiagnostics, /api\/timedtext/u);
+		assert.doesNotMatch(fallbackDiagnostics, /missing target [1-9]/);
+
 		await clearStoredSettings(runState.context);
 		await page.reload({ waitUntil: "domcontentloaded" });
 		const reloadedControl = page.locator(
@@ -743,6 +858,7 @@ async function main() {
 		});
 		await page.reload({ waitUntil: "domcontentloaded" });
 		await page.waitForTimeout(750);
+		await installCaptionTrackMetadata(page, { timedTrack: false });
 		const noCaptionControl = page.locator(
 			"#movie_player [data-ot-youtube-control]",
 		);
