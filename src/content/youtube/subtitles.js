@@ -256,6 +256,59 @@ function getSubtitleSources(node, sourceAttribute) {
 	return sources;
 }
 
+function rebindDetachedSubtitleSources(
+	profile,
+	node,
+	replacementSources,
+	options = {},
+) {
+	if (!isSubtitleProfile(profile)) {
+		return 0;
+	}
+
+	const usedSources = new Set();
+	let rebound = 0;
+
+	for (const source of getSubtitleSources(node, options.sourceAttribute)) {
+		const id = source.getAttribute?.(options.sourceAttribute);
+		const note = id ? options.findNote?.(source, id) : null;
+		const sourceSnapshot = normalizeSubtitleSourceText(
+			note?.getAttribute?.(SUBTITLE_SOURCE_TEXT_ATTR),
+		);
+		const replacement = (replacementSources || []).find(
+			(candidate) =>
+				candidate &&
+				!usedSources.has(candidate) &&
+				!candidate.getAttribute?.(options.sourceAttribute) &&
+				sourceSnapshot &&
+				normalizeSubtitleSourceText(options.getSourceText?.(candidate)) ===
+					sourceSnapshot,
+		);
+
+		if (!note || !replacement) {
+			continue;
+		}
+
+		clearSubtitleSourceState(profile, source, options);
+		replacement.setAttribute?.(options.sourceAttribute, id);
+		replacement.removeAttribute?.(options.staleAttribute);
+		replacement.setAttribute?.(options.translatedAttribute, "true");
+		replacement.setAttribute?.(options.processedAttribute, "true");
+		replacement.setAttribute?.(options.queuedAttribute, "false");
+		options.rememberSourceText?.(replacement, sourceSnapshot);
+		applySubtitleDisplayMode(
+			profile,
+			replacement,
+			note.getAttribute?.(SUBTITLE_DISPLAY_MODE_ATTR),
+		);
+		options.insertNote?.(replacement, note);
+		usedSources.add(replacement);
+		rebound += 1;
+	}
+
+	return rebound;
+}
+
 function removeDetachedSubtitleSources(profile, node, options = {}) {
 	if (!isSubtitleProfile(profile)) {
 		return 0;
@@ -368,6 +421,7 @@ const api = {
 	isSubtitleProfile,
 	normalizeCaptionFontSize,
 	prepareSubtitleNote,
+	rebindDetachedSubtitleSources,
 	reconcileSubtitleNotes,
 	removeDetachedSubtitleSources,
 	replaceSubtitleSource,
@@ -391,6 +445,7 @@ export {
 	isSubtitleProfile,
 	normalizeCaptionFontSize,
 	prepareSubtitleNote,
+	rebindDetachedSubtitleSources,
 	reconcileSubtitleNotes,
 	removeDetachedSubtitleSources,
 	replaceSubtitleSource,

@@ -142,6 +142,40 @@ async function setFirstCaptionText(page, text) {
 	}, text);
 }
 
+async function replaceRenderedCaptionSources(page) {
+	await page.evaluate(() => {
+		window.__otNotesBeforeSourceReplacement = Array.from(
+			document.querySelectorAll(
+				'#ytp-caption-window-container [data-ot-role="note"][data-phase="ready"]',
+			),
+		);
+		for (const source of document.querySelectorAll(
+			"#ytp-caption-window-container .ytp-caption-segment",
+		)) {
+			const replacement = source.cloneNode(true);
+
+			for (const attribute of [
+				"data-ot-source-id",
+				"data-ot-queued",
+				"data-translated",
+				"data-ot-translated",
+				"data-ot-subtitle-replaced",
+			]) {
+				replacement.removeAttribute(attribute);
+			}
+			source.replaceWith(replacement);
+		}
+	});
+	await page.waitForTimeout(25);
+
+	return page.evaluate(() => ({
+		connectedNoteCount: (window.__otNotesBeforeSourceReplacement || []).filter(
+			(note) => note.isConnected,
+		).length,
+		noteCount: (window.__otNotesBeforeSourceReplacement || []).length,
+	}));
+}
+
 async function waitForCaptionTranslation(page, sourceText) {
 	const note = page
 		.locator(
@@ -555,6 +589,16 @@ async function main() {
 				await bilingualNote.getAttribute("data-ot-subtitle-display-mode"),
 				"bilingual",
 			);
+		}
+		for (
+			let replacementIndex = 0;
+			replacementIndex < 3;
+			replacementIndex += 1
+		) {
+			assert.deepEqual(await replaceRenderedCaptionSources(page), {
+				connectedNoteCount: BILINGUAL_CAPTIONS.length,
+				noteCount: BILINGUAL_CAPTIONS.length,
+			});
 		}
 
 		await clearStoredSettings(runState.context);

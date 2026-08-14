@@ -41,6 +41,8 @@ export function createPageObserver(options = {}) {
 		setSourceQueued,
 		getExistingNoteForSource,
 		getSourceText,
+		insertSubtitleNote,
+		rememberSourceText,
 		onScheduleVisibleTranslation,
 		contentLifecycle,
 		observerDebounceMs = 200,
@@ -165,9 +167,33 @@ export function createPageObserver(options = {}) {
 		});
 	}
 
+	function getAddedSubtitleSources(mutations) {
+		const sources = [];
+		const selector = SubtitleApi.YOUTUBE_CAPTION_SEGMENT_SELECTOR;
+
+		for (const mutation of mutations) {
+			for (const node of mutation.addedNodes || []) {
+				if (node.nodeType !== Node.ELEMENT_NODE) {
+					continue;
+				}
+				if (node.matches?.(selector)) {
+					sources.push(node);
+				}
+				for (const source of node.querySelectorAll?.(selector) || []) {
+					sources.push(source);
+				}
+			}
+		}
+
+		return sources;
+	}
+
 	function flushObserverMutations() {
 		observerFlushTimer = null;
 		const mutations = pendingObserverMutations.splice(0);
+		const replacementSources = SubtitleApi.isSubtitleProfile(activeSiteProfile)
+			? getAddedSubtitleSources(mutations)
+			: [];
 		let shouldScheduleTranslation = false;
 
 		for (const mutation of mutations) {
@@ -183,7 +209,6 @@ export function createPageObserver(options = {}) {
 				continue;
 			if (mutation.type === "characterData" || mutation.type === "attributes") {
 				markRelatedSourcesStale(mutation.target);
-				reconcileSubtitleNotes();
 				shouldScheduleTranslation = true;
 				continue;
 			}
@@ -191,6 +216,22 @@ export function createPageObserver(options = {}) {
 			markRelatedSourcesStale(mutation.target);
 			for (const node of mutation.removedNodes) {
 				withObserverPaused(() => {
+					SubtitleApi.rebindDetachedSubtitleSources?.(
+						activeSiteProfile,
+						node,
+						replacementSources,
+						{
+							findNote: getExistingNoteForSource,
+							getSourceText,
+							insertNote: insertSubtitleNote,
+							processedAttribute: processedAttr,
+							queuedAttribute: queuedAttr,
+							rememberSourceText,
+							sourceAttribute: sourceAttr,
+							staleAttribute: staleAttr,
+							translatedAttribute: translatedAttr,
+						},
+					);
 					SubtitleApi.removeDetachedSubtitleSources(activeSiteProfile, node, {
 						findNote: getExistingNoteForSource,
 						processedAttribute: processedAttr,
@@ -206,11 +247,11 @@ export function createPageObserver(options = {}) {
 					markRelatedSourcesStale(node);
 				}
 			}
-			reconcileSubtitleNotes();
 			shouldScheduleTranslation = true;
 		}
 
 		if (shouldScheduleTranslation) {
+			reconcileSubtitleNotes();
 			onScheduleVisibleTranslation();
 		}
 	}

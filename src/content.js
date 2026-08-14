@@ -269,6 +269,10 @@ export function createContentRuntime(options = {}) {
 		normalizeSegmentText,
 	});
 
+	function insertSubtitleNote(source, note) {
+		source?.insertAdjacentElement?.("afterend", note);
+	}
+
 	function getExistingNoteForSource(element, id) {
 		if (!element) {
 			return null;
@@ -305,6 +309,7 @@ export function createContentRuntime(options = {}) {
 		getExistingNoteForSource,
 		getSourceText: (source) => getSegmentContent(source).text,
 		hasSourceTextChanged,
+		insertSubtitleNote,
 		isInsideTranslation,
 		noteAttr: NOTE_ATTR,
 		onScheduleVisibleTranslation: scheduleVisiblePageTranslation,
@@ -313,6 +318,7 @@ export function createContentRuntime(options = {}) {
 			: 200,
 		processedAttr: PROCESSED_ATTR,
 		queuedAttr: QUEUED_ATTR,
+		rememberSourceText,
 		rootAttr: ROOT_ATTR,
 		setSourceQueued,
 		sourceAttr: SOURCE_ATTR,
