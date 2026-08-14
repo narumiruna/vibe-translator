@@ -1,0 +1,101 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+import { createCaptionFallbackStore } from "../src/content/youtube/caption-fallback.js";
+
+test("caption fallback keeps one active request and the latest pending snapshot per slot", async () => {
+	const fixture = JSON.parse(
+		await readFile(
+			new URL("./fixtures/youtube-progressive-caption.json", import.meta.url),
+			"utf8",
+		),
+	);
+	const [first, second, third] = fixture.mutations;
+	const store = createCaptionFallbackStore();
+
+	assert.deepEqual(store.offer(first.slot, { id: "a", text: first.text }), {
+		accepted: true,
+		coalesced: false,
+	});
+	assert.deepEqual(store.offer(first.slot, { id: "a", text: first.text }), {
+		accepted: false,
+		coalesced: false,
+	});
+	assert.deepEqual(store.offer(second.slot, { id: "b", text: second.text }), {
+		accepted: false,
+		coalesced: true,
+	});
+	assert.deepEqual(store.offer(third.slot, { id: "c", text: third.text }), {
+		accepted: false,
+		coalesced: true,
+	});
+	assert.deepEqual(store.getSummary(), {
+		activeSlotCount: 1,
+		coalescedFallbackCount: 2,
+		latestPendingCount: 1,
+		supersededResultCount: 0,
+	});
+	assert.deepEqual(store.settle("a"), {
+		shouldRetry: true,
+		superseded: true,
+		tracked: true,
+	});
+	assert.deepEqual(store.offer(third.slot, { id: "c", text: third.text }), {
+		accepted: true,
+		coalesced: false,
+	});
+	assert.deepEqual(store.settle("c"), {
+		shouldRetry: false,
+		superseded: false,
+		tracked: true,
+	});
+});
+
+test("caption fallback bounds slots and rejects duplicate active identities", () => {
+	const store = createCaptionFallbackStore({ slotLimit: 2 });
+
+	assert.equal(
+		store.offer("slot-0", { id: "same", text: "First" }).accepted,
+		true,
+	);
+	assert.deepEqual(store.offer("slot-1", { id: "same", text: "Duplicate" }), {
+		accepted: false,
+		coalesced: false,
+	});
+	assert.equal(
+		store.offer("slot-1", { id: "second", text: "Second" }).accepted,
+		true,
+	);
+	assert.deepEqual(store.offer("slot-2", { id: "third", text: "Third" }), {
+		accepted: false,
+		coalesced: false,
+	});
+	assert.equal(store.getSummary().activeSlotCount, 2);
+});
+
+test("caption fallback classifies removed slots and clears retained state", () => {
+	const store = createCaptionFallbackStore();
+
+	store.offer("slot-0", { id: "old", text: "Old cue" });
+	store.retain(new Set(["slot-1"]));
+
+	assert.deepEqual(store.settle("old"), {
+		shouldRetry: false,
+		superseded: true,
+		tracked: true,
+	});
+	store.offer("slot-1", { id: "new", text: "New cue" });
+	store.clear();
+	assert.deepEqual(store.getSummary(), {
+		activeSlotCount: 0,
+		coalescedFallbackCount: 0,
+		latestPendingCount: 0,
+		supersededResultCount: 0,
+	});
+	assert.deepEqual(store.settle("new"), {
+		shouldRetry: false,
+		superseded: false,
+		tracked: false,
+	});
+});

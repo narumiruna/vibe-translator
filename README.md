@@ -86,10 +86,13 @@ It separately requests API host permission only for the origin derived from your
 5. Continue playing, change speed, or seek elsewhere; rate changes resize the rolling window, seeks prioritize the new position, and visible-caption translation remains the fallback when timed captions are unavailable
 
 The first captions after startup can remain native while the initial API batch finishes.
+Progressive auto-caption fragments use a translation only when they uniquely match the active timed cue; arbitrary fuzzy matching is never used.
+When timed captions are unavailable, each visible caption slot keeps one request active and coalesces further mutations to its latest text.
 Consecutive short cues share bounded requests, and total subtitle API concurrency stays at five or fewer.
 
-Clicking the in-player icon opens a diagnostic panel that records extraction, queueing, API, rendering progress, and errors.
-Use **Copy diagnostics** to share a report; API keys are not included.
+Clicking the in-player icon opens a diagnostic panel that records sanitized track discovery, prefetch availability, cache paths, fallback coalescing, API progress, and render outcomes.
+A temporary “captions not visible” error returns to active automatically when native captions appear.
+Use **Copy diagnostics** to share a report; API keys, caption text, prompts, responses, and timed-caption URLs are not included.
 
 The pinned Chrome toolbar icon keeps its original whole-page translation behavior.
 
@@ -110,7 +113,7 @@ npm install       # install exact development dependencies and the Husky hook
 npm run dev       # Extension.js development build with labeled context logs
 npm run build     # production Chrome artifact in dist/chrome
 npm run preview   # preview the production Chrome build
-npm run check     # module checks, 151 unit tests, production build, artifact verification
+npm run check     # module checks, 201 unit tests, production build, artifact verification
 npm run e2e:mock  # production-artifact Playwright smoke suite with a local API
 npm run zip       # production build plus dist/chrome/vibe-translator-<version>.zip
 npm run icons     # regenerate extension icon PNGs from icons/icon.svg

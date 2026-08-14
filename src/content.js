@@ -119,8 +119,11 @@ export function createContentRuntime(options = {}) {
 		bindYoutubePrefetchTracking,
 		cleanupYoutubeRuntime,
 		ensureYoutubeControl,
-		recordYoutubeCachePaths,
+		hasYoutubeCachedTranslation,
+		matchYoutubeCaptionItems,
 		recordYoutubeDiagnostic,
+		resetYoutubeCaptionFallbacks,
+		settleYoutubeCaptionFallbacks,
 	} = createYoutubeRuntime({
 		document,
 		window,
@@ -134,6 +137,7 @@ export function createContentRuntime(options = {}) {
 		YoutubePlayerControlApi,
 		TimedCaptionApi,
 		Messages,
+		scheduleVisibleTranslation: scheduleVisiblePageTranslation,
 	});
 
 	function setSourceQueued(element, queued) {
@@ -612,11 +616,7 @@ export function createContentRuntime(options = {}) {
 		let pendingItems = extraction.items || [];
 
 		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
-			const matched = SubtitleApi.consumeCachedSubtitleTranslations(
-				pageState.youtubeSubtitleTranslations,
-				pendingItems,
-			);
-			recordYoutubeCachePaths(matched);
+			const matched = matchYoutubeCaptionItems(pendingItems);
 
 			if (matched.cached.length > 0) {
 				renderPageTranslations({
@@ -667,8 +667,7 @@ export function createContentRuntime(options = {}) {
 
 		const shouldRenderCachedSubtitleImmediately =
 			SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE) &&
-			SubtitleApi.hasCachedSubtitleTranslation(
-				pageState.youtubeSubtitleTranslations,
+			hasYoutubeCachedTranslation(
 				Array.from(document.querySelectorAll(DIRECT_NOTE_TARGET_SELECTOR) || [])
 					.filter((source) =>
 						shouldQueueElementForTranslation(
@@ -783,6 +782,8 @@ export function createContentRuntime(options = {}) {
 		activatePageTranslationSession,
 		applyYoutubeControlState,
 		recordYoutubeDiagnostic,
+		resetYoutubeCaptionFallbacks,
+		settleYoutubeCaptionFallbacks,
 		isDebugInfoEnabled,
 	});
 

@@ -70,12 +70,19 @@ function selectCaptionWindow(cues, options = {}) {
 }
 
 function buildTimedCaptionItems(cues) {
-	return (cues || []).map((cue, index) => ({
-		id: `youtube-cue-${Math.floor(cue.startMs)}-${cue.cueIndex ?? index}`,
-		kind: "subtitle",
-		text: cue.text,
-		dedupeCompleted: true,
-	}));
+	return (cues || []).map((cue, index) => {
+		const id = `youtube-cue-${Math.floor(cue.startMs)}-${cue.cueIndex ?? index}`;
+
+		return {
+			id,
+			cueId: id,
+			cueStartMs: normalizeNonNegativeNumber(cue.startMs),
+			durationMs: normalizeNonNegativeNumber(cue.durationMs),
+			kind: "subtitle",
+			text: cue.text,
+			dedupeCompleted: true,
+		};
+	});
 }
 
 function buildJson3TrackUrl(baseUrl) {

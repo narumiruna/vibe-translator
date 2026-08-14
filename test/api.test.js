@@ -83,6 +83,35 @@ test("createRecursiveChunkPlan creates one request per non-oversized item", () =
 	);
 });
 
+test("progressive chunk merging preserves timed subtitle metadata", () => {
+	const plan = createRecursiveChunkPlan([
+		{
+			id: "youtube-cue-1000-0",
+			cueId: "youtube-cue-1000-0",
+			cueStartMs: 1000,
+			durationMs: 3000,
+			kind: "subtitle",
+			text: "Build reliable tools",
+		},
+	]);
+	const state = createProgressiveMergeState(plan);
+	const [completed] = consumeProgressiveTranslations(plan, state, [
+		{ id: "youtube-cue-1000-0", translation: "建立可靠工具" },
+	]);
+
+	assert.equal(plan.expandedItems[0].cueStartMs, 1000);
+	assert.deepEqual(completed, {
+		id: "youtube-cue-1000-0",
+		cueId: "youtube-cue-1000-0",
+		cueStartMs: 1000,
+		durationMs: 3000,
+		kind: "subtitle",
+		protectedFragments: [],
+		sourceText: "Build reliable tools",
+		translation: "建立可靠工具",
+	});
+});
+
 test("createRecursiveChunkPlan splits oversized items and mergeRecursiveTranslations restores them", () => {
 	const plan = createRecursiveChunkPlan(
 		[
