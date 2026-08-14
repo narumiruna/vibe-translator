@@ -16,6 +16,19 @@ Run `npm run build` first; the harness never loads raw files from `src/`.
 9. Verifies bundled background, content, and options health without requiring private globals
 10. Saves screenshots in `e2e-artifacts/`
 
+## Options UI Regression Coverage
+
+The dedicated options regression loads the packaged React and Radix UI, exercises keyboard-correct tabs, settings drafts, validation, prompt resets, persistence, permission status, connection failure/retry, duplicate-action guards, responsive layouts, light/dark/reduced-motion/forced-color states, and local-only resources.
+It also runs axe against every active tab, inspects the Chrome accessibility tree, enforces a 500 ms local render budget, and saves `radix-options-light.png` plus `radix-options-dark-mobile.png` in `e2e-artifacts/`.
+
+```bash
+PLAYWRIGHT_HEADLESS=1 npm run e2e:options
+```
+
+![Radix options UI in light mode](images/radix-options-light.png)
+
+![Radix options UI in dark mobile mode](images/radix-options-dark-mobile.png)
+
 ## Antirez Comment Regression Coverage
 
 The Antirez regression opens `https://antirez.com/news/169`, translates the article and its cross-origin Disqus frame, and verifies loaded comment paragraphs receive inline notes:
@@ -128,6 +141,10 @@ npm run e2e:mock
 ```
 
 ```bash
+PLAYWRIGHT_HEADLESS=1 npm run e2e:options
+```
+
+```bash
 npm run e2e:syosetu
 ```
 
@@ -150,3 +167,4 @@ just e2e-syosetu
 3. The harness modifies only its temporary artifact copy; `dist/chrome/manifest.json` remains unchanged.
 4. Production paths are derived from the generated manifest and service-worker discovery.
 5. For lifecycle validation, run twice with independent temporary profiles: `PLAYWRIGHT_HEADLESS=1 npm run e2e:mock && PLAYWRIGHT_HEADLESS=1 npm run e2e:mock`.
+6. Options UI screenshots are review artifacts and are not loaded by the extension.
