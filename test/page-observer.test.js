@@ -68,7 +68,21 @@ test("subtitle replacements rebind exact notes before cleanup and scheduling", (
 	const timers = [];
 	let handleMutations;
 	const body = {};
-	const removedSource = createElement({ matches: selector });
+	const detachedNote = {
+		getAttribute(name) {
+			if (name === "data-ot-note-id") return "ot-detached";
+			if (name === "data-ot-role") return "note";
+			return null;
+		},
+	};
+	const removedSource = {
+		...createElement({ matches: selector }),
+		querySelectorAll(value) {
+			return value === '[data-ot-role="note"][data-ot-note-id]'
+				? [detachedNote]
+				: [];
+		},
+	};
 	const secondRemovedSource = createElement({ matches: selector });
 	const addedSource = createElement({ matches: selector });
 	const secondAddedSource = createElement({ matches: selector });
@@ -86,9 +100,16 @@ test("subtitle replacements rebind exact notes before cleanup and scheduling", (
 			isSubtitleProfile() {
 				return true;
 			},
-			rebindDetachedSubtitleSources(_profile, source, replacements) {
+			rebindDetachedSubtitleSources(_profile, source, replacements, options) {
 				assert.ok(source === removedSource || source === secondRemovedSource);
 				assert.deepEqual(replacements, [addedSource, secondAddedSource]);
+				assert.equal(
+					options.findNote(
+						source,
+						source === removedSource ? "ot-detached" : "ot-other",
+					),
+					source === removedSource ? detachedNote : null,
+				);
 				events.push("rebind");
 				return 1;
 			},
@@ -210,7 +231,8 @@ test("subtitle text changes reset the source before translation is scheduled", (
 				return true;
 			},
 			removeDetachedSubtitleSources() {},
-			resetChangedSubtitleSource() {
+			resetChangedSubtitleSource(_profile, options) {
+				assert.equal(options.getSourceText(source), "Build reliable tools");
 				events.push("reset");
 				return true;
 			},
@@ -223,6 +245,9 @@ test("subtitle text changes reset the source before translation is scheduled", (
 		document: { body },
 		getExistingNoteForSource() {
 			return null;
+		},
+		getSourceText() {
+			return "Build reliable tools";
 		},
 		hasSourceTextChanged() {
 			return true;

@@ -492,11 +492,17 @@ export function createContentRenderer(options = {}) {
 			? settleYoutubeCaptionFallbacks?.(payload.translations) || {
 					settledIds: new Set(),
 					supersededIds: new Set(),
+					supersededItems: new Map(),
 				}
-			: { settledIds: new Set(), supersededIds: new Set() };
+			: {
+					settledIds: new Set(),
+					supersededIds: new Set(),
+					supersededItems: new Map(),
+				};
 		const reboundSources = new Set();
 		let rendered = 0;
 		let rebound = 0;
+		let provisional = 0;
 		let stale = 0;
 		let cached = 0;
 		let superseded = 0;
@@ -514,8 +520,22 @@ export function createContentRenderer(options = {}) {
 
 			for (const translationItem of payload.translations || []) {
 				if (fallbackSettlements.supersededIds.has(translationItem.id)) {
+					const refresh = SubtitleApi.resolveProgressiveSubtitleRefresh?.(
+						ACTIVE_SITE_PROFILE,
+						captionSources,
+						translationItem,
+						fallbackSettlements.supersededItems.get(translationItem.id),
+						(source) => getSegmentContent(source).text,
+						SOURCE_ATTR,
+					);
+
 					translationMap.delete(translationItem.id);
-					superseded += 1;
+					if (!refresh) {
+						superseded += 1;
+						continue;
+					}
+					translationMap.set(refresh.translation.id, refresh.translation);
+					provisional += 1;
 					continue;
 				}
 				if (
@@ -593,6 +613,7 @@ export function createContentRenderer(options = {}) {
 
 			if (
 				SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE) &&
+				!translationItem.provisional &&
 				translationItem.sourceText !== getSegmentContent(element).text
 			) {
 				stale += 1;
@@ -611,6 +632,18 @@ export function createContentRenderer(options = {}) {
 
 			if (note) {
 				rendered += 1;
+				if (translationItem.provisional) {
+					SubtitleApi.resetChangedSubtitleSource(ACTIVE_SITE_PROFILE, {
+						element,
+						getSourceText: (source) => getSegmentContent(source).text,
+						note,
+						processedAttribute: PROCESSED_ATTR,
+						queuedAttribute: QUEUED_ATTR,
+						sourceAttribute: SOURCE_ATTR,
+						staleAttribute: STALE_ATTR,
+						translatedAttribute: TRANSLATED_ATTR,
+					});
+				}
 			} else {
 				missingTarget += 1;
 			}
@@ -619,9 +652,15 @@ export function createContentRenderer(options = {}) {
 		if (SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)) {
 			recordYoutubeDiagnostic(
 				"render",
-				`Received ${receivedCount} translation(s); rendered ${rendered}; rebound ${rebound}; cached ${cached}; superseded ${superseded}; timed-prefix=${timedPrefix}; stale ${stale}; missing target ${missingTarget}`,
+				`Received ${receivedCount} translation(s); rendered ${rendered}; rebound ${rebound}; provisional ${provisional}; cached ${cached}; superseded ${superseded}; timed-prefix=${timedPrefix}; stale ${stale}; missing target ${missingTarget}`,
 				{
-					outcomes: { cached, rendered, superseded, timedPrefix },
+					outcomes: {
+						cached,
+						provisional,
+						rendered,
+						superseded,
+						timedPrefix,
+					},
 					show: stale > 0 || (missingTarget > 0 && cachedSubtitleCount === 0),
 				},
 			);

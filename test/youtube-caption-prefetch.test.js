@@ -7,6 +7,7 @@ function createFixture() {
 	const acceptedIds = new Set();
 	const enqueued = [];
 	const diagnostics = [];
+	const fetches = [];
 	const payload = {
 		events: [
 			{ tStartMs: 0, dDurationMs: 1000, segs: [{ utf8: "Zero" }] },
@@ -39,7 +40,8 @@ function createFixture() {
 			}
 			return { queued: accepted.length };
 		},
-		async fetch() {
+		async fetch(url, init) {
+			fetches.push({ init, url });
 			return {
 				ok: true,
 				async json() {
@@ -52,11 +54,11 @@ function createFixture() {
 		},
 	});
 
-	return { diagnostics, enqueued, prefetch };
+	return { diagnostics, enqueued, fetches, prefetch };
 }
 
 test("initialization fetches JSON3 and queues the current 60-second window", async () => {
-	const { diagnostics, enqueued, prefetch } = createFixture();
+	const { diagnostics, enqueued, fetches, prefetch } = createFixture();
 
 	assert.deepEqual(
 		await prefetch.initialize({
@@ -68,6 +70,8 @@ test("initialization fetches JSON3 and queues the current 60-second window", asy
 		}),
 		{ available: true, cueCount: 8, queued: 3 },
 	);
+	assert.equal(new URL(fetches[0].url).searchParams.get("fmt"), "json3");
+	assert.deepEqual(fetches[0].init, { credentials: "include" });
 	assert.match(enqueued[0].items[0].id, /^youtube-cue-0-0$/u);
 	assert.deepEqual(
 		enqueued[0].items.map((item) => item.text),
@@ -281,4 +285,11 @@ test("unavailable or malformed timed captions preserve fallback behavior", async
 		}),
 		{ available: false, cueCount: 0, queued: 0 },
 	);
+	assert.equal(diagnostics.length, 2);
+	assert.deepEqual(diagnostics.at(-1), {
+		detail:
+			"Timed caption URL was missing or untrusted; using visible captions",
+		stage: "prefetch-fallback",
+	});
+	assert.doesNotMatch(JSON.stringify(diagnostics), /attacker\.example/u);
 });

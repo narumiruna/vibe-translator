@@ -17,6 +17,66 @@ function isCurrentSource(source, currentVideoId) {
 	return !sourceVideoId || !currentId || sourceVideoId === currentId;
 }
 
+function parseTrustedTimedTextUrl(value) {
+	try {
+		const url = new URL(String(value || ""));
+		const hostname = url.hostname.toLowerCase();
+
+		if (
+			url.protocol !== "https:" ||
+			(hostname !== "youtube.com" && !hostname.endsWith(".youtube.com")) ||
+			url.pathname !== "/api/timedtext"
+		) {
+			return null;
+		}
+
+		return url;
+	} catch (_error) {
+		return null;
+	}
+}
+
+function resolveNativeYoutubeCaptionRequestUrl(requestUrls, advertisedUrl) {
+	const advertised = parseTrustedTimedTextUrl(advertisedUrl);
+
+	if (!advertised) {
+		return "";
+	}
+
+	const matchParameters = ["v", "lang", "kind", "variant"];
+	let best = null;
+	let bestScore = -1;
+
+	for (const value of requestUrls || []) {
+		const candidate = parseTrustedTimedTextUrl(value);
+
+		if (
+			!candidate ||
+			matchParameters.some((name) => {
+				const expected = advertised.searchParams.get(name);
+
+				return expected && candidate.searchParams.get(name) !== expected;
+			})
+		) {
+			continue;
+		}
+
+		const score =
+			(candidate.searchParams.has("pot") ? 100 : 0) +
+			(candidate.searchParams.has("potc") ? 20 : 0) +
+			["xorb", "xobt", "xovt", "c", "cver"].filter((name) =>
+				candidate.searchParams.has(name),
+			).length;
+
+		if (score >= bestScore) {
+			best = candidate;
+			bestScore = score;
+		}
+	}
+
+	return best?.toString() || "";
+}
+
 function matchesSelectedTrack(track, selectedTrack) {
 	const selectedLanguage = String(selectedTrack?.languageCode || "");
 	const selectedKind = String(selectedTrack?.kind || "");
@@ -79,7 +139,10 @@ function resolveYoutubeCaptionTracks(input = {}) {
 	};
 }
 
-const api = { resolveYoutubeCaptionTracks };
+const api = {
+	resolveNativeYoutubeCaptionRequestUrl,
+	resolveYoutubeCaptionTracks,
+};
 
-export { resolveYoutubeCaptionTracks };
+export { resolveNativeYoutubeCaptionRequestUrl, resolveYoutubeCaptionTracks };
 export default api;

@@ -138,24 +138,77 @@ test("YouTube diagnostic reports redact secrets", () => {
 					'apiKey="sk-example-secret" Authorization: Bearer private-token',
 			},
 		],
+		[
+			{
+				stage: "prefetch-fallback",
+				detail: "Timed captions unavailable",
+			},
+		],
 	);
 
 	assert.match(report, /Vibe Translator YouTube diagnostics/);
+	assert.match(report, /notableEvents/);
+	assert.match(report, /prefetch-fallback/);
 	assert.match(report, /\[redacted\]/);
 	assert.doesNotMatch(report, /sk-example-secret|private-token/);
 });
 
-test("YouTube diagnostic store keeps only recent bounded events", () => {
+test("YouTube diagnostic store retains root-cause events after activity rolls", () => {
 	const store = YoutubeDiagnostics.createDiagnosticStore();
 
+	store.add(
+		"prefetch-fallback",
+		"Timed caption request failed with status 403",
+	);
 	for (let index = 0; index < 35; index += 1) {
 		store.add("step", String(index));
 	}
 
 	assert.equal(store.getEvents().length, 30);
 	assert.equal(store.getEvents()[0].detail, "5");
+	assert.deepEqual(store.getNotableEvents(), [
+		{
+			at: store.getNotableEvents()[0].at,
+			detail: "Timed caption request failed with status 403",
+			stage: "prefetch-fallback",
+		},
+	]);
 	store.clear();
 	assert.deepEqual(store.getEvents(), []);
+	assert.deepEqual(store.getNotableEvents(), []);
+});
+
+test("YouTube diagnostics identify caption-churn starvation", () => {
+	assert.deepEqual(
+		YoutubeDiagnostics.diagnoseYoutubePipeline({
+			captionTrack: {
+				prefetchAvailable: false,
+				timedTrackAvailable: true,
+			},
+			captionTrace: {
+				renderedResults: 0,
+				supersededResults: 16,
+				visibleFallbacks: 19,
+			},
+			pipeline: { readyNoteCount: 0 },
+			visibleCaptionCharacters: 77,
+		}),
+		{
+			issues: [
+				{
+					code: "timed-prefetch-unavailable",
+					detail:
+						"A timed caption track exists, but prefetch is unavailable; inspect the retained prefetch-fallback event.",
+				},
+				{
+					code: "caption-churn-starvation",
+					detail:
+						"Visible captions are changing faster than fallback translations can render.",
+				},
+			],
+			status: "degraded",
+		},
+	);
 });
 
 test("YouTube caption traces keep bounded timing metadata without text or secrets", async () => {
@@ -193,11 +246,17 @@ test("YouTube caption traces keep bounded timing metadata without text or secret
 		videoTimeMs: 1600,
 	});
 
-	trace.addOutcomes({ cached: 2, rendered: 1, superseded: 3 });
+	trace.addOutcomes({
+		cached: 2,
+		provisional: 1,
+		rendered: 1,
+		superseded: 3,
+	});
 	assert.deepEqual(trace.getSummary(), {
 		cachedResults: 2,
 		exactCacheHits: 1,
 		progressiveSourceMutations: 1,
+		provisionalResults: 1,
 		renderedResults: 1,
 		sampleCount: 3,
 		supersededResults: 3,

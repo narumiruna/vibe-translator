@@ -100,6 +100,9 @@ test("YouTube runtime coalesces progressive fallbacks and recovers caption timeo
 	assert.deepEqual(runtime.settleYoutubeCaptionFallbacks([{ id: "ot-a" }]), {
 		settledIds: new Set(["ot-a"]),
 		supersededIds: new Set(["ot-a"]),
+		supersededItems: new Map([
+			["ot-a", { id: "ot-b", text: "Build reliable" }],
+		]),
 	});
 	assert.equal(scheduled, 1);
 	assert.deepEqual(

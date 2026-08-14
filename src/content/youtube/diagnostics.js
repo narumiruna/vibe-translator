@@ -4,6 +4,14 @@ const CAPTION_SEGMENT_SELECTOR =
 	"#ytp-caption-window-container .ytp-caption-segment";
 const MAX_EVENTS = 30;
 const MAX_TRACE_SAMPLES = 120;
+const NOTABLE_EVENT_STAGES = new Set([
+	"api-error",
+	"background-error",
+	"caption-timeout",
+	"message-error",
+	"prefetch-fallback",
+	"queue-error",
+]);
 const MAX_TRACE_WORD_OFFSETS = 32;
 const TRACE_CACHE_PATHS = new Set([
 	"exact",
@@ -111,6 +119,40 @@ function collectYoutubeDiagnostics(options = {}) {
 	};
 }
 
+function diagnoseYoutubePipeline(snapshot = {}) {
+	const issues = [];
+	const captionTrack = snapshot.captionTrack || {};
+	const captionTrace = snapshot.captionTrace || {};
+	const pipeline = snapshot.pipeline || {};
+
+	if (captionTrack.timedTrackAvailable && !captionTrack.prefetchAvailable) {
+		issues.push({
+			code: "timed-prefetch-unavailable",
+			detail:
+				"A timed caption track exists, but prefetch is unavailable; inspect the retained prefetch-fallback event.",
+		});
+	}
+
+	if (
+		Number(snapshot.visibleCaptionCharacters) > 0 &&
+		Number(pipeline.readyNoteCount) === 0 &&
+		Number(captionTrace.visibleFallbacks) > 0 &&
+		Number(captionTrace.renderedResults) === 0 &&
+		Number(captionTrace.supersededResults) >= 3
+	) {
+		issues.push({
+			code: "caption-churn-starvation",
+			detail:
+				"Visible captions are changing faster than fallback translations can render.",
+		});
+	}
+
+	return {
+		issues,
+		status: issues.length > 0 ? "degraded" : "ok",
+	};
+}
+
 function redactDiagnosticText(value) {
 	return String(value || "")
 		.replace(/(authorization\s*:\s*bearer\s+)[^\s"']+/giu, "$1[redacted]")
@@ -127,20 +169,33 @@ function normalizeDiagnosticEvent(event) {
 
 function createDiagnosticStore() {
 	const events = [];
+	const notableEvents = new Map();
 
 	return {
 		add(stage, detail = "") {
-			events.push(normalizeDiagnosticEvent({ detail, stage }));
+			const event = normalizeDiagnosticEvent({ detail, stage });
+
+			events.push(event);
+			if (
+				NOTABLE_EVENT_STAGES.has(event.stage) &&
+				!notableEvents.has(event.stage)
+			) {
+				notableEvents.set(event.stage, event);
+			}
 			if (events.length > MAX_EVENTS) {
 				events.splice(0, events.length - MAX_EVENTS);
 			}
-			return events.at(-1);
+			return { ...event };
 		},
 		clear() {
 			events.length = 0;
+			notableEvents.clear();
 		},
 		getEvents() {
 			return events.map((event) => ({ ...event }));
+		},
+		getNotableEvents() {
+			return Array.from(notableEvents.values(), (event) => ({ ...event }));
 		},
 	};
 }
@@ -152,6 +207,7 @@ function createCaptionTraceStore(options = {}) {
 		cachedResults: 0,
 		exactCacheHits: 0,
 		progressiveSourceMutations: 0,
+		provisionalResults: 0,
 		renderedResults: 0,
 		supersededResults: 0,
 		timedPrefixHits: 0,
@@ -226,6 +282,7 @@ function createCaptionTraceStore(options = {}) {
 		addOutcomes(outcomes = {}) {
 			for (const [counter, value] of [
 				["cachedResults", outcomes.cached],
+				["provisionalResults", outcomes.provisional],
 				["renderedResults", outcomes.rendered],
 				["supersededResults", outcomes.superseded],
 				["timedPrefixHits", outcomes.timedPrefix],
@@ -249,12 +306,13 @@ function createCaptionTraceStore(options = {}) {
 	};
 }
 
-function createDiagnosticReport(snapshot, events) {
+function createDiagnosticReport(snapshot, events, notableEvents) {
 	return [
 		"Vibe Translator YouTube diagnostics",
 		JSON.stringify(
 			{
 				events: (events || []).map(normalizeDiagnosticEvent),
+				notableEvents: (notableEvents || []).map(normalizeDiagnosticEvent),
 				snapshot: snapshot || {},
 			},
 			null,
@@ -271,6 +329,7 @@ const api = {
 	createCaptionTraceStore,
 	createDiagnosticReport,
 	createDiagnosticStore,
+	diagnoseYoutubePipeline,
 };
 
 export {
@@ -281,5 +340,6 @@ export {
 	createCaptionTraceStore,
 	createDiagnosticReport,
 	createDiagnosticStore,
+	diagnoseYoutubePipeline,
 };
 export default api;

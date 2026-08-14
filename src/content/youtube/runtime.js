@@ -28,8 +28,7 @@ export function createYoutubeRuntime(options = {}) {
 
 	function getYoutubeDiagnosticSnapshot() {
 		const events = pageState.youtubeDiagnostics.store.getEvents();
-
-		return {
+		const snapshot = {
 			...YoutubeDiagnosticsApi.collectYoutubeDiagnostics({
 				captionStatus: pageState.youtubeDiagnostics.captionStatus,
 				document,
@@ -41,22 +40,34 @@ export function createYoutubeRuntime(options = {}) {
 			failureCount: events.filter((event) => event.stage === "api-error")
 				.length,
 		};
+
+		return {
+			...snapshot,
+			diagnosis: YoutubeDiagnosticsApi.diagnoseYoutubePipeline?.(snapshot) || {
+				issues: [],
+				status: "unknown",
+			},
+		};
 	}
 
 	function getYoutubeDiagnosticReport() {
 		return YoutubeDiagnosticsApi.createDiagnosticReport(
 			getYoutubeDiagnosticSnapshot(),
 			pageState.youtubeDiagnostics.store.getEvents(),
+			pageState.youtubeDiagnostics.store.getNotableEvents?.() || [],
 		);
 	}
 
 	function closeYoutubeDiagnostics() {
 		pageState.youtubeDiagnostics.panel?.remove();
 		pageState.youtubeDiagnostics.panel = null;
+		pageState.youtubeDiagnostics.paused = false;
+		pageState.youtubeDiagnostics.frozenReport = "";
 	}
 
 	async function copyYoutubeDiagnostics(button) {
-		const report = getYoutubeDiagnosticReport();
+		const report =
+			pageState.youtubeDiagnostics.frozenReport || getYoutubeDiagnosticReport();
 
 		try {
 			await navigator.clipboard.writeText(report);
@@ -66,7 +77,7 @@ export function createYoutubeRuntime(options = {}) {
 		}
 	}
 
-	function renderYoutubeDiagnostics() {
+	function renderYoutubeDiagnostics(options = {}) {
 		ensureStyles();
 		const player = document.querySelector("#movie_player");
 
@@ -75,6 +86,14 @@ export function createYoutubeRuntime(options = {}) {
 		}
 
 		let panel = pageState.youtubeDiagnostics.panel;
+
+		if (
+			panel?.isConnected &&
+			pageState.youtubeDiagnostics.paused &&
+			!options.force
+		) {
+			return panel;
+		}
 
 		if (!panel?.isConnected) {
 			panel = document.createElement("aside");
@@ -89,21 +108,45 @@ export function createYoutubeRuntime(options = {}) {
 		const status = document.createElement("span");
 		const output = document.createElement("pre");
 		const copyButton = document.createElement("button");
+		const pauseButton = document.createElement("button");
 		const closeButton = document.createElement("button");
 
 		title.textContent = "Vibe Translator diagnostics";
 		status.setAttribute("data-ot-diagnostic-status", "");
 		status.textContent = pageState.youtubeDiagnostics.status;
-		output.textContent = getYoutubeDiagnosticReport();
+		output.textContent =
+			pageState.youtubeDiagnostics.frozenReport || getYoutubeDiagnosticReport();
 		copyButton.type = "button";
 		copyButton.textContent = "Copy diagnostics";
 		copyButton.addEventListener("click", () => {
 			copyYoutubeDiagnostics(copyButton);
 		});
+		pauseButton.type = "button";
+		pauseButton.textContent = pageState.youtubeDiagnostics.paused
+			? "Resume diagnostics"
+			: "Pause diagnostics";
+		pauseButton.addEventListener("click", () => {
+			if (pageState.youtubeDiagnostics.paused) {
+				pageState.youtubeDiagnostics.paused = false;
+				pageState.youtubeDiagnostics.frozenReport = "";
+			} else {
+				pageState.youtubeDiagnostics.paused = true;
+				pageState.youtubeDiagnostics.frozenReport =
+					getYoutubeDiagnosticReport();
+			}
+			renderYoutubeDiagnostics({ force: true });
+		});
 		closeButton.type = "button";
 		closeButton.textContent = "Close";
 		closeButton.addEventListener("click", closeYoutubeDiagnostics);
-		panel.replaceChildren(title, status, output, copyButton, closeButton);
+		panel.replaceChildren(
+			title,
+			status,
+			output,
+			copyButton,
+			pauseButton,
+			closeButton,
+		);
 
 		return panel;
 	}
@@ -268,10 +311,12 @@ export function createYoutubeRuntime(options = {}) {
 	function settleYoutubeCaptionFallbacks(items) {
 		const settledIds = new Set();
 		const supersededIds = new Set();
+		const supersededItems = new Map();
 		let shouldRetry = false;
 
 		for (const item of items || []) {
 			const id = typeof item === "string" ? item : item?.id;
+			const retryItem = captionFallbackStore.getLatest(id);
 			const result = captionFallbackStore.settle(id);
 
 			if (!result.tracked) {
@@ -280,6 +325,9 @@ export function createYoutubeRuntime(options = {}) {
 			settledIds.add(id);
 			if (result.superseded) {
 				supersededIds.add(id);
+				if (retryItem) {
+					supersededItems.set(id, retryItem);
+				}
 			}
 			shouldRetry ||= result.shouldRetry;
 		}
@@ -287,7 +335,7 @@ export function createYoutubeRuntime(options = {}) {
 		if (shouldRetry) {
 			scheduleVisibleTranslation?.();
 		}
-		return { settledIds, supersededIds };
+		return { settledIds, supersededIds, supersededItems };
 	}
 
 	function resetYoutubeCaptionFallbacks() {

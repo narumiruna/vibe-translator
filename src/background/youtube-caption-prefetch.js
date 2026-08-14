@@ -76,18 +76,31 @@ function createYoutubeCaptionPrefetch(options = {}) {
 	async function initialize(context = {}) {
 		const unavailable = { available: false, cueCount: 0, queued: 0 };
 
-		if (
-			!context.tabId ||
-			!context.sessionId ||
-			!isTrustedYoutubeCaptionUrl(context.baseUrl) ||
-			typeof fetchImpl !== "function"
-		) {
+		let unavailableReason = "";
+
+		if (!context.tabId) {
+			unavailableReason = "Browser tab was unavailable";
+		} else if (!context.sessionId) {
+			unavailableReason = "Translation session was unavailable";
+		} else if (!isTrustedYoutubeCaptionUrl(context.baseUrl)) {
+			unavailableReason = "Timed caption URL was missing or untrusted";
+		} else if (typeof fetchImpl !== "function") {
+			unavailableReason = "Timed caption fetch was unavailable";
+		}
+
+		if (unavailableReason) {
+			onDiagnostic(
+				"prefetch-fallback",
+				`${unavailableReason}; using visible captions`,
+				context,
+			);
 			return unavailable;
 		}
 
 		try {
 			const response = await fetchImpl(
 				TimedCaptions.buildJson3TrackUrl(context.baseUrl),
+				{ credentials: "include" },
 			);
 
 			if (!response?.ok) {

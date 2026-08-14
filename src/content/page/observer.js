@@ -85,6 +85,7 @@ export function createPageObserver(options = {}) {
 				activeSiteProfile,
 				{
 					element,
+					getSourceText,
 					note: existingNote,
 					processedAttribute: processedAttr,
 					queuedAttribute: queuedAttr,
@@ -188,12 +189,45 @@ export function createPageObserver(options = {}) {
 		return sources;
 	}
 
+	function getDetachedSubtitleNotes(mutations) {
+		const notes = new Map();
+		const selector = `[${rootAttr}="note"][${noteAttr}]`;
+
+		function rememberNote(note) {
+			const id = note?.getAttribute?.(noteAttr);
+
+			if (id && note.getAttribute?.(rootAttr) === "note") {
+				notes.set(id, note);
+			}
+		}
+
+		for (const mutation of mutations) {
+			for (const node of mutation.removedNodes || []) {
+				if (node.nodeType !== Node.ELEMENT_NODE) {
+					continue;
+				}
+				rememberNote(node);
+				for (const note of node.querySelectorAll?.(selector) || []) {
+					rememberNote(note);
+				}
+			}
+		}
+
+		return notes;
+	}
+
 	function flushObserverMutations() {
 		observerFlushTimer = null;
 		const mutations = pendingObserverMutations.splice(0);
-		const replacementSources = SubtitleApi.isSubtitleProfile(activeSiteProfile)
+		const subtitleProfile = SubtitleApi.isSubtitleProfile(activeSiteProfile);
+		const replacementSources = subtitleProfile
 			? getAddedSubtitleSources(mutations)
 			: [];
+		const detachedNotes = subtitleProfile
+			? getDetachedSubtitleNotes(mutations)
+			: new Map();
+		const findSubtitleNote = (source, id) =>
+			getExistingNoteForSource(source, id) || detachedNotes.get(id) || null;
 		let shouldScheduleTranslation = false;
 
 		for (const mutation of mutations) {
@@ -221,7 +255,7 @@ export function createPageObserver(options = {}) {
 						node,
 						replacementSources,
 						{
-							findNote: getExistingNoteForSource,
+							findNote: findSubtitleNote,
 							getSourceText,
 							insertNote: insertSubtitleNote,
 							processedAttribute: processedAttr,
@@ -233,7 +267,7 @@ export function createPageObserver(options = {}) {
 						},
 					);
 					SubtitleApi.removeDetachedSubtitleSources(activeSiteProfile, node, {
-						findNote: getExistingNoteForSource,
+						findNote: findSubtitleNote,
 						processedAttribute: processedAttr,
 						queuedAttribute: queuedAttr,
 						sourceAttribute: sourceAttr,

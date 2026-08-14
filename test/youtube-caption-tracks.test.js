@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveYoutubeCaptionTracks } from "../src/background/youtube-caption-tracks.js";
+import {
+	resolveNativeYoutubeCaptionRequestUrl,
+	resolveYoutubeCaptionTracks,
+} from "../src/background/youtube-caption-tracks.js";
 
 function track(languageCode, options = {}) {
 	return {
@@ -63,6 +66,53 @@ test("caption track resolver ignores stale and malformed response sources", () =
 			trackSource: "player-response",
 			timedTrackAvailable: false,
 		},
+	);
+});
+
+test("native caption request resolver prefers the current proof-bearing track", () => {
+	const advertisedUrl =
+		"https://www.youtube.com/api/timedtext?v=current&lang=en&kind=asr";
+	const nativeUrl =
+		"https://www.youtube.com/api/timedtext?v=current&lang=en&kind=asr&fmt=json3&pot=fixture-proof";
+
+	assert.equal(
+		resolveNativeYoutubeCaptionRequestUrl(
+			[
+				"https://attacker.example/api/timedtext?v=current&lang=en&pot=bad",
+				"https://www.youtube.com/api/timedtext?v=old&lang=en&kind=asr&pot=stale",
+				"https://www.youtube.com/api/timedtext?v=current&lang=fr&kind=asr&pot=wrong-language",
+				"https://www.youtube.com/watch?v=current&lang=en&pot=wrong-path",
+				"https://www.youtube.com/api/timedtext?v=current&lang=en&kind=asr&fmt=json3",
+				nativeUrl,
+			],
+			advertisedUrl,
+		),
+		nativeUrl,
+	);
+});
+
+test("native caption request resolver rejects unrelated requests safely", () => {
+	const advertisedUrl =
+		"https://www.youtube.com/api/timedtext?v=current&lang=en&kind=asr";
+
+	assert.equal(
+		resolveNativeYoutubeCaptionRequestUrl(
+			[
+				"not a URL",
+				"http://www.youtube.com/api/timedtext?v=current&lang=en",
+				"https://m.youtube.com/api/timedtext?v=other&lang=en",
+			],
+			advertisedUrl,
+		),
+		"",
+	);
+	assert.equal(resolveNativeYoutubeCaptionRequestUrl([], advertisedUrl), "");
+	assert.equal(
+		resolveNativeYoutubeCaptionRequestUrl(
+			["https://www.youtube.com/api/timedtext?v=current&lang=en"],
+			"https://attacker.example/api/timedtext?v=current&lang=en",
+		),
+		"",
 	);
 });
 

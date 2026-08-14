@@ -52,6 +52,52 @@ test("caption fallback keeps one active request and the latest pending snapshot 
 	});
 });
 
+test("caption fallback coalesces changed text that keeps its source identity", () => {
+	const store = createCaptionFallbackStore();
+
+	assert.deepEqual(store.offer("caption-0", { id: "ot-4", text: "Build" }), {
+		accepted: true,
+		coalesced: false,
+	});
+	assert.deepEqual(
+		store.offer("caption-0", {
+			id: "ot-4",
+			text: "Build reliable tools",
+		}),
+		{
+			accepted: false,
+			coalesced: true,
+		},
+	);
+	assert.deepEqual(store.getLatest("ot-4"), {
+		id: "ot-4",
+		text: "Build reliable tools",
+	});
+	assert.deepEqual(
+		store.offer("caption-0", {
+			id: "ot-4",
+			text: "Build reliable tools",
+		}),
+		{
+			accepted: false,
+			coalesced: false,
+		},
+	);
+	assert.deepEqual(store.settle("ot-4"), {
+		shouldRetry: true,
+		superseded: true,
+		tracked: true,
+	});
+	assert.equal(store.getLatest("ot-4"), null);
+	assert.equal(
+		store.offer("caption-0", {
+			id: "ot-4",
+			text: "Build reliable tools",
+		}).accepted,
+		true,
+	);
+});
+
 test("caption fallback bounds slots and rejects duplicate active identities", () => {
 	const store = createCaptionFallbackStore({ slotLimit: 2 });
 

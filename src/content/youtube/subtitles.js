@@ -279,6 +279,50 @@ function findMatchingSubtitleSource(
 	);
 }
 
+function resolveProgressiveSubtitleRefresh(
+	profile,
+	sources,
+	translation,
+	retryItem,
+	getSourceText,
+	sourceAttribute,
+) {
+	if (
+		!isSubtitleProfile(profile) ||
+		!translation?.sourceText ||
+		!String(translation?.translation || "").trim() ||
+		!retryItem?.id ||
+		!retryItem?.text ||
+		!sourceAttribute
+	) {
+		return null;
+	}
+
+	const retryText = normalizeSubtitleSourceText(retryItem.text);
+	const matches = (sources || []).filter((source) => {
+		const currentSourceText = normalizeSubtitleSourceText(
+			getSourceText?.(source),
+		);
+
+		return (
+			source?.getAttribute?.(sourceAttribute) === retryItem.id &&
+			currentSourceText === retryText &&
+			isProgressiveSubtitleChange(translation.sourceText, currentSourceText)
+		);
+	});
+
+	return matches.length === 1
+		? {
+				source: matches[0],
+				translation: {
+					...translation,
+					id: retryItem.id,
+					provisional: true,
+				},
+			}
+		: null;
+}
+
 function aliasClaimedSubtitleTranslation(
 	profile,
 	source,
@@ -323,6 +367,22 @@ function normalizeSubtitleSourceText(value) {
 	return String(value || "")
 		.replace(/\s+/gu, " ")
 		.trim();
+}
+
+function isProgressiveSubtitleChange(previousText, currentText) {
+	const previous = normalizeSubtitleSourceText(previousText);
+	const current = normalizeSubtitleSourceText(currentText);
+
+	return Boolean(
+		previous && current !== previous && current.startsWith(previous),
+	);
+}
+
+function markProgressiveSubtitleSource(element, options = {}) {
+	element.setAttribute?.(options.staleAttribute, "true");
+	element.setAttribute?.(options.translatedAttribute, "stale");
+	element.removeAttribute?.(options.processedAttribute);
+	element.setAttribute?.(options.queuedAttribute, "false");
 }
 
 function bindSubtitleNote(profile, note, options = {}) {
@@ -393,6 +453,21 @@ function resetChangedSubtitleSource(profile, options = {}) {
 		return false;
 	}
 
+	const sourceSnapshot = normalizeSubtitleSourceText(
+		options.note?.getAttribute?.(SUBTITLE_SOURCE_TEXT_ATTR),
+	);
+	const currentSourceText = normalizeSubtitleSourceText(
+		options.getSourceText?.(options.element),
+	);
+
+	if (
+		options.element.getAttribute?.(options.sourceAttribute) &&
+		isProgressiveSubtitleChange(sourceSnapshot, currentSourceText)
+	) {
+		markProgressiveSubtitleSource(options.element, options);
+		return true;
+	}
+
 	options.note?.remove?.();
 	clearSubtitleSourceState(profile, options.element, options);
 
@@ -437,15 +512,34 @@ function rebindDetachedSubtitleSources(
 		const sourceSnapshot = normalizeSubtitleSourceText(
 			note?.getAttribute?.(SUBTITLE_SOURCE_TEXT_ATTR),
 		);
-		const replacement = (replacementSources || []).find(
+		const availableReplacements = (replacementSources || []).filter(
 			(candidate) =>
 				candidate &&
 				!usedSources.has(candidate) &&
-				!candidate.getAttribute?.(options.sourceAttribute) &&
+				!candidate.getAttribute?.(options.sourceAttribute),
+		);
+		let replacement = availableReplacements.find(
+			(candidate) =>
 				sourceSnapshot &&
 				normalizeSubtitleSourceText(options.getSourceText?.(candidate)) ===
 					sourceSnapshot,
 		);
+		let progressive = false;
+
+		if (!replacement && sourceSnapshot) {
+			const progressiveReplacements = availableReplacements.filter(
+				(candidate) =>
+					isProgressiveSubtitleChange(
+						sourceSnapshot,
+						options.getSourceText?.(candidate),
+					),
+			);
+
+			if (progressiveReplacements.length === 1) {
+				replacement = progressiveReplacements[0];
+				progressive = true;
+			}
+		}
 
 		if (!note || !replacement) {
 			continue;
@@ -453,11 +547,21 @@ function rebindDetachedSubtitleSources(
 
 		clearSubtitleSourceState(profile, source, options);
 		replacement.setAttribute?.(options.sourceAttribute, id);
-		replacement.removeAttribute?.(options.staleAttribute);
-		replacement.setAttribute?.(options.translatedAttribute, "true");
-		replacement.setAttribute?.(options.processedAttribute, "true");
-		replacement.setAttribute?.(options.queuedAttribute, "false");
-		options.rememberSourceText?.(replacement, sourceSnapshot);
+		if (progressive) {
+			markProgressiveSubtitleSource(replacement, options);
+		} else {
+			replacement.removeAttribute?.(options.staleAttribute);
+			replacement.setAttribute?.(options.translatedAttribute, "true");
+			replacement.setAttribute?.(options.processedAttribute, "true");
+			replacement.setAttribute?.(options.queuedAttribute, "false");
+		}
+		const replacementSourceText = normalizeSubtitleSourceText(
+			options.getSourceText?.(replacement),
+		);
+		options.rememberSourceText?.(
+			replacement,
+			progressive ? replacementSourceText : sourceSnapshot,
+		);
 		applySubtitleDisplayMode(
 			profile,
 			replacement,
@@ -512,7 +616,16 @@ function reconcileSubtitleNotes(profile, options = {}) {
 			source ? options.getSourceText?.(source) : "",
 		);
 
-		if (source && sourceSnapshot && sourceSnapshot === currentSourceText) {
+		const progressiveRefresh = Boolean(
+			source?.getAttribute?.(options.staleAttribute) === "true" &&
+				isProgressiveSubtitleChange(sourceSnapshot, currentSourceText),
+		);
+
+		if (
+			source &&
+			sourceSnapshot &&
+			(sourceSnapshot === currentSourceText || progressiveRefresh)
+		) {
 			applySubtitleDisplayMode(
 				profile,
 				source,
@@ -594,6 +707,7 @@ const api = {
 	resetChangedSubtitleSource,
 	resolvePlayerControlError,
 	resolvePlayerControlState,
+	resolveProgressiveSubtitleRefresh,
 	shouldAllowAncestorTransforms,
 	shouldKeepSessionAlive,
 	shouldRenderPlaceholder,
@@ -622,6 +736,7 @@ export {
 	resetChangedSubtitleSource,
 	resolvePlayerControlError,
 	resolvePlayerControlState,
+	resolveProgressiveSubtitleRefresh,
 	SUBTITLE_DISPLAY_MODE_ATTR,
 	SUBTITLE_FONT_SIZE_PROPERTY,
 	SUBTITLE_PRESENTATION,

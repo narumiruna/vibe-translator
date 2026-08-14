@@ -21,6 +21,7 @@ import {
 	resetChangedSubtitleSource,
 	resolvePlayerControlError,
 	resolvePlayerControlState,
+	resolveProgressiveSubtitleRefresh,
 	SUBTITLE_DISPLAY_MODE_ATTR,
 	SUBTITLE_SOURCE_TEXT_ATTR,
 	shouldAllowAncestorTransforms,
@@ -317,6 +318,58 @@ test("changed subtitle cues drop stale identity and rendered text", () => {
 	assert.equal(attributes.get("data-ot-queued"), "false");
 });
 
+test("progressive subtitle changes keep the current translation until refresh", () => {
+	const attributes = new Map([
+		["data-ot-source-id", "ot-4"],
+		["data-ot-translated", "true"],
+		["data-translated", "true"],
+		["data-ot-queued", "true"],
+		["data-ot-subtitle-replaced", "true"],
+	]);
+	const noteAttributes = new Map([[SUBTITLE_SOURCE_TEXT_ATTR, "Build"]]);
+	let noteRemoved = false;
+	const element = {
+		getAttribute(name) {
+			return attributes.get(name) || null;
+		},
+		removeAttribute(name) {
+			attributes.delete(name);
+		},
+		setAttribute(name, value) {
+			attributes.set(name, value);
+		},
+	};
+	const note = {
+		getAttribute(name) {
+			return noteAttributes.get(name) || null;
+		},
+		remove() {
+			noteRemoved = true;
+		},
+	};
+
+	assert.equal(
+		resetChangedSubtitleSource(youtubeProfile, {
+			element,
+			getSourceText: () => "Build reliable tools",
+			note,
+			processedAttribute: "data-translated",
+			queuedAttribute: "data-ot-queued",
+			sourceAttribute: "data-ot-source-id",
+			staleAttribute: "data-ot-source-stale",
+			translatedAttribute: "data-ot-translated",
+		}),
+		true,
+	);
+	assert.equal(noteRemoved, false);
+	assert.equal(attributes.get("data-ot-source-id"), "ot-4");
+	assert.equal(attributes.get("data-ot-source-stale"), "true");
+	assert.equal(attributes.get("data-ot-translated"), "stale");
+	assert.equal(attributes.has("data-translated"), false);
+	assert.equal(attributes.get("data-ot-queued"), "false");
+	assert.equal(attributes.get("data-ot-subtitle-replaced"), "true");
+});
+
 test("detached subtitle sources remove notes left behind by native cue replacement", () => {
 	let noteRemoved = false;
 	const attributes = new Map([
@@ -461,6 +514,136 @@ test("rendered subtitle notes move to exact replacement sources", () => {
 	assert.equal(changedAttributes.size, 0);
 	assert.equal(insertedNote, note);
 	assert.equal(rememberedText, "Stable caption");
+});
+
+test("rendered subtitle notes survive progressive source replacement", () => {
+	const oldAttributes = new Map([
+		["data-ot-source-id", "ot-8"],
+		["data-ot-translated", "true"],
+		["data-translated", "true"],
+	]);
+	const replacementAttributes = new Map();
+	const noteAttributes = new Map([
+		[SUBTITLE_SOURCE_TEXT_ATTR, "Build"],
+		[SUBTITLE_DISPLAY_MODE_ATTR, "translation-only"],
+	]);
+	const createSource = (attributes, text) => ({
+		text,
+		getAttribute(name) {
+			return attributes.get(name) || null;
+		},
+		removeAttribute(name) {
+			attributes.delete(name);
+		},
+		setAttribute(name, value) {
+			attributes.set(name, value);
+		},
+	});
+	const oldSource = createSource(oldAttributes, "Build");
+	const replacementSource = createSource(
+		replacementAttributes,
+		"Build reliable tools",
+	);
+	const note = {
+		getAttribute(name) {
+			return noteAttributes.get(name) || null;
+		},
+	};
+	let insertedNote = null;
+	let rememberedText = "";
+
+	assert.equal(
+		rebindDetachedSubtitleSources(
+			youtubeProfile,
+			{
+				matches(selector) {
+					return selector === "[data-ot-source-id]";
+				},
+				querySelectorAll() {
+					return [];
+				},
+				...oldSource,
+			},
+			[replacementSource],
+			{
+				findNote: () => note,
+				getSourceText: (source) => source.text,
+				insertNote(_source, candidateNote) {
+					insertedNote = candidateNote;
+				},
+				processedAttribute: "data-translated",
+				queuedAttribute: "data-ot-queued",
+				rememberSourceText(_source, text) {
+					rememberedText = text;
+				},
+				sourceAttribute: "data-ot-source-id",
+				staleAttribute: "data-ot-source-stale",
+				translatedAttribute: "data-ot-translated",
+			},
+		),
+		1,
+	);
+	assert.equal(oldAttributes.has("data-ot-source-id"), false);
+	assert.equal(replacementAttributes.get("data-ot-source-id"), "ot-8");
+	assert.equal(replacementAttributes.get("data-ot-source-stale"), "true");
+	assert.equal(replacementAttributes.get("data-ot-translated"), "stale");
+	assert.equal(replacementAttributes.has("data-translated"), false);
+	assert.equal(replacementAttributes.get("data-ot-queued"), "false");
+	assert.equal(replacementAttributes.get("data-ot-subtitle-replaced"), "true");
+	assert.equal(insertedNote, note);
+	assert.equal(rememberedText, "Build reliable tools");
+});
+
+test("superseded progressive fallbacks can render provisionally", () => {
+	const source = {
+		text: "Build reliable tools",
+		getAttribute(name) {
+			return name === "data-ot-source-id" ? "ot-4" : null;
+		},
+	};
+	const translation = {
+		id: "ot-4",
+		kind: "subtitle",
+		sourceText: "Build",
+		translation: "建立",
+	};
+
+	assert.deepEqual(
+		resolveProgressiveSubtitleRefresh(
+			youtubeProfile,
+			[source],
+			translation,
+			{ id: "ot-4", text: "Build reliable tools" },
+			(candidate) => candidate.text,
+			"data-ot-source-id",
+		),
+		{
+			source,
+			translation: { ...translation, provisional: true },
+		},
+	);
+	assert.equal(
+		resolveProgressiveSubtitleRefresh(
+			youtubeProfile,
+			[{ ...source, text: "Unrelated cue" }],
+			translation,
+			{ id: "ot-4", text: "Unrelated cue" },
+			(candidate) => candidate.text,
+			"data-ot-source-id",
+		),
+		null,
+	);
+	assert.equal(
+		resolveProgressiveSubtitleRefresh(
+			defaultProfile,
+			[source],
+			translation,
+			{ id: "ot-4", text: "Build reliable tools" },
+			(candidate) => candidate.text,
+			"data-ot-source-id",
+		),
+		null,
+	);
 });
 
 test("prefetched results adopt a matching visible fallback identity", () => {
@@ -678,14 +861,32 @@ test("subtitle reconciliation removes notes whose exact source changed or disapp
 		"Previous second cue",
 		"translation-only",
 	);
+	const progressiveSource = {
+		attributes: new Map([
+			["data-ot-source-id", "ot-4"],
+			["data-ot-source-stale", "true"],
+		]),
+		text: "Build reliable tools",
+		getAttribute(name) {
+			return this.attributes.get(name) || null;
+		},
+		removeAttribute(name) {
+			this.attributes.delete(name);
+		},
+		setAttribute(name, value) {
+			this.attributes.set(name, value);
+		},
+	};
+	sources.set("ot-4", progressiveSource);
 	const detachedNote = createNote("ot-3", "Detached cue", "translation-only");
+	const progressiveNote = createNote("ot-4", "Build", "translation-only");
 
 	assert.equal(
 		reconcileSubtitleNotes(youtubeProfile, {
 			findSource: (id) => sources.get(id) || null,
 			getSourceText: (source) => source.text,
 			noteAttribute: "data-ot-note-id",
-			notes: [matchingNote, changedNote, detachedNote],
+			notes: [matchingNote, changedNote, detachedNote, progressiveNote],
 			processedAttribute: "data-translated",
 			queuedAttribute: "data-ot-queued",
 			sourceAttribute: "data-ot-source-id",
@@ -697,6 +898,11 @@ test("subtitle reconciliation removes notes whose exact source changed or disapp
 	assert.equal(matchingNote.removed, false);
 	assert.equal(changedNote.removed, true);
 	assert.equal(detachedNote.removed, true);
+	assert.equal(progressiveNote.removed, false);
+	assert.equal(
+		progressiveSource.attributes.get("data-ot-subtitle-replaced"),
+		"true",
+	);
 	assert.equal(changedSource.attributes.has("data-ot-source-id"), false);
 	assert.equal(changedSource.attributes.get("data-ot-queued"), "false");
 });

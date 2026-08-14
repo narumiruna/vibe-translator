@@ -1,5 +1,9 @@
 import { getSelectionAnchor } from "./selection-anchor.js";
 import { createYoutubeCaptionPrefetch } from "./youtube-caption-prefetch.js";
+import {
+	captureNativeYoutubeCaptionRequestUrl,
+	TRACKER_KEY,
+} from "./youtube-caption-runtime.js";
 import { resolveYoutubeCaptionTracks } from "./youtube-caption-tracks.js";
 
 export function buildPageTranslationRequestChunks(Api, items, chunkPlan) {
@@ -542,7 +546,52 @@ export function createBackgroundController(options = {}) {
 		const [result] = await chrome.scripting.executeScript({
 			target: { tabId },
 			world: "MAIN",
-			func: () => {
+			args: [TRACKER_KEY],
+			func: (trackerKey) => {
+				const rememberRequest = (entryName) => {
+					try {
+						const url = new URL(String(entryName || ""));
+						const hostname = url.hostname.toLowerCase();
+
+						if (
+							url.protocol !== "https:" ||
+							(hostname !== "youtube.com" &&
+								!hostname.endsWith(".youtube.com")) ||
+							url.pathname !== "/api/timedtext"
+						) {
+							return;
+						}
+
+						const tracker = globalThis[trackerKey];
+						const serialized = url.toString();
+
+						tracker.urls = tracker.urls.filter((value) => value !== serialized);
+						tracker.urls.push(serialized);
+						tracker.urls.splice(0, Math.max(0, tracker.urls.length - 8));
+					} catch (_error) {
+						// Ignore unrelated resource URLs.
+					}
+				};
+
+				if (!globalThis[trackerKey]) {
+					globalThis[trackerKey] = { urls: [] };
+					for (const entry of performance.getEntriesByType("resource")) {
+						rememberRequest(entry.name);
+					}
+					try {
+						const observer = new PerformanceObserver((list) => {
+							for (const entry of list.getEntries()) {
+								rememberRequest(entry.name);
+							}
+						});
+
+						observer.observe({ type: "resource" });
+						globalThis[trackerKey].observer = observer;
+					} catch (_error) {
+						// Polling resource timing remains available as a fallback.
+					}
+				}
+
 				const player = document.querySelector("#movie_player");
 				const captionButton = player?.querySelector(".ytp-subtitles-button");
 
@@ -684,15 +733,33 @@ export function createBackgroundController(options = {}) {
 
 		try {
 			const translation = await translatePage(tab);
-			const prefetch = await youtubeCaptionPrefetch.initialize({
-				baseUrl: captions.trackBaseUrl,
-				currentTimeMs: captions.currentTimeMs,
-				frameId: 0,
-				playbackRate: captions.playbackRate,
-				reason: "startup",
-				sessionId: translation?.sessionId,
-				tabId: tab.id,
-			});
+			const advertisedTrackUrl = captions.trackBaseUrl;
+			const nativeTrackUrl = advertisedTrackUrl
+				? await captureNativeYoutubeCaptionRequestUrl(
+						chrome,
+						tab.id,
+						advertisedTrackUrl,
+					).catch(() => "")
+				: "";
+			const initializePrefetch = (baseUrl) =>
+				youtubeCaptionPrefetch.initialize({
+					baseUrl,
+					currentTimeMs: captions.currentTimeMs,
+					frameId: 0,
+					playbackRate: captions.playbackRate,
+					reason: "startup",
+					sessionId: translation?.sessionId,
+					tabId: tab.id,
+				});
+			let prefetch = nativeTrackUrl
+				? await initializePrefetch(nativeTrackUrl)
+				: { available: false, cueCount: 0, queued: 0 };
+
+			if (prefetch.available) {
+				captions.trackSource = "native-request";
+			} else if (advertisedTrackUrl && nativeTrackUrl !== advertisedTrackUrl) {
+				prefetch = await initializePrefetch(advertisedTrackUrl);
+			}
 			const { trackBaseUrl: _trackBaseUrl, ...captionStatus } = captions;
 
 			return { ok: true, captions: captionStatus, prefetch };

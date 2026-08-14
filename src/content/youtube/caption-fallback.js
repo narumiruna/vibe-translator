@@ -57,21 +57,24 @@ function createCaptionFallbackStore(options = {}) {
 
 			slots.set(slotId, {
 				activeId: item.id,
+				activeText: String(item.text || ""),
 				latest: null,
 			});
 			slotByActiveId.set(item.id, slotId);
 			return { accepted: true, coalesced: false };
 		}
 
+		const itemText = String(item.text || "");
+
 		if (
-			current.activeId === item.id ||
-			(current.latest?.id === item.id && current.latest?.text === item.text)
+			(current.activeId === item.id && current.activeText === itemText) ||
+			(current.latest?.id === item.id && current.latest?.text === itemText)
 		) {
 			return { accepted: false, coalesced: false };
 		}
 
 		coalescedFallbackCount += 1;
-		current.latest = { id: item.id, text: String(item.text || "") };
+		current.latest = { id: item.id, text: itemText };
 		return { accepted: false, coalesced: true };
 	}
 
@@ -83,6 +86,13 @@ function createCaptionFallbackStore(options = {}) {
 				supersedeSlot(slotId);
 			}
 		}
+	}
+
+	function getLatest(id) {
+		const slotId = slotByActiveId.get(id);
+		const latest = slotId ? slots.get(slotId)?.latest : null;
+
+		return latest ? { ...latest } : null;
 	}
 
 	function settle(id) {
@@ -138,7 +148,7 @@ function createCaptionFallbackStore(options = {}) {
 		};
 	}
 
-	return { clear, getSummary, offer, retain, settle };
+	return { clear, getLatest, getSummary, offer, retain, settle };
 }
 
 const api = { createCaptionFallbackStore };

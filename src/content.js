@@ -79,7 +79,9 @@ export function createContentRuntime(options = {}) {
 		youtubeSubtitleTranslations: new Map(),
 		youtubeDiagnostics: {
 			captionTrace: YoutubeDiagnosticsApi.createCaptionTraceStore(),
+			frozenReport: "",
 			panel: null,
+			paused: false,
 			status: "Ready",
 			store: YoutubeDiagnosticsApi.createDiagnosticStore(),
 		},

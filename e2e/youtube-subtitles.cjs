@@ -24,10 +24,11 @@ const BILINGUAL_CAPTIONS = [
 	`Keep this original caption visible ${Date.now() + 5}.`,
 	`Keep this sibling caption visible ${Date.now() + 6}.`,
 ];
+const FALLBACK_CAPTION_SUFFIX = Date.now() + 7;
 const FALLBACK_CAPTIONS = [
-	`Fallback starts ${Date.now() + 7}.`,
-	`Fallback keeps growing ${Date.now() + 8}.`,
-	`Fallback keeps only the latest caption ${Date.now() + 9}.`,
+	"Fallback",
+	"Fallback keeps growing",
+	`Fallback keeps growing into the latest caption ${FALLBACK_CAPTION_SUFFIX}.`,
 ];
 
 function buildTimedCaptionFixture() {
@@ -249,7 +250,7 @@ async function stopSuppressingVisibleCaptions(page) {
 
 async function installCaptionTrackMetadata(page, options = {}) {
 	await page.evaluate(
-		({ timedTrack }) => {
+		async ({ timedTrack }) => {
 			const player = document.querySelector("#movie_player");
 			const currentVideoId =
 				player?.getVideoData?.()?.video_id ||
@@ -259,7 +260,7 @@ async function installCaptionTrackMetadata(page, options = {}) {
 				...(timedTrack
 					? {
 							baseUrl:
-								"https://www.youtube.com/api/timedtext?v=vibe-translator-e2e",
+								"https://www.youtube.com/api/timedtext?v=vibe-translator-e2e&lang=en&kind=asr",
 						}
 					: {}),
 				kind: "asr",
@@ -277,6 +278,16 @@ async function installCaptionTrackMetadata(page, options = {}) {
 				...(window.ytInitialPlayerResponse || {}),
 				...response,
 			};
+			if (timedTrack) {
+				let requestCount = 0;
+				const requestTimer = setInterval(() => {
+					fetch(`${track.baseUrl}&fmt=json3&pot=fixture-proof`).catch(() => {});
+					requestCount += 1;
+					if (requestCount >= 10) {
+						clearInterval(requestTimer);
+					}
+				}, 150);
+			}
 			if (!timedTrack && player) {
 				Object.defineProperty(player, "getPlayerResponse", {
 					configurable: true,
@@ -393,6 +404,18 @@ async function main() {
 			(await diagnosticsPanel.textContent()) || "",
 			new RegExp(config.apiKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
 		);
+		const diagnosticOutput = diagnosticsPanel.locator("pre");
+		const pauseDiagnostics = diagnosticsPanel.getByRole("button", {
+			name: "Pause diagnostics",
+		});
+
+		await pauseDiagnostics.click();
+		const frozenDiagnostics = await diagnosticOutput.textContent();
+		await page.waitForTimeout(300);
+		assert.equal(await diagnosticOutput.textContent(), frozenDiagnostics);
+		await diagnosticsPanel
+			.getByRole("button", { name: "Resume diagnostics" })
+			.click();
 		await waitFor(
 			async () => (await control.getAttribute("data-state")) !== "idle",
 			{
@@ -505,9 +528,28 @@ async function main() {
 			},
 		);
 		const progressiveDiagnostics = (await diagnosticsPanel.textContent()) || "";
+		const trackedCaptionRequests = await page.evaluate(() =>
+			(globalThis.__otCaptionRequestTracker?.urls || []).map((value) => {
+				const url = new URL(value);
+
+				return {
+					hasPot: url.searchParams.has("pot"),
+					kind: url.searchParams.get("kind"),
+					lang: url.searchParams.get("lang"),
+					v: url.searchParams.get("v"),
+				};
+			}),
+		);
 		assert.match(progressiveDiagnostics, /"prefetchAvailable": true/);
-		assert.match(progressiveDiagnostics, /"trackSource": "initial-response"/);
-		assert.doesNotMatch(progressiveDiagnostics, /api\/timedtext/u);
+		assert.match(
+			progressiveDiagnostics,
+			/"trackSource": "native-request"/,
+			`Tracked caption requests: ${JSON.stringify(trackedCaptionRequests)}`,
+		);
+		assert.doesNotMatch(
+			progressiveDiagnostics,
+			/api\/timedtext|fixture-proof/u,
+		);
 
 		const readyNotes = page.locator(
 			'#ytp-caption-window-container [data-ot-role="note"][data-phase="ready"]',
@@ -819,6 +861,7 @@ async function main() {
 				.locator('[data-ot-role="youtube-diagnostics"]')
 				.textContent()) || "";
 		assert.match(fallbackDiagnostics, /fallback-coalesced|coalesced=1/);
+		assert.match(fallbackDiagnostics, /"provisionalResults": [1-9]/);
 		assert.match(fallbackDiagnostics, /"prefetchAvailable": false/);
 		assert.match(fallbackDiagnostics, /"timedTrackAvailable": false/);
 		assert.doesNotMatch(fallbackDiagnostics, /api\/timedtext/u);
