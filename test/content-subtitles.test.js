@@ -102,6 +102,41 @@ test("active timed cues satisfy unique progressive visible prefixes", () => {
 	]);
 });
 
+test("timed prefix results do not poison the exact subtitle cache", () => {
+	const cache = new Map();
+
+	cacheSubtitleTranslations(cache, [
+		{
+			id: "youtube-cue-1000-0",
+			cueId: "youtube-cue-1000-0",
+			cueStartMs: 1000,
+			durationMs: 3000,
+			kind: "subtitle",
+			sourceText: "Build reliable tools",
+			translation: "建立可靠工具",
+		},
+	]);
+	const matched = consumeCachedSubtitleTranslations(
+		cache,
+		[{ id: "visible-1", kind: "subtitle", text: "Build reliable" }],
+		{ currentTimeMs: 1500 },
+	);
+
+	assert.equal(cacheSubtitleTranslations(cache, matched.cached), 0);
+	assert.equal(cache.has("Build reliable"), false);
+	assert.deepEqual(
+		consumeCachedSubtitleTranslations(
+			cache,
+			[{ id: "later-cue", kind: "subtitle", text: "Build reliable" }],
+			{ currentTimeMs: 6000 },
+		),
+		{
+			cached: [],
+			missing: [{ id: "later-cue", kind: "subtitle", text: "Build reliable" }],
+		},
+	);
+});
+
 test("timed prefix matching rejects ambiguity, reverse relations, and inactive cues", () => {
 	const cache = new Map([
 		[

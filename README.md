@@ -113,7 +113,7 @@ npm install       # install exact development dependencies and the Husky hook
 npm run dev       # Extension.js development build with labeled context logs
 npm run build     # production Chrome artifact in dist/chrome
 npm run preview   # preview the production Chrome build
-npm run check     # module checks, 201 unit tests, production build, artifact verification
+npm run check     # module checks, 202 unit tests, production build, artifact verification
 npm run e2e:mock  # production-artifact Playwright smoke suite with a local API
 npm run zip       # production build plus dist/chrome/vibe-translator-<version>.zip
 npm run icons     # regenerate extension icon PNGs from icons/icon.svg

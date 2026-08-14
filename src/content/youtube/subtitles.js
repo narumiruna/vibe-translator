@@ -70,6 +70,7 @@ function cacheSubtitleTranslations(cache, translations) {
 	for (const item of translations || []) {
 		if (
 			item?.kind !== "subtitle" ||
+			item.cachePath === "timed-prefix" ||
 			!String(item.sourceText || "").trim() ||
 			!String(item.translation || "").trim()
 		) {
