@@ -15,7 +15,9 @@ import { Button, StatusBanner } from "./components.jsx";
 import {
 	applyAppearancePreset,
 	buildPromptPreview,
+	clearEditedFieldError,
 	createOptionsDraft,
+	getConnectionErrorMessage,
 	getInvalidFieldIds,
 	isOptionsDraftDirty,
 	resetAppearanceDraft,
@@ -124,7 +126,7 @@ function OptionsApp() {
 	}
 
 	function onField(path, value) {
-		setInvalidFields(new Set());
+		setInvalidFields((current) => clearEditedFieldError(current, path));
 		setDraft((current) => updateDraftField(current, path, value));
 	}
 
@@ -252,7 +254,10 @@ function OptionsApp() {
 					status: "Connection test failed.",
 				});
 				setBanner({
-					message: "Connection test failed. Check the endpoint and model.",
+					message: getConnectionErrorMessage(
+						response?.error,
+						validation.settings.apiKey,
+					),
 					tone: "red",
 				});
 				return;

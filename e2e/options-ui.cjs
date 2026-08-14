@@ -192,6 +192,10 @@ async function main() {
 			"true",
 		);
 
+		await promptsTab.click();
+		await page
+			.locator("#user-prompt-template")
+			.fill("Translate without the required source placeholder.");
 		await setupTab.click();
 		await bilingualRadio.check();
 		await page.locator("#base-url").fill("https://example.com/not-v1");
@@ -213,7 +217,28 @@ async function main() {
 			(await page.locator("#base-url").getAttribute("aria-describedby")) || "",
 			/form-status/u,
 		);
+		await promptsTab.click();
+		assert.equal(
+			await page.locator("#user-prompt-template").getAttribute("aria-invalid"),
+			"true",
+		);
+		await setupTab.click();
 		await page.locator("#base-url").fill(config.baseUrl);
+		assert.equal(
+			await page.locator("#base-url").getAttribute("aria-invalid"),
+			null,
+		);
+		await promptsTab.click();
+		assert.equal(
+			await page.locator("#user-prompt-template").getAttribute("aria-invalid"),
+			"true",
+		);
+		await page.locator("#reset-user-prompt-button").click();
+		assert.equal(
+			await page.locator("#user-prompt-template").getAttribute("aria-invalid"),
+			null,
+		);
+		await setupTab.click();
 		await page.locator("#base-url").blur();
 		await waitFor(
 			async () =>
@@ -307,7 +332,7 @@ async function main() {
 		);
 		assert.match(
 			(await page.locator("#form-status").textContent()) || "",
-			/Connection test failed/u,
+			/Mock translation failure\./u,
 		);
 		await waitForTestReady(page);
 		await page.locator("#test-button").click();

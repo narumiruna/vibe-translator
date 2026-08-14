@@ -2,6 +2,17 @@ import Appearance from "../shared/appearance.js";
 import Settings from "../shared/settings.js";
 import Api from "../translation/api.js";
 
+const CONNECTION_ERROR_FALLBACK =
+	"Connection test failed. Check the endpoint and model.";
+const INVALID_DRAFT_FIELD_IDS = Object.freeze({
+	apiKey: "api-key",
+	baseUrl: "base-url",
+	model: "model",
+	systemPromptTemplate: "system-prompt-template",
+	targetLanguage: "target-language",
+	userPromptTemplate: "user-prompt-template",
+});
+
 function clone(value) {
 	return JSON.parse(JSON.stringify(value));
 }
@@ -41,12 +52,12 @@ function isOptionsDraftDirty(draft, savedSettings) {
 
 function getInvalidFieldIds(errors) {
 	const fields = [
-		[/API Key/u, "api-key"],
-		[/Base URL/u, "base-url"],
-		[/Model/u, "model"],
-		[/Target language/u, "target-language"],
-		[/System prompt template/u, "system-prompt-template"],
-		[/User prompt template/u, "user-prompt-template"],
+		[/API Key/u, INVALID_DRAFT_FIELD_IDS.apiKey],
+		[/Base URL/u, INVALID_DRAFT_FIELD_IDS.baseUrl],
+		[/Model/u, INVALID_DRAFT_FIELD_IDS.model],
+		[/Target language/u, INVALID_DRAFT_FIELD_IDS.targetLanguage],
+		[/System prompt template/u, INVALID_DRAFT_FIELD_IDS.systemPromptTemplate],
+		[/User prompt template/u, INVALID_DRAFT_FIELD_IDS.userPromptTemplate],
 	];
 
 	return fields
@@ -54,6 +65,30 @@ function getInvalidFieldIds(errors) {
 			(errors || []).some((message) => pattern.test(String(message))),
 		)
 		.map(([, id]) => id);
+}
+
+function clearEditedFieldError(invalidFields, path) {
+	const field = Array.isArray(path) ? path[0] : path;
+	const fieldId = INVALID_DRAFT_FIELD_IDS[field];
+
+	if (!fieldId || !invalidFields?.has(fieldId)) {
+		return invalidFields;
+	}
+
+	const next = new Set(invalidFields);
+	next.delete(fieldId);
+	return next;
+}
+
+function getConnectionErrorMessage(error, apiKey) {
+	const message = typeof error === "string" ? error.trim() : "";
+
+	if (!message) {
+		return CONNECTION_ERROR_FALLBACK;
+	}
+
+	const secret = String(apiKey || "");
+	return secret ? message.replaceAll(secret, "[redacted]") : message;
 }
 
 function applyAppearancePreset(draft, presetId) {
@@ -121,7 +156,9 @@ function buildPromptPreview(draft) {
 const api = {
 	applyAppearancePreset,
 	buildPromptPreview,
+	clearEditedFieldError,
 	createOptionsDraft,
+	getConnectionErrorMessage,
 	getInvalidFieldIds,
 	isOptionsDraftDirty,
 	normalizeOptionsDraft,
@@ -132,7 +169,9 @@ const api = {
 export {
 	applyAppearancePreset,
 	buildPromptPreview,
+	clearEditedFieldError,
 	createOptionsDraft,
+	getConnectionErrorMessage,
 	getInvalidFieldIds,
 	isOptionsDraftDirty,
 	normalizeOptionsDraft,

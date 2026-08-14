@@ -3,7 +3,9 @@ import test from "node:test";
 import {
 	applyAppearancePreset,
 	buildPromptPreview,
+	clearEditedFieldError,
 	createOptionsDraft,
+	getConnectionErrorMessage,
 	getInvalidFieldIds,
 	isOptionsDraftDirty,
 	resetAppearanceDraft,
@@ -119,6 +121,36 @@ test("validation errors map to the controls that need correction", () => {
 		"user-prompt-template",
 	]);
 	assert.deepEqual(getInvalidFieldIds([]), []);
+});
+
+test("editing one invalid field retains errors for untouched fields", () => {
+	const invalidFields = new Set(["base-url", "user-prompt-template"]);
+	const updated = clearEditedFieldError(invalidFields, "baseUrl");
+
+	assert.deepEqual([...updated], ["user-prompt-template"]);
+	assert.deepEqual([...invalidFields], ["base-url", "user-prompt-template"]);
+	assert.equal(
+		clearEditedFieldError(updated, "translationAppearance"),
+		updated,
+	);
+});
+
+test("connection failures preserve provider details with a safe fallback", () => {
+	assert.equal(
+		getConnectionErrorMessage("  Invalid model name.  ", "secret-key"),
+		"Invalid model name.",
+	);
+	assert.equal(
+		getConnectionErrorMessage(
+			"Authentication failed for secret-key.",
+			"secret-key",
+		),
+		"Authentication failed for [redacted].",
+	);
+	assert.equal(
+		getConnectionErrorMessage({ message: "not trusted" }, "secret-key"),
+		"Connection test failed. Check the endpoint and model.",
+	);
 });
 
 test("prompt preview applies defaults and reports warnings and token estimates", () => {
