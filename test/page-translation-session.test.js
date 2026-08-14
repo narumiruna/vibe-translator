@@ -173,6 +173,60 @@ test("page translation queue places rolling work behind urgent work", async () =
 	assert.equal(session.inFlightCount, 0);
 });
 
+test("front placement reprioritizes matching pending items in request order", async () => {
+	const processed = [];
+	const resolvers = [];
+	const queue = createPageTranslationQueue({
+		batchSize: 1,
+		concurrency: 1,
+		processBatch({ items }) {
+			processed.push(items[0].id);
+			return new Promise((resolve) => resolvers.push(resolve));
+		},
+	});
+	const session = queue.create(12, {});
+
+	queue.enqueue(12, session.sessionId, [{ id: "active" }]);
+	await nextTick();
+	queue.enqueue(
+		12,
+		session.sessionId,
+		[
+			{ id: "old-before" },
+			{ id: "seek-a" },
+			{ id: "seek-c" },
+			{ id: "old-after" },
+		],
+		undefined,
+		{ placement: "back" },
+	);
+	assert.deepEqual(
+		queue.enqueue(
+			12,
+			session.sessionId,
+			[{ id: "seek-a" }, { id: "seek-b" }, { id: "seek-c" }],
+			undefined,
+			{ placement: "front" },
+		),
+		{ queued: 1 },
+	);
+
+	for (const expected of [
+		"seek-a",
+		"seek-b",
+		"seek-c",
+		"old-before",
+		"old-after",
+	]) {
+		resolvers.shift()();
+		await nextTick();
+		assert.equal(processed.at(-1), expected);
+	}
+	resolvers.shift()();
+	await nextTick();
+	assert.equal(session.inFlightCount, 0);
+});
+
 test("page translation queue treats malformed placement options as urgent defaults", () => {
 	const queue = createPageTranslationQueue({ processBatch() {} });
 	const session = queue.create(11, {});
