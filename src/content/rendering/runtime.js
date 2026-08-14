@@ -515,6 +515,19 @@ export function createContentRenderer(options = {}) {
 					continue;
 				}
 
+				const claimedTranslation = SubtitleApi.aliasClaimedSubtitleTranslation(
+					ACTIVE_SITE_PROFILE,
+					matchingSource,
+					translationItem,
+					SOURCE_ATTR,
+				);
+
+				if (claimedTranslation) {
+					translationMap.set(claimedTranslation.id, claimedTranslation);
+					reboundSources.add(matchingSource);
+					continue;
+				}
+
 				matchingSource.setAttribute(SOURCE_ATTR, translationItem.id);
 				matchingSource.setAttribute(QUEUED_ATTR, "true");
 				rememberSourceText(matchingSource, translationItem.sourceText);

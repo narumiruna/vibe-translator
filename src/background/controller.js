@@ -1,6 +1,27 @@
 import { getSelectionAnchor } from "./selection-anchor.js";
 import { createYoutubeCaptionPrefetch } from "./youtube-caption-prefetch.js";
 
+export function buildPageTranslationRequestChunks(Api, items, chunkPlan) {
+	const canGroupSubtitles =
+		items.length > 0 &&
+		items.every((item) => item.kind === "subtitle") &&
+		chunkPlan.expandedItems?.every((item) => item.partCount === 1);
+
+	return canGroupSubtitles
+		? Api.chunkTranslationItems(chunkPlan.expandedItems)
+		: chunkPlan.chunks;
+}
+
+export function buildPageTranslationRequestConcurrency(
+	items,
+	requestChunks,
+	maximum,
+) {
+	return items.length > 0 && items.every((item) => item.kind === "subtitle")
+		? 1
+		: Math.min(maximum, requestChunks.length || 1);
+}
+
 export function createBackgroundController(options = {}) {
 	const {
 		chrome,
@@ -65,8 +86,10 @@ export function createBackgroundController(options = {}) {
 		},
 	});
 	const youtubeCaptionPrefetch = createYoutubeCaptionPrefetch({
-		enqueue: ({ tabId, frameId, sessionId, items }) =>
-			queuePageTranslationItems(tabId, sessionId, items, frameId),
+		enqueue: ({ tabId, frameId, sessionId, items, placement }) =>
+			queuePageTranslationItems(tabId, sessionId, items, frameId, {
+				placement,
+			}),
 		fetch: options.fetch,
 		onDiagnostic(stage, detail, context) {
 			sendYoutubeDiagnosticEvent?.(
@@ -135,14 +158,20 @@ export function createBackgroundController(options = {}) {
 			}
 
 			const chunkPlan = Api.createRecursiveChunkPlan(batchItems);
+			const requestChunks = buildPageTranslationRequestChunks(
+				Api,
+				batchItems,
+				chunkPlan,
+			);
 			const mergeState = Api.createProgressiveMergeState(chunkPlan);
 			const progressiveResult = await Api.requestTranslationsBatchedProgressive(
 				{
 					settings: session.settings,
-					chunks: chunkPlan.chunks,
-					concurrency: Math.min(
+					chunks: requestChunks,
+					concurrency: buildPageTranslationRequestConcurrency(
+						batchItems,
+						requestChunks,
 						PAGE_TRANSLATION_CONCURRENCY,
-						chunkPlan.chunks.length || 1,
 					),
 					onChunkResolved: async ({ translations }) => {
 						const currentSession = getPageTranslationSession(
@@ -217,10 +246,7 @@ export function createBackgroundController(options = {}) {
 						tabId,
 						frameId,
 						"api-error",
-						String(
-							subtitleFailure.error?.message ||
-								"Caption translation request failed",
-						),
+						"failure-count=1; Caption translation request failed",
 					);
 				}
 
@@ -247,8 +273,20 @@ export function createBackgroundController(options = {}) {
 		}
 	}
 
-	async function queuePageTranslationItems(tabId, sessionId, items, frameId) {
-		return pageTranslationQueue.enqueue(tabId, sessionId, items, frameId);
+	async function queuePageTranslationItems(
+		tabId,
+		sessionId,
+		items,
+		frameId,
+		enqueueOptions,
+	) {
+		return pageTranslationQueue.enqueue(
+			tabId,
+			sessionId,
+			items,
+			frameId,
+			enqueueOptions,
+		);
 	}
 
 	async function startPageTranslationFrame(tabId, frameId, settings) {
@@ -546,9 +584,15 @@ export function createBackgroundController(options = {}) {
 				const video =
 					player.querySelector?.("video") || document.querySelector("video");
 
+				const playbackRate = Number(video?.playbackRate);
+
 				return {
 					currentTimeMs: Math.max(0, Number(video?.currentTime) || 0) * 1000,
 					enabled: captionButton.getAttribute("aria-pressed") === "true",
+					playbackRate:
+						Number.isFinite(playbackRate) && playbackRate > 0
+							? playbackRate
+							: 1,
 					hasTrack: tracks.length > 0,
 					trackBaseUrl: String(timedTrack?.baseUrl || ""),
 				};
@@ -586,6 +630,8 @@ export function createBackgroundController(options = {}) {
 				baseUrl: captions.trackBaseUrl,
 				currentTimeMs: captions.currentTimeMs,
 				frameId: 0,
+				playbackRate: captions.playbackRate,
+				reason: "startup",
 				sessionId: translation?.sessionId,
 				tabId: tab.id,
 			});
@@ -696,6 +742,8 @@ export function createBackgroundController(options = {}) {
 
 			return youtubeCaptionPrefetch.update({
 				currentTimeMs: message.payload?.currentTimeMs,
+				playbackRate: message.payload?.playbackRate,
+				reason: message.payload?.reason,
 				sessionId: session?.sessionId,
 				tabId: sender.tab.id,
 			});

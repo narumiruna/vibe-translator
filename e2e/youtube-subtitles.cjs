@@ -18,10 +18,37 @@ const INITIAL_CAPTION = `This result must not survive ${Date.now()}.`;
 const CURRENT_CAPTION = `Pi gives you one small tool ${Date.now() + 1}.`;
 const NEXT_CAPTION = `The next cue stays synchronized ${Date.now() + 2}.`;
 const FINAL_CAPTION = `The final cue replaces it cleanly ${Date.now() + 3}.`;
+const SEEK_CAPTION = `A seek starts a new urgent window ${Date.now() + 4}.`;
 const BILINGUAL_CAPTIONS = [
-	`Keep this original caption visible ${Date.now() + 4}.`,
-	`Keep this sibling caption visible ${Date.now() + 5}.`,
+	`Keep this original caption visible ${Date.now() + 5}.`,
+	`Keep this sibling caption visible ${Date.now() + 6}.`,
 ];
+
+function buildTimedCaptionFixture() {
+	return {
+		events: [
+			{ tStartMs: 0, dDurationMs: 1000, segs: [{ utf8: INITIAL_CAPTION }] },
+			{ tStartMs: 1000, dDurationMs: 1000, segs: [{ utf8: CURRENT_CAPTION }] },
+			{ tStartMs: 2000, dDurationMs: 1000, segs: [{ utf8: NEXT_CAPTION }] },
+			{ tStartMs: 3000, dDurationMs: 1000, segs: [{ utf8: FINAL_CAPTION }] },
+			{
+				tStartMs: 5000,
+				dDurationMs: 2000,
+				segs: [{ utf8: BILINGUAL_CAPTIONS[0] }],
+			},
+			{
+				tStartMs: 5500,
+				dDurationMs: 2000,
+				segs: [{ utf8: BILINGUAL_CAPTIONS[1] }],
+			},
+			{
+				tStartMs: 120000,
+				dDurationMs: 2000,
+				segs: [{ utf8: SEEK_CAPTION }],
+			},
+		],
+	};
+}
 
 async function installCaptionFixture(page, captionTexts) {
 	const texts = Array.isArray(captionTexts) ? captionTexts : [captionTexts];
@@ -222,6 +249,8 @@ async function installCaptionTrackMetadata(page) {
 				playerCaptionsTracklistRenderer: {
 					captionTracks: [
 						{
+							baseUrl:
+								"https://www.youtube.com/api/timedtext?v=vibe-translator-e2e",
 							kind: "asr",
 							languageCode: "en",
 							name: { simpleText: "English (auto-generated)" },
@@ -255,6 +284,15 @@ async function main() {
 
 	try {
 		runState = await launchExtensionContext(config);
+		await runState.context.route(
+			"https://www.youtube.com/api/timedtext?v=vibe-translator-e2e**",
+			(route) =>
+				route.fulfill({
+					body: JSON.stringify(buildTimedCaptionFixture()),
+					contentType: "application/json",
+					status: 200,
+				}),
+		);
 		await saveOptions(runState.context, runState.extensionId, config, {
 			runConnectionTest: false,
 		});
@@ -440,8 +478,7 @@ async function main() {
 					return (
 						/api-start|Requesting 1 caption translation/.test(text) &&
 						/api-success|API returned/.test(text) &&
-						/render|rendered 1/.test(text) &&
-						/rebound 1/.test(text)
+						/render|rendered 1/.test(text)
 					);
 				},
 				{
@@ -500,11 +537,82 @@ async function main() {
 		);
 		assert.equal(await control.getAttribute("aria-pressed"), "true");
 
+		await waitFor(
+			async () => {
+				const ids = mockApiServer.getResponseItemIds();
+				return (
+					ids.some((id) => /^youtube-cue-2000-/u.test(id)) &&
+					ids.some((id) => /^youtube-cue-3000-/u.test(id))
+				);
+			},
+			{ timeoutMessage: "The rate timeline was not prefetched." },
+		);
+		await page.waitForTimeout(600);
+		const visibleFallbacksBeforeTimeline = mockApiServer
+			.getResponseItemIds()
+			.filter((id) => id.startsWith("ot-")).length;
 		await installSubtitleTimeline(page);
-		for (const caption of [NEXT_CAPTION, FINAL_CAPTION]) {
-			await setFirstCaptionText(page, caption);
-			await waitForCaptionTranslation(page, caption);
-		}
+		await page.evaluate(() => {
+			const video = document.querySelector("#movie_player video");
+
+			if (video) {
+				video.playbackRate = 1;
+			}
+		});
+		await setFirstCaptionText(page, NEXT_CAPTION);
+		await waitForCaptionTranslation(page, NEXT_CAPTION);
+		await page.evaluate(() => {
+			const video = document.querySelector("#movie_player video");
+
+			if (video) {
+				video.playbackRate = 2;
+			}
+		});
+		await waitFor(
+			async () =>
+				/rate=2; window=120000ms/.test(
+					(await diagnosticsPanel.textContent()) || "",
+				),
+			{
+				timeoutMessage:
+					"The 2x playback rate did not request a 120-second window.",
+			},
+		);
+		await setFirstCaptionText(page, FINAL_CAPTION);
+		await waitForCaptionTranslation(page, FINAL_CAPTION);
+		assert.equal(
+			mockApiServer.getResponseItemIds().filter((id) => id.startsWith("ot-"))
+				.length,
+			visibleFallbacksBeforeTimeline,
+			"Prefetched 1x and 2x cues should not use visible-caption API fallback.",
+		);
+
+		await page.evaluate(() => {
+			const video = document.querySelector("#movie_player video");
+
+			if (video) {
+				video.currentTime = 120;
+			}
+		});
+		await waitFor(
+			async () =>
+				mockApiServer
+					.getResponseItemIds()
+					.some((id) => /^youtube-cue-120000-/u.test(id)),
+			{ timeoutMessage: "The seek window was not prefetched." },
+		);
+		await page.waitForTimeout(600);
+		const visibleFallbacksBeforeSeekCue = mockApiServer
+			.getResponseItemIds()
+			.filter((id) => id.startsWith("ot-")).length;
+		await setFirstCaptionText(page, SEEK_CAPTION);
+		await waitForCaptionTranslation(page, SEEK_CAPTION);
+		assert.equal(
+			mockApiServer.getResponseItemIds().filter((id) => id.startsWith("ot-"))
+				.length,
+			visibleFallbacksBeforeSeekCue,
+			"A prefetched seek cue should not use visible-caption API fallback.",
+		);
 		const subtitleTimeline = await page.evaluate(
 			() => window.__otSubtitleTimeline || [],
 		);
@@ -535,7 +643,7 @@ async function main() {
 			[],
 			`A translated note outlived its exact native cue: ${JSON.stringify(staleTimelineEntries)}`,
 		);
-		for (const caption of [NEXT_CAPTION, FINAL_CAPTION]) {
+		for (const caption of [NEXT_CAPTION, FINAL_CAPTION, SEEK_CAPTION]) {
 			assert.ok(
 				subtitleTimeline.some((entry) =>
 					entry.notes.some((note) => note.sourceText === caption),
@@ -662,6 +770,10 @@ async function main() {
 			throw error;
 		}
 		await stopSuppressingVisibleCaptions(page);
+		assert.ok(
+			mockApiServer.getMaxActiveResponseCount() <= 5,
+			`Subtitle API concurrency exceeded five: ${mockApiServer.getMaxActiveResponseCount()}`,
+		);
 
 		await takeScreenshot(
 			page,

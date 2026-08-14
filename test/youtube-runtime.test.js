@@ -6,11 +6,12 @@ import SubtitleApi from "../src/content/youtube/subtitles.js";
 import TimedCaptionApi from "../src/content/youtube/timed-captions.js";
 import Messages from "../src/shared/messages.js";
 
-test("YouTube runtime refills prefetch after ten seconds and immediately on seek", () => {
+test("YouTube runtime reports rate-aware progress, seeks, and rate changes", () => {
 	const listeners = new Map();
 	const sent = [];
 	const video = {
 		currentTime: 5,
+		playbackRate: 1.5,
 		addEventListener(type, listener) {
 			listeners.set(type, listener);
 		},
@@ -56,12 +57,32 @@ test("YouTube runtime refills prefetch after ten seconds and immediately on seek
 	listeners.get("timeupdate")();
 	assert.deepEqual(
 		sent.at(-1),
-		Messages.prefetchYoutubeSubtitles({ currentTimeMs: 15000 }),
+		Messages.prefetchYoutubeSubtitles({
+			currentTimeMs: 15000,
+			playbackRate: 1.5,
+			reason: "progress",
+		}),
 	);
 	video.currentTime = 42;
 	listeners.get("seeking")();
 	assert.deepEqual(
 		sent.at(-1),
-		Messages.prefetchYoutubeSubtitles({ currentTimeMs: 42000 }),
+		Messages.prefetchYoutubeSubtitles({
+			currentTimeMs: 42000,
+			playbackRate: 1.5,
+			reason: "seek",
+		}),
 	);
+	video.playbackRate = 2;
+	listeners.get("ratechange")();
+	assert.deepEqual(
+		sent.at(-1),
+		Messages.prefetchYoutubeSubtitles({
+			currentTimeMs: 42000,
+			playbackRate: 2,
+			reason: "ratechange",
+		}),
+	);
+	runtime.cleanupYoutubeRuntime();
+	assert.deepEqual([...listeners.keys()], []);
 });

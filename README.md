@@ -8,7 +8,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 - Select text, right-click, and choose **Translate selected text**; a compact status panel shows progress, the target language, and the result
 - Translations are injected as sibling blocks — the original text is never removed on ordinary pages
 - Visible content translates first; more is queued as you scroll
-- Available YouTube captions, including auto-generated tracks, are pretranslated in a rolling 60-second window and shown in saved bilingual or translation-only mode
+- Available YouTube captions, including auto-generated tracks, are pretranslated in a playback-rate-aware rolling window and shown in saved bilingual or translation-only mode
 - Large pages are split into batches and translated with bounded parallel requests; oversized blocks are broken down recursively
 - Inline code, file paths, URLs, math expressions, and common technical terms are protected by placeholder substitution so they are never mangled
 - Fully configurable: API key, base URL, model, target language, and prompt templates
@@ -82,8 +82,11 @@ It separately requests API host permission only for the origin derived from your
 1. Open a YouTube video that provides native or auto-generated captions
 2. Click the Vibe Translator icon inside the video’s bottom control bar; it turns on available captions and starts subtitle translation
 3. In Settings, choose **Original and translation** for a bilingual view or **Translation only** to hide each matched native cue after its translation is ready
-4. Play the video; the next 60 seconds are translated ahead and each cached line appears in the selected mode immediately
-5. Continue playing or seek elsewhere; the rolling window refills automatically, with visible-caption translation as a fallback when timed captions are unavailable
+4. Play the video; the extension keeps about 60 seconds of real-time lead by requesting 60 seconds at 1×, 90 seconds at 1.5×, and 120 seconds at 2×
+5. Continue playing, change speed, or seek elsewhere; rate changes resize the rolling window, seeks prioritize the new position, and visible-caption translation remains the fallback when timed captions are unavailable
+
+The first captions after startup can remain native while the initial API batch finishes.
+Consecutive short cues share bounded requests, and total subtitle API concurrency stays at five or fewer.
 
 Clicking the in-player icon opens a diagnostic panel that records extraction, queueing, API, rendering progress, and errors.
 Use **Copy diagnostics** to share a report; API keys are not included.

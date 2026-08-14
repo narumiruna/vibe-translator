@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveSiteProfile } from "../src/content/extraction/site-profiles.js";
 import {
+	aliasClaimedSubtitleTranslation,
 	applySubtitleDisplayMode,
 	bindSubtitleNote,
 	cacheSubtitleTranslations,
@@ -332,6 +333,40 @@ test("rendered subtitle notes move to exact replacement sources", () => {
 	assert.equal(changedAttributes.size, 0);
 	assert.equal(insertedNote, note);
 	assert.equal(rememberedText, "Stable caption");
+});
+
+test("prefetched results adopt a matching visible fallback identity", () => {
+	const source = {
+		getAttribute(name) {
+			return name === "data-ot-source-id" ? "ot-visible" : null;
+		},
+	};
+	const translation = {
+		id: "youtube-cue-1000-0",
+		kind: "subtitle",
+		sourceText: "Current cue",
+		translation: "目前字幕",
+	};
+
+	assert.deepEqual(
+		aliasClaimedSubtitleTranslation(
+			youtubeProfile,
+			source,
+			translation,
+			"data-ot-source-id",
+		),
+		{ ...translation, id: "ot-visible" },
+	);
+	assert.equal(translation.id, "youtube-cue-1000-0");
+	assert.equal(
+		aliasClaimedSubtitleTranslation(
+			defaultProfile,
+			source,
+			translation,
+			"data-ot-source-id",
+		),
+		null,
+	);
 });
 
 test("detached subtitle results rebind only to an identical visible source", () => {

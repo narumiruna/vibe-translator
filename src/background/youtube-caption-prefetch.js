@@ -36,32 +36,40 @@ function createYoutubeCaptionPrefetch(options = {}) {
 			return { available: false, queued: 0 };
 		}
 
+		const playbackRate = TimedCaptions.normalizePlaybackRate(
+			context.playbackRate,
+		);
+		const windowMs = TimedCaptions.getCaptionWindowMs(playbackRate);
 		const windowCues = TimedCaptions.selectCaptionWindow(session.cues, {
 			currentTimeMs: context.currentTimeMs,
-			windowMs: TimedCaptions.DEFAULT_CAPTION_WINDOW_MS,
+			windowMs,
 		});
-		const items = TimedCaptions.buildTimedCaptionItems(windowCues).filter(
-			(item) => !session.requestedCueIds.has(item.id),
-		);
+		const items = TimedCaptions.buildTimedCaptionItems(windowCues);
 
 		if (items.length === 0) {
 			return { available: true, queued: 0 };
 		}
 
+		const placement =
+			context.reason === "startup" || context.reason === "seek"
+				? "front"
+				: "back";
 		const result = await enqueue({
 			frameId: session.frameId,
 			items,
+			placement,
+			playbackRate,
 			sessionId: session.sessionId,
 			tabId: session.tabId,
+			windowMs,
 		});
 		const queued = Math.max(0, Number(result?.queued) || 0);
 
-		if (queued > 0) {
-			for (const item of items) {
-				session.requestedCueIds.add(item.id);
-			}
-		}
-
+		onDiagnostic(
+			"prefetch-window",
+			`rate=${playbackRate}; window=${windowMs}ms; placement=${placement}; cues=${items.length}; queued=${queued}`,
+			context,
+		);
 		return { available: true, queued };
 	}
 
@@ -99,15 +107,14 @@ function createYoutubeCaptionPrefetch(options = {}) {
 			sessions.set(context.tabId, {
 				cues,
 				frameId: context.frameId || 0,
-				requestedCueIds: new Set(),
 				sessionId: context.sessionId,
 				tabId: context.tabId,
 			});
-			const result = await update(context);
+			const result = await update({ ...context, reason: "startup" });
 
 			onDiagnostic(
 				"prefetch-ready",
-				`Loaded ${cues.length} timed caption cue(s); queued ${result.queued} for the next 60 seconds`,
+				`Loaded ${cues.length} timed caption cue(s); queued ${result.queued} for the initial playback window`,
 				context,
 			);
 

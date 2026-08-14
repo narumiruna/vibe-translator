@@ -186,31 +186,57 @@ function createPageTranslationQueue(options = {}) {
 		}
 	}
 
-	function enqueue(tabId, sessionId, items, frameId) {
+	function enqueue(tabId, sessionId, items, frameId, enqueueOptions = {}) {
 		const session = get(tabId, sessionId, frameId);
 
 		if (!session) {
 			return { queued: 0 };
 		}
 
+		const placeAtBack = enqueueOptions?.placement === "back";
 		const queuedItems = [];
+		const prioritizedItems = [];
+		const prioritizedIds = new Set();
+		const pendingItemsById = placeAtBack
+			? null
+			: new Map(session.pendingItems.map((item) => [item.id, item]));
 
 		for (const item of items || []) {
 			if (
 				!item ||
 				typeof item.id !== "string" ||
-				session.pendingIds.has(item.id) ||
 				(item.dedupeCompleted === true && session.translatedIds.has(item.id))
 			) {
 				continue;
 			}
 
+			if (session.pendingIds.has(item.id)) {
+				const pendingItem = pendingItemsById?.get(item.id);
+
+				if (pendingItem && !prioritizedIds.has(item.id)) {
+					prioritizedIds.add(item.id);
+					prioritizedItems.push(pendingItem);
+				}
+				continue;
+			}
+
 			session.pendingIds.add(item.id);
 			queuedItems.push(item);
+			if (!placeAtBack) {
+				prioritizedIds.add(item.id);
+				prioritizedItems.push(item);
+			}
 		}
 
-		if (queuedItems.length > 0) {
-			session.pendingItems = queuedItems.concat(session.pendingItems);
+		if (placeAtBack && queuedItems.length > 0) {
+			session.pendingItems.push(...queuedItems);
+		} else if (prioritizedItems.length > 0) {
+			session.pendingItems = prioritizedItems.concat(
+				session.pendingItems.filter((item) => !prioritizedIds.has(item.id)),
+			);
+		}
+
+		if (queuedItems.length > 0 || prioritizedItems.length > 0) {
 			continueProcessing(tabId, session.sessionId, session.frameId);
 		}
 

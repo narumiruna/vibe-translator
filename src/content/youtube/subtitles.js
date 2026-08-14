@@ -137,6 +137,26 @@ function findMatchingSubtitleSource(
 	return null;
 }
 
+function aliasClaimedSubtitleTranslation(
+	profile,
+	source,
+	translation,
+	sourceAttribute,
+) {
+	if (
+		!isSubtitleProfile(profile) ||
+		!source ||
+		!translation ||
+		!sourceAttribute
+	) {
+		return null;
+	}
+
+	const sourceId = source.getAttribute?.(sourceAttribute);
+
+	return sourceId ? { ...translation, id: sourceId } : null;
+}
+
 function getMeaningfulCharacterMinimum(profile) {
 	return isSubtitleProfile(profile) ? 1 : 2;
 }
@@ -403,6 +423,7 @@ function prepareSubtitleNote(profile, note, source, getComputedStyle) {
 }
 
 const api = {
+	aliasClaimedSubtitleTranslation,
 	applySubtitleDisplayMode,
 	bindSubtitleNote,
 	cacheSubtitleTranslations,
@@ -434,6 +455,7 @@ const api = {
 };
 
 export {
+	aliasClaimedSubtitleTranslation,
 	applySubtitleDisplayMode,
 	bindSubtitleNote,
 	cacheSubtitleTranslations,

@@ -78,6 +78,7 @@ export function createContentRuntime(options = {}) {
 		},
 		youtubeSubtitleTranslations: new Map(),
 		youtubeDiagnostics: {
+			captionTrace: YoutubeDiagnosticsApi.createCaptionTraceStore(),
 			panel: null,
 			status: "Ready",
 			store: YoutubeDiagnosticsApi.createDiagnosticStore(),
@@ -118,6 +119,7 @@ export function createContentRuntime(options = {}) {
 		bindYoutubePrefetchTracking,
 		cleanupYoutubeRuntime,
 		ensureYoutubeControl,
+		recordYoutubeCachePaths,
 		recordYoutubeDiagnostic,
 	} = createYoutubeRuntime({
 		document,
@@ -614,6 +616,7 @@ export function createContentRuntime(options = {}) {
 				pageState.youtubeSubtitleTranslations,
 				pendingItems,
 			);
+			recordYoutubeCachePaths(matched);
 
 			if (matched.cached.length > 0) {
 				renderPageTranslations({
