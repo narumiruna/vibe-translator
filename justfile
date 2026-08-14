@@ -8,6 +8,7 @@ help:
     @echo "  just check  - Run module checks, unit tests, build, and artifact verification"
     @echo "  just e2e    - Run Playwright extension smoke tests"
     @echo "  just e2e-mock - Run Playwright extension smoke tests with mock API"
+    @echo "  just e2e-options - Run options UI accessibility and interaction regression test"
     @echo "  just e2e-antirez - Run Antirez article and Disqus comment regression test"
     @echo "  just e2e-syosetu - Run Syosetu directory regression test"
     @echo "  just e2e-youtube - Run YouTube subtitle translation regression test"
@@ -34,6 +35,9 @@ e2e:
 
 e2e-mock:
     @npm run e2e:mock
+
+e2e-options:
+    @PLAYWRIGHT_HEADLESS=1 npm run e2e:options
 
 e2e-antirez:
     @npm run e2e:antirez

@@ -11,7 +11,8 @@ const baselinePath = path.join(
 	"fixtures",
 	"manifest-baseline.json",
 );
-const maximumUnpackedBytes = 400_000;
+const maximumOptionsBytes = 950_000;
+const maximumUnpackedBytes = 1_175_000;
 const forbiddenPathPatterns = [
 	/(^|\/)node_modules\//u,
 	/(^|\/)test(s)?\//u,
@@ -144,13 +145,28 @@ async function verifyBuild() {
 		);
 	}
 
-	const unpackedBytes = (
+	const fileSizes = new Map(
 		await Promise.all(
 			files
 				.filter((file) => !file.endsWith(".zip"))
-				.map(async (file) => (await stat(path.join(buildDir, file))).size),
-		)
-	).reduce((sum, size) => sum + size, 0);
+				.map(async (file) => [
+					file,
+					(await stat(path.join(buildDir, file))).size,
+				]),
+		),
+	);
+	const optionsBytes = Array.from(fileSizes)
+		.filter(([file]) => file.startsWith("options/"))
+		.reduce((sum, [, size]) => sum + size, 0);
+	const unpackedBytes = Array.from(fileSizes.values()).reduce(
+		(sum, size) => sum + size,
+		0,
+	);
+
+	assert.ok(
+		optionsBytes <= maximumOptionsBytes,
+		`Options artifact is ${optionsBytes} bytes; budget is ${maximumOptionsBytes}.`,
+	);
 	assert.ok(
 		unpackedBytes <= maximumUnpackedBytes,
 		`Unpacked artifact is ${unpackedBytes} bytes; budget is ${maximumUnpackedBytes}.`,

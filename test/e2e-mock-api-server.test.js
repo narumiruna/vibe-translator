@@ -136,6 +136,33 @@ test("mock API server exposes models and responses endpoints", async () => {
 	}
 });
 
+test("mock API server can fail the next response deterministically", async () => {
+	const server = await createMockApiServer();
+	const request = () =>
+		fetch(`${server.baseUrl}/responses`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				input: [
+					{
+						role: "user",
+						content:
+							'{"targetLanguage":"台灣正體中文","id":"a","text":"Alpha"}',
+					},
+				],
+			}),
+		});
+
+	try {
+		server.failNextResponses(2);
+		assert.equal((await request()).status, 500);
+		assert.equal((await request()).status, 500);
+		assert.equal((await request()).status, 200);
+	} finally {
+		await server.close();
+	}
+});
+
 test("mock API server can fail matching response requests", async () => {
 	const server = await createMockApiServer({ failOnTextIncludes: "Fail me" });
 
