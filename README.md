@@ -26,7 +26,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 | `src/content/` | Extraction, viewport, rendering, selection, styling, and YouTube modules |
 | `src/translation/` | API requests, cache, chunking, responses, and protected fragments |
 | `src/shared/` | Settings, appearance, messages, frame rules, logging, and sessions |
-| `src/options/` | Options module entrypoint, HTML, CSS, and appearance controls |
+| `src/options/` | React options application, Radix UI sections, state model, Chrome adapters, previews, and scoped styles |
 | `extension.config.mjs` | Extension.js development profile and context logging configuration |
 | `scripts/verify-build.mjs` | Production manifest, file-reference, content-bundle, and size checks |
 | `test/` | Node unit tests and compatibility fixtures |
@@ -44,6 +44,8 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 ## Configuration
 
 All settings are on the options page.
+
+The options interface uses locally bundled React and Radix Themes, Colors, Icons, and interaction primitives, with native form controls retained where browser semantics are stronger.
 
 | Setting | Description |
 |---|---|

@@ -110,6 +110,7 @@ function buildMockTranslations(requestPayload) {
 async function createMockApiServer(options = {}) {
 	const state = {
 		activeResponseCount: 0,
+		failNextResponseCount: 0,
 		failOnTextIncludes: options.failOnTextIncludes || "",
 		maxActiveResponseCount: 0,
 		responseDelayMs: Number(options.responseDelayMs) || 0,
@@ -156,9 +157,15 @@ async function createMockApiServer(options = {}) {
 					});
 				}
 
+				const failNextResponse = state.failNextResponseCount > 0;
+
+				if (failNextResponse) {
+					state.failNextResponseCount -= 1;
+				}
 				if (
-					state.failOnTextIncludes &&
-					JSON.stringify(requestPayload).includes(state.failOnTextIncludes)
+					failNextResponse ||
+					(state.failOnTextIncludes &&
+						JSON.stringify(requestPayload).includes(state.failOnTextIncludes))
 				) {
 					response.writeHead(500, {
 						"Content-Type": "application/json; charset=utf-8",
@@ -211,6 +218,9 @@ async function createMockApiServer(options = {}) {
 		},
 		getResponseRequestCount() {
 			return state.responseRequestCount;
+		},
+		failNextResponses(count = 1) {
+			state.failNextResponseCount = Math.max(0, Number(count) || 0);
 		},
 		setFailOnTextIncludes(value) {
 			state.failOnTextIncludes = String(value || "");

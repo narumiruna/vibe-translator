@@ -436,11 +436,22 @@ async function saveOptions(context, extensionId, config, options = {}) {
 		const input = page.locator(selector);
 
 		await input.evaluate((element, nextValue) => {
-			if (element.type === "checkbox") {
-				element.checked = Boolean(nextValue);
-			} else {
-				element.value = String(nextValue);
+			const property = element.type === "checkbox" ? "checked" : "value";
+			const descriptor = Object.getOwnPropertyDescriptor(
+				Object.getPrototypeOf(element),
+				property,
+			);
+
+			if (!descriptor?.set) {
+				throw new Error(`Missing native ${property} setter.`);
 			}
+			if (property === "checked") {
+				descriptor.set.call(element, !nextValue);
+				element.click();
+				return;
+			}
+
+			descriptor.set.call(element, String(nextValue));
 			element.dispatchEvent(new Event("input", { bubbles: true }));
 			element.dispatchEvent(new Event("change", { bubbles: true }));
 		}, value);

@@ -7,6 +7,7 @@
 		"test": "node --test test/*.test.js",
 		"e2e:smoke": "node e2e/extension-smoke.cjs",
 		"e2e:mock": "PLAYWRIGHT_MOCK_API=1 node e2e/extension-smoke.cjs",
+		"e2e:options": "PLAYWRIGHT_MOCK_API=1 node e2e/options-ui.cjs",
 		"e2e:antirez": "node e2e/antirez-comments.cjs",
 		"e2e:syosetu": "node e2e/syosetu-directory.cjs",
 		"e2e:youtube": "PLAYWRIGHT_MOCK_API=1 node e2e/youtube-subtitles.cjs",
@@ -23,15 +24,23 @@
 		"*.{js,jsx,ts,tsx,cjs,cts,mjs,mts,json,jsonc,css,svelte,vue,astro,graphql,gql}": "biome check --write --files-ignore-unknown=true --no-errors-on-unmatched"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "^4.13.0",
 		"@biomejs/biome": "2.4.9",
+		"extension": "4.0.32",
 		"husky": "9.1.7",
 		"lint-staged": "17.3.0",
-		"playwright": "1.57.0",
-		"extension": "4.0.32"
+		"playwright": "1.57.0"
 	},
 	"type": "module",
 	"overrides": {
 		"less": "4.8.1",
 		"image-size": "2.0.2"
+	},
+	"dependencies": {
+		"@radix-ui/react-icons": "^1.3.2",
+		"@radix-ui/themes": "^3.3.0",
+		"radix-ui": "^1.6.7",
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8"
 	}
 }

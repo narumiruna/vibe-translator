@@ -192,18 +192,24 @@ async function runAppearanceOptionsSmoke(
 		/cannot be verified/i,
 	);
 
-	const readingPanel = page.locator(
-		'section[aria-labelledby="reading-style-title"]',
-	);
-	await readingPanel.locator("summary", { hasText: "Typography" }).click();
-	await readingPanel.locator("summary", { hasText: "Layout" }).click();
-	await readingPanel.locator("summary", { hasText: "Light Colors" }).click();
+	const readingPanel = page.locator('[aria-labelledby="reading-style-title"]');
+	await readingPanel.getByRole("button", { name: "Typography" }).click();
+	await readingPanel.getByRole("button", { name: "Layout" }).click();
+	await readingPanel.getByRole("button", { name: "Light Colors" }).click();
 	await page.locator("#inline-font-size").fill("19");
 	assert.equal(
 		await page.locator("#translation-appearance-preset").inputValue(),
 		"custom",
 	);
-	await page.locator("#inline-show-background").setChecked(true);
+	const backgroundToggle = page.locator("#inline-show-background");
+	await backgroundToggle.evaluate((input) => {
+		if (!input.checked) {
+			input.click();
+		}
+	});
+	await waitFor(async () => backgroundToggle.isChecked(), {
+		timeoutMessage: "Background appearance toggle did not settle.",
+	});
 	await page.locator("#inline-light-background").fill("#777777");
 	await page.locator("#inline-light-text").fill("#777777");
 	assert.match(
@@ -226,7 +232,7 @@ async function runAppearanceOptionsSmoke(
 	assert.equal(
 		await page
 			.locator('[data-appearance-theme="dark"]')
-			.getAttribute("aria-pressed"),
+			.getAttribute("aria-checked"),
 		"true",
 	);
 

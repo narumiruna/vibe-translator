@@ -32,6 +32,14 @@
 21. Save each YouTube subtitle display mode, reload Settings, and confirm the selected mode persists; confirm a profile without the setting opens as **Translation only**
 22. Save disabled domains using mixed case and comma or newline separators, reload the page, and confirm they are normalized to lowercase hostnames with one hostname per line
 23. Upgrade a profile containing only legacy underline settings and confirm it opens as Calm Reading without validation errors
+24. Use Left/Right Arrow on the Setup, Appearance, Prompts, and Advanced tabs and confirm focus, selected state, and the visible panel move together without losing drafts
+25. Use only the keyboard to edit each control, open and close every Appearance disclosure, reset prompts and appearance, run Test Connection, recover from an error, and save without a focus trap
+26. Check Setup, Appearance, Prompts, and Advanced with a screen reader and confirm tabs, labels, descriptions, radio groups, selected states, validation errors, permission status, and connection status are announced with their controls
+27. Review the options page in light and dark modes at 320 px, 390 px, 720 px, desktop width, 200% zoom, reduced motion, and forced colors; confirm there is no horizontal overflow or obscured save action
+28. Enter a valid URL that omits `/v1`, submit, and confirm Base URL is marked invalid, references the visible error, and clears its invalid state after correction
+29. Trigger Test Connection twice rapidly and confirm only one request runs while the button remains disabled until the operation settles
+30. Simulate a connection failure, confirm the same status area provides actionable recovery, retry, and confirm success without reloading the page
+31. Inspect the packaged options page network and console output and confirm it loads no remote UI resource, emits no page error, and never exposes the API key
 
 ## Entire page translation
 
