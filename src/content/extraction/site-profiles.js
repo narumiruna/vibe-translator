@@ -4,6 +4,7 @@ const ANTIREZ_PROSE_CONTAINER_SELECTOR = "article.comment > pre";
 const ANTIREZ_PROSE_TEXT_SELECTOR =
 	"article.comment > pre > [data-ot-prose-block]";
 const DISQUS_COMMENT_TEXT_SELECTOR = '[data-role="message"] p';
+const FINDY_ARTICLE_ROOT_SELECTOR = ".p-single__wrap";
 const SCHIIT_ARTICLE_ROOT_SELECTOR =
 	"body:where(.faq, .guides) #content-box .product > .pad";
 const SCHIIT_ARTICLE_TEXT_SELECTOR = `${SCHIIT_ARTICLE_ROOT_SELECTOR} > .body > div`;
@@ -51,6 +52,17 @@ const SITE_PROFILES = Object.freeze([
 		directNoteTargetSelectors: Object.freeze([DISQUS_COMMENT_TEXT_SELECTOR]),
 		embeddedFramePatterns: Object.freeze([]),
 		windowed: false,
+	}),
+	Object.freeze({
+		id: "findy-article",
+		hosts: Object.freeze(["findy.co.jp", "www.findy.co.jp"]),
+		socialTextSelectors: Object.freeze([]),
+		proseTextSelectors: Object.freeze([]),
+		rootSelectors: Object.freeze([FINDY_ARTICLE_ROOT_SELECTOR]),
+		splitProseContainerSelectors: Object.freeze([]),
+		directNoteTargetSelectors: Object.freeze([]),
+		embeddedFramePatterns: Object.freeze([]),
+		windowed: true,
 	}),
 	Object.freeze({
 		id: "schiit-article",
@@ -171,6 +183,7 @@ const api = {
 	DEFAULT_PROFILE_ID,
 	DISQUS_COMMENT_TEXT_SELECTOR,
 	DEFAULT_SITE_PROFILE,
+	FINDY_ARTICLE_ROOT_SELECTOR,
 	SAFE_EMPTY_SELECTOR,
 	SCHIIT_ARTICLE_ROOT_SELECTOR,
 	SCHIIT_ARTICLE_TEXT_SELECTOR,
@@ -196,6 +209,7 @@ export {
 	DEFAULT_PROFILE_ID,
 	DEFAULT_SITE_PROFILE,
 	DISQUS_COMMENT_TEXT_SELECTOR,
+	FINDY_ARTICLE_ROOT_SELECTOR,
 	getActiveSiteProfile,
 	normalizeHostname,
 	normalizeSelectorList,

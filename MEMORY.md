@@ -33,6 +33,8 @@
 - Symptom: editing one invalid options field makes untouched invalid controls appear valid. Cause: clearing the complete validation field set on every edit removes unrelated ARIA error state. Fix: clear only the edited field while preserving other validation results.
 - Symptom: importing the complete Radix Themes stylesheet adds unused layout utilities to the options artifact. Fix: import the public `tokens.css` and `components.css` bundles separately when no Radix layout utilities are used, then enforce options and total artifact budgets.
 - For debugging the user's actual Chrome, continue with the current `127.0.0.1` Chrome DevTools connection; `http://host.docker.internal:9222/` is an alternative endpoint only when the user explicitly selects it.
+- Symptom: translating a page immediately after `DOMContentLoaded` fails with `Receiving end does not exist`. Cause: Extension.js programmatic injection resolves before its generated `document_idle` wrapper mounts the content listener. Fix: poll the content-script ping after injection until the generated bundle reports ready.
+- Symptom: Findy news pages report already-translated offscreen content but render no notes. Cause: generic root scoring can select a related-news `article` card instead of the `.p-single__wrap` news body. Fix: keep the Findy profile rooted at `.p-single__wrap`.
 
 ## TASTE
 - Selection translation UI should default to a compact tooltip-sized card; long content can expand, but the default should prefer density over empty space.
