@@ -107,6 +107,71 @@ test("background controller groups short subtitle batches without changing page 
 	);
 });
 
+test("content script injection waits for the generated idle bundle to mount", async () => {
+	const sentMessages = [];
+	const injectedScripts = [];
+	const delays = [];
+	let pingCount = 0;
+	const platform = createBackgroundPlatform({
+		Appearance: {},
+		EmbeddedFrames: {},
+		Messages,
+		Settings: {},
+		SiteProfiles: {},
+		chrome: {
+			runtime: {
+				getManifest() {
+					return {
+						content_scripts: [
+							{
+								js: ["content_scripts/content-0.js"],
+								matches: ["https://www.youtube.com/*"],
+							},
+						],
+					};
+				},
+			},
+			scripting: {
+				async executeScript(details) {
+					injectedScripts.push(details);
+				},
+			},
+			tabs: {
+				async sendMessage(tabId, message, options) {
+					pingCount += 1;
+					sentMessages.push({ message, options, tabId });
+
+					if (pingCount < 3) {
+						throw new Error(
+							"Could not establish connection. Receiving end does not exist.",
+						);
+					}
+
+					return { ok: true };
+				},
+			},
+		},
+		async sleep(delay) {
+			delays.push(delay);
+		},
+	});
+
+	await platform.ensureContentScript(17, 3);
+
+	assert.equal(pingCount, 3);
+	assert.equal(
+		sentMessages.every(({ message }) => message.type === "ping"),
+		true,
+	);
+	assert.deepEqual(injectedScripts, [
+		{
+			files: ["content_scripts/content-0.js"],
+			target: { frameIds: [3], tabId: 17 },
+		},
+	]);
+	assert.deepEqual(delays, [100]);
+});
+
 test("background controller rejects messages without the extension sender id", async () => {
 	const controller = createController();
 

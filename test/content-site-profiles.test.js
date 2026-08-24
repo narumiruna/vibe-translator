@@ -4,6 +4,7 @@ import { createExtractionSelectorsForProfile } from "../src/content/extraction/r
 import {
 	buildProfileSelectors,
 	DISQUS_COMMENT_TEXT_SELECTOR,
+	FINDY_ARTICLE_ROOT_SELECTOR,
 	getActiveSiteProfile,
 	normalizeHostname,
 	resolveSiteProfile,
@@ -35,6 +36,8 @@ test("resolveSiteProfile matches exact built-in hosts", () => {
 		["mobile.twitter.com", "x"],
 		["threads.net", "threads"],
 		["disqus.com", "disqus"],
+		["findy.co.jp", "findy-article"],
+		["www.findy.co.jp", "findy-article"],
 		["schiit.com", "schiit-article"],
 		["www.schiit.com", "schiit-article"],
 		["www.threads.net", "threads"],
@@ -129,6 +132,14 @@ test("Disqus extraction targets comment text without discussion controls", () =>
 			DISQUS_COMMENT_TEXT_SELECTOR,
 		),
 	);
+});
+
+test("Findy article extraction stays inside the news article", () => {
+	const profile = resolveSiteProfile("findy.co.jp");
+	const selectors = createExtractionSelectorsForProfile(profile);
+
+	assert.deepEqual(profile.rootSelectors, [FINDY_ARTICLE_ROOT_SELECTOR]);
+	assert.equal(selectors.SITE_ROOT_SELECTOR, FINDY_ARTICLE_ROOT_SELECTOR);
 });
 
 test("Schiit article extraction includes FAQ and guide div text blocks", () => {

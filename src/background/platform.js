@@ -1,4 +1,6 @@
 const BADGE_COLOR = "#1f7a4f";
+const CONTENT_SCRIPT_READY_ATTEMPTS = 100;
+const CONTENT_SCRIPT_READY_INTERVAL_MS = 100;
 const MENU_TRANSLATE_PAGE = "translate-page";
 const MENU_TRANSLATE_SELECTION = "translate-selection";
 
@@ -10,6 +12,7 @@ export function createBackgroundPlatform(options = {}) {
 		Messages,
 		Settings,
 		SiteProfiles,
+		sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay)),
 	} = options;
 	let contextMenusSetupPromise = null;
 	function isSupportedPage(url) {
@@ -114,13 +117,17 @@ export function createBackgroundPlatform(options = {}) {
 		};
 	}
 
+	async function pingContentScript(tabId, frameId) {
+		return chrome.tabs.sendMessage(
+			tabId,
+			Messages.ping(),
+			getFrameMessageOptions(frameId),
+		);
+	}
+
 	async function ensureContentScript(tabId, frameId) {
 		try {
-			const response = await chrome.tabs.sendMessage(
-				tabId,
-				Messages.ping(),
-				getFrameMessageOptions(frameId),
-			);
+			const response = await pingContentScript(tabId, frameId);
 
 			if (response?.ok) {
 				return;
@@ -133,6 +140,30 @@ export function createBackgroundPlatform(options = {}) {
 			target: getScriptTarget(tabId, frameId),
 			files: getContentScriptFiles(),
 		});
+
+		let lastError = null;
+
+		for (
+			let attempt = 0;
+			attempt < CONTENT_SCRIPT_READY_ATTEMPTS;
+			attempt += 1
+		) {
+			try {
+				const response = await pingContentScript(tabId, frameId);
+
+				if (response?.ok) {
+					return;
+				}
+			} catch (error) {
+				lastError = error;
+			}
+
+			if (attempt < CONTENT_SCRIPT_READY_ATTEMPTS - 1) {
+				await sleep(CONTENT_SCRIPT_READY_INTERVAL_MS);
+			}
+		}
+
+		throw lastError || new Error("The content script did not become ready.");
 	}
 
 	async function sendToast(tabId, message, level) {
