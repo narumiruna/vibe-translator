@@ -35,7 +35,7 @@
 - For debugging the user's actual Chrome, continue with the current `127.0.0.1` Chrome DevTools connection; `http://host.docker.internal:9222/` is an alternative endpoint only when the user explicitly selects it.
 - Symptom: translating a page immediately after `DOMContentLoaded` fails with `Receiving end does not exist`. Cause: Extension.js programmatic injection resolves before its generated `document_idle` wrapper mounts the content listener. Fix: poll the content-script ping after injection until the generated bundle reports ready.
 - Symptom: Findy news pages report already-translated offscreen content but render no notes. Cause: generic root scoring can select a related-news `article` card instead of the `.p-single__wrap` news body. Fix: keep the Findy profile rooted at `.p-single__wrap`.
-- Symptom: an inline translation appears beside its source in a CSS Grid article. Cause: the note's `all: initial` resets the site's grid-column placement. Fix: copy the source block's computed grid column to its sibling note.
+- Symptom: an inline translation appears beside, above, or outside its source in a CSS Grid article. Cause: a sibling note is independently auto-placed, and copied grid coordinates fail for auto placement, explicit rows, and responsive layouts. Fix: append a block-styled `span` note inside the source grid item so both share one responsive grid placement.
 
 ## TASTE
 - Selection translation UI should default to a compact tooltip-sized card; long content can expand, but the default should prefer density over empty space.
