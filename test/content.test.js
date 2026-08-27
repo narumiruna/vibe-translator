@@ -16,10 +16,11 @@ global.Node = {
 global.window = {
 	__OPENAI_TRANSLATOR_CONTENT__: false,
 	clearTimeout,
-	getComputedStyle() {
+	getComputedStyle(element) {
 		return {
 			backdropFilter: "none",
 			display: "block",
+			...element?.computedStyle,
 			filter: "none",
 			mixBlendMode: "normal",
 			perspective: "none",
@@ -64,6 +65,7 @@ const {
 	_createExtractionDebugState,
 	_finalizeExtractionDebug,
 	_getDebugProfileLabel,
+	_getGridColumnPlacement,
 	_allocateSourceId,
 	_getHighestSourceIdCounter,
 	_getNoteElementTagName,
@@ -324,6 +326,34 @@ test("table cell notes use structure-preserving insertion helpers", () => {
 	assert.equal(_getNoteElementTagName({ tagName: "TH" }), "div");
 	assert.equal(_shouldAppendNoteInsideTarget({ tagName: "TD" }), true);
 	assert.equal(_shouldAppendNoteInsideTarget({ tagName: "P" }), false);
+});
+
+test("grid notes reuse the source column so they render below it", () => {
+	const gridParent = createFakeElement({
+		computedStyle: { display: "grid" },
+	});
+	const paragraph = createFakeElement({
+		computedStyle: {
+			gridColumnEnd: "text",
+			gridColumnStart: "text",
+		},
+		parentElement: gridParent,
+		tagName: "P",
+	});
+
+	assert.deepEqual(_getGridColumnPlacement(paragraph), {
+		end: "text",
+		start: "text",
+	});
+	assert.equal(
+		_getGridColumnPlacement(
+			createFakeElement({
+				parentElement: createFakeElement(),
+				tagName: "P",
+			}),
+		),
+		null,
+	);
 });
 
 test("extraction debug exposes a site profile label", () => {
