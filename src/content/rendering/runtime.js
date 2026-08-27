@@ -63,10 +63,38 @@ export function createContentRenderer(options = {}) {
 		return tagName === "td" || tagName === "th";
 	}
 
+	function getGridColumnPlacement(element) {
+		const parent = element?.parentElement;
+
+		if (!parent) {
+			return null;
+		}
+
+		const parentDisplay = window.getComputedStyle(parent).display;
+
+		if (parentDisplay !== "grid" && parentDisplay !== "inline-grid") {
+			return null;
+		}
+
+		const style = window.getComputedStyle(element);
+
+		return {
+			end: style.gridColumnEnd,
+			start: style.gridColumnStart,
+		};
+	}
+
 	function insertNoteForTarget(insertionTarget, note) {
 		if (shouldAppendNoteInsideTarget(insertionTarget)) {
 			insertionTarget.appendChild(note);
 			return;
+		}
+
+		const gridColumn = getGridColumnPlacement(insertionTarget);
+
+		if (gridColumn) {
+			note.style.gridColumnStart = gridColumn.start;
+			note.style.gridColumnEnd = gridColumn.end;
 		}
 
 		insertionTarget.insertAdjacentElement("afterend", note);
@@ -831,6 +859,7 @@ export function createContentRenderer(options = {}) {
 		clearSelectionTranslation,
 		cleanupRendering,
 		getDebugProfileLabel,
+		getGridColumnPlacement,
 		getNoteElementTagName,
 		isSafeNoteInsertionTarget: _isSafeNoteInsertionTarget,
 		renderExtractionDebugPanel,
