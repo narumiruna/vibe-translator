@@ -1,6 +1,7 @@
 const BADGE_COLOR = "#1f7a4f";
 const CONTENT_SCRIPT_READY_ATTEMPTS = 100;
 const CONTENT_SCRIPT_READY_INTERVAL_MS = 100;
+const MENU_OPEN_PDF = "open-pdf-reader";
 const MENU_TRANSLATE_PAGE = "translate-page";
 const MENU_TRANSLATE_SELECTION = "translate-selection";
 
@@ -17,6 +18,17 @@ export function createBackgroundPlatform(options = {}) {
 	let contextMenusSetupPromise = null;
 	function isSupportedPage(url) {
 		return /^https?:\/\//i.test(String(url || ""));
+	}
+
+	async function loadSettingsOrOpenOptions() {
+		const settings = await Settings.getSettings();
+
+		if (Settings.hasCompleteSettings(settings)) {
+			return settings;
+		}
+
+		await chrome.runtime.openOptionsPage();
+		throw new Error("Settings are incomplete. Configure the extension first.");
 	}
 
 	function isDomainDisabled(url, settings) {
@@ -354,6 +366,11 @@ export function createBackgroundPlatform(options = {}) {
 			title: "Translate selected text",
 			contexts: ["selection"],
 		});
+		await createOrUpdateContextMenu({
+			id: MENU_OPEN_PDF,
+			title: "Open current page in Vibe PDF Reader",
+			contexts: ["page"],
+		});
 	}
 
 	function setupContextMenus() {
@@ -381,6 +398,7 @@ export function createBackgroundPlatform(options = {}) {
 		isDomainDisabled,
 		isSupportedPage,
 		isTabMessageDisconnectError,
+		loadSettingsOrOpenOptions,
 		renderPageTranslationUpdates,
 		sendToast,
 		sendYoutubeDiagnosticEvent,

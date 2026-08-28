@@ -12,7 +12,8 @@ const baselinePath = path.join(
 	"manifest-baseline.json",
 );
 const maximumOptionsBytes = 950_000;
-const maximumUnpackedBytes = 1_175_000;
+const maximumPdfBytes = 1_700_000;
+const maximumUnpackedBytes = 2_900_000;
 const forbiddenPathPatterns = [
 	/(^|\/)node_modules\//u,
 	/(^|\/)test(s)?\//u,
@@ -58,6 +59,7 @@ function normalizeManifest(manifest) {
 		name: manifest.name,
 		optional_host_permissions: manifest.optional_host_permissions,
 		permissions: manifest.permissions,
+		sidePanel: manifest.side_panel,
 		version: manifest.version,
 	};
 }
@@ -66,6 +68,7 @@ function getReferencedPaths(manifest) {
 	return [
 		manifest.background?.service_worker,
 		manifest.options_page || manifest.options_ui?.page,
+		manifest.side_panel?.default_path,
 		...Object.values(manifest.icons || {}),
 		...Object.values(manifest.action?.default_icon || {}),
 		...(manifest.content_scripts || []).flatMap((entry) => [
@@ -158,6 +161,19 @@ async function verifyBuild() {
 	const optionsBytes = Array.from(fileSizes)
 		.filter(([file]) => file.startsWith("options/"))
 		.reduce((sum, [, size]) => sum + size, 0);
+	const pdfWorkerFiles = files.filter(
+		(file) => !file.includes("/") && file.endsWith(".js"),
+	);
+	assert.equal(
+		pdfWorkerFiles.length,
+		1,
+		`Expected one bundled PDF worker, found: ${pdfWorkerFiles.join(", ")}`,
+	);
+	const pdfBytes = Array.from(fileSizes)
+		.filter(
+			([file]) => file.startsWith("sidebar/") || pdfWorkerFiles.includes(file),
+		)
+		.reduce((sum, [, size]) => sum + size, 0);
 	const unpackedBytes = Array.from(fileSizes.values()).reduce(
 		(sum, size) => sum + size,
 		0,
@@ -166,6 +182,10 @@ async function verifyBuild() {
 	assert.ok(
 		optionsBytes <= maximumOptionsBytes,
 		`Options artifact is ${optionsBytes} bytes; budget is ${maximumOptionsBytes}.`,
+	);
+	assert.ok(
+		pdfBytes <= maximumPdfBytes,
+		`PDF reader artifact is ${pdfBytes} bytes; budget is ${maximumPdfBytes}.`,
 	);
 	assert.ok(
 		unpackedBytes <= maximumUnpackedBytes,

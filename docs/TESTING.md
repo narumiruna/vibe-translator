@@ -41,6 +41,34 @@
 30. Simulate a connection failure, confirm the same status area provides actionable recovery, retry, and confirm success without reloading the page
 31. Inspect the packaged options page network and console output and confirm it loads no remote UI resource, emits no page error, and never exposes the API key
 
+## PDF translation
+
+1. Build and load `dist/chrome`, configure the translation API, and open `https://www.cs.princeton.edu/~chazelle/courses/BIB/jeannette-wing.pdf`
+2. Click the Vibe Translator toolbar action and approve only the PDF origin when Chrome requests permission
+3. Confirm a new Vibe PDF Reader tab opens while the original PDF tab remains available
+4. Confirm the reader URL contains only an extension launch token and not the source URL or its query parameters
+5. Confirm all three original pages render, their text remains selectable, and page navigation and zoom work with mouse and keyboard
+6. Confirm the translation pane starts with the visible page and nearby pages, then fills progressively without replacing the original PDF
+7. Confirm page headers, footers, and page numbers are not translated as body paragraphs
+8. Confirm the Princeton paper's multi-column text reads down the left column before continuing down the right column
+9. Click a translated block and confirm its matching source lines are highlighted on the original page
+10. Search translated text and use Copy page and Copy document after results are available
+11. Click **Translate entire document**, review the character estimate, cancel once, then confirm and verify finite progress
+12. Pause before scrolling to a new page and confirm no new page batch starts until Resume is selected
+13. Simulate one failed API chunk, confirm successful blocks remain, click **Retry failed**, and confirm only failed blocks retry
+14. Choose `test/fixtures/pdf/encrypted.pdf`, enter `vibe-test`, and confirm the local encrypted document opens without persisting the password
+15. Choose `test/fixtures/pdf/malformed.pdf` and confirm an actionable error appears without replacing the current readable document
+16. Choose a scanned PDF and confirm the reader reports that OCR is not supported when extractable text is insufficient
+17. Test a PDF larger than the supported byte, page, or text limit and confirm it fails before unbounded rendering or translation work
+18. Test a URL that redirects to another origin and confirm it offers local file selection rather than following an unauthorized source
+19. Deny the source-origin permission and confirm the original PDF remains open and no reader session starts
+20. Disable the PDF hostname in Settings and confirm translation is rejected for that source
+21. Reload the PDF reader while translation is in progress and confirm it reconnects through the tab-bound launch token without duplicate visible results
+22. Close the reader during translation and confirm late API results are suppressed without affecting another reader tab
+23. Verify the reader at 320 px, 390 px, desktop width, 200% zoom, reduced motion, dark mode, and forced colors with no obscured controls or horizontal page UI overflow
+24. Inspect extension logs and confirm they contain no PDF text, password, signed source URL, prompt, API key, authorization value, or API response
+25. Run `PLAYWRIGHT_HEADLESS=1 npm run e2e:pdf` and confirm the local fixture, partial failure, retry, navigation, encrypted file, and cancellation checks pass without external network access
+
 ## Entire page translation
 
 1. Open the long article-style test page

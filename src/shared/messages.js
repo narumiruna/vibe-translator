@@ -1,4 +1,5 @@
 const MESSAGE_TYPES = Object.freeze({
+	AUTOMATION_OPEN_PDF: "automation-open-pdf",
 	AUTOMATION_TRANSLATE_PAGE: "automation-translate-page",
 	AUTOMATION_TRANSLATE_SELECTION: "automation-translate-selection",
 	GET_RUNTIME_HEALTH: "get-runtime-health",
@@ -38,6 +39,9 @@ function createMessage(type, payload) {
 
 const api = {
 	MESSAGE_TYPES,
+	automationOpenPdf(payload) {
+		return createMessage(MESSAGE_TYPES.AUTOMATION_OPEN_PDF, payload);
+	},
 	automationTranslatePage(payload) {
 		return createMessage(MESSAGE_TYPES.AUTOMATION_TRANSLATE_PAGE, payload);
 	},
