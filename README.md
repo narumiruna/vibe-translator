@@ -91,6 +91,8 @@ PDF bytes stay in the browser, while extracted text is sent to the configured tr
 4. Navigate or scroll to prioritize nearby pages, or choose **Translate entire document** after reviewing its character estimate
 5. Use **Choose PDF** as a fallback for a local, authenticated, redirected, or encrypted file
 
+![Vibe PDF Reader showing original pages beside progressive translations](docs/images/pdf-reader.png)
+
 Scanned image-only documents report that OCR is not supported.
 Formula-heavy and uncertain structured regions remain visible in the original PDF instead of being translated as prose.
 The reader never modifies the source PDF and does not export a translated PDF.

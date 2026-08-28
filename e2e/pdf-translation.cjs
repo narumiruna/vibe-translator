@@ -202,6 +202,14 @@ async function main() {
 			.locator("#translation-search")
 			.fill(translatedText.slice(0, 4));
 		assert.ok(await reader.locator(".translation-block:not([hidden])").count());
+		await reader.locator("#translation-search").fill("");
+		await reader.setViewportSize({ height: 900, width: 1440 });
+		await takeScreenshot(
+			reader,
+			config.artifactsDir,
+			"pdf-translation-smoke.png",
+			false,
+		);
 		await reader.setViewportSize({ height: 760, width: 390 });
 		assert.equal(
 			await reader.evaluate(
@@ -287,12 +295,6 @@ async function main() {
 			readableTitle,
 		);
 
-		await takeScreenshot(
-			reader,
-			config.artifactsDir,
-			"pdf-translation-smoke.png",
-			false,
-		);
 		await reader.locator("#cancel-translation").click();
 		await waitFor(
 			async () =>
