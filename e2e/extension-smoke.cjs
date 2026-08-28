@@ -97,6 +97,18 @@ async function expectVisibleText(page, matcher, label) {
 	assert.match(text, matcher);
 }
 
+async function expandDisclosure(button, content, label) {
+	if ((await button.getAttribute("aria-expanded")) !== "true") {
+		await button.click();
+	}
+	await waitFor(
+		async () =>
+			(await button.getAttribute("aria-expanded")) === "true" &&
+			(await content.isVisible()),
+		{ timeoutMessage: `${label} disclosure did not open.` },
+	);
+}
+
 async function runAppearanceOptionsSmoke(
 	context,
 	extensionId,
@@ -193,15 +205,23 @@ async function runAppearanceOptionsSmoke(
 	);
 
 	const readingPanel = page.locator('[aria-labelledby="reading-style-title"]');
-	await readingPanel.getByRole("button", { name: "Typography" }).click();
-	await readingPanel.getByRole("button", { name: "Layout" }).click();
-	await readingPanel.getByRole("button", { name: "Light Colors" }).click();
-	await page.locator("#inline-font-size").fill("19");
+	const fontSizeInput = page.locator("#inline-font-size");
+	await expandDisclosure(
+		readingPanel.getByRole("button", { name: "Typography" }),
+		fontSizeInput,
+		"Typography",
+	);
+	await fontSizeInput.fill("19");
 	assert.equal(
 		await page.locator("#translation-appearance-preset").inputValue(),
 		"custom",
 	);
 	const backgroundToggle = page.locator("#inline-show-background");
+	await expandDisclosure(
+		readingPanel.getByRole("button", { name: "Layout" }),
+		backgroundToggle,
+		"Layout",
+	);
 	await backgroundToggle.evaluate((input) => {
 		if (!input.checked) {
 			input.click();
@@ -210,7 +230,13 @@ async function runAppearanceOptionsSmoke(
 	await waitFor(async () => backgroundToggle.isChecked(), {
 		timeoutMessage: "Background appearance toggle did not settle.",
 	});
-	await page.locator("#inline-light-background").fill("#777777");
+	const lightBackgroundInput = page.locator("#inline-light-background");
+	await expandDisclosure(
+		readingPanel.getByRole("button", { name: "Light Colors" }),
+		lightBackgroundInput,
+		"Light Colors",
+	);
+	await lightBackgroundInput.fill("#777777");
 	await page.locator("#inline-light-text").fill("#777777");
 	assert.match(
 		(await page.locator("#appearance-contrast-status").textContent()) || "",
