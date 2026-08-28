@@ -391,6 +391,9 @@ async function runCustomAppearanceRuntimeSmoke(
 	const lightStyle = await note.evaluate((element) => {
 		const style = getComputedStyle(element);
 		const label = element.querySelector('[data-ot-role="note-label"]');
+		const source = element.parentElement?.hasAttribute("data-ot-source-id")
+			? element.parentElement
+			: element.previousElementSibling;
 
 		return {
 			animationName: style.animationName,
@@ -400,8 +403,7 @@ async function runCustomAppearanceRuntimeSmoke(
 			color: style.color,
 			fontFamily: style.fontFamily,
 			fontSize: style.fontSize,
-			sourceFontFamily: getComputedStyle(element.previousElementSibling)
-				.fontFamily,
+			sourceFontFamily: getComputedStyle(source).fontFamily,
 			fontWeight: style.fontWeight,
 			lineHeight: style.lineHeight,
 			marginBottom: style.marginBottom,

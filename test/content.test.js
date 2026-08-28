@@ -65,10 +65,10 @@ const {
 	_createExtractionDebugState,
 	_finalizeExtractionDebug,
 	_getDebugProfileLabel,
-	_getGridColumnPlacement,
 	_allocateSourceId,
 	_getHighestSourceIdCounter,
 	_getNoteElementTagName,
+	_insertNoteForTarget,
 	_hasSourceTextChanged,
 	_isSafeNoteInsertionTarget,
 	_rememberSourceText,
@@ -321,39 +321,80 @@ test("source id allocation scans existing ids once and stays monotonic", () => {
 	}
 });
 
-test("table cell notes use structure-preserving insertion helpers", () => {
-	assert.equal(_getNoteElementTagName({ tagName: "TD" }), "div");
+test("table cell and non-grid notes preserve their insertion behavior", () => {
+	const tableCell = createFakeElement({ tagName: "TD" });
+	const paragraph = createFakeElement({ tagName: "P" });
+	const tableNote = {};
+	const paragraphNote = {};
+	const insertions = [];
+
+	tableCell.appendChild = (note) => insertions.push(["append", note]);
+	paragraph.insertAdjacentElement = (position, note) =>
+		insertions.push([position, note]);
+
+	assert.equal(_getNoteElementTagName(tableCell), "div");
 	assert.equal(_getNoteElementTagName({ tagName: "TH" }), "div");
-	assert.equal(_shouldAppendNoteInsideTarget({ tagName: "TD" }), true);
-	assert.equal(_shouldAppendNoteInsideTarget({ tagName: "P" }), false);
+	assert.equal(_shouldAppendNoteInsideTarget(tableCell), true);
+	assert.equal(_shouldAppendNoteInsideTarget(paragraph), false);
+
+	_insertNoteForTarget(tableCell, tableNote);
+	_insertNoteForTarget(paragraph, paragraphNote);
+	assert.deepEqual(insertions, [
+		["append", tableNote],
+		["afterend", paragraphNote],
+	]);
 });
 
-test("grid notes reuse the source column so they render below it", () => {
+test("grid notes stay inside auto, explicit, and responsive source placement", () => {
 	const gridParent = createFakeElement({
 		computedStyle: { display: "grid" },
 	});
-	const paragraph = createFakeElement({
-		computedStyle: {
-			gridColumnEnd: "text",
-			gridColumnStart: "text",
-		},
-		parentElement: gridParent,
+	const placements = [
+		{ gridColumnStart: "auto", gridRowStart: "auto" },
+		{ gridColumnStart: "2", gridRowStart: "3" },
+	];
+
+	for (const computedStyle of placements) {
+		const paragraph = createFakeElement({
+			computedStyle,
+			parentElement: gridParent,
+			tagName: "P",
+		});
+		const note = {};
+		let siblingInsertion = false;
+
+		paragraph.appendChild = (child) => {
+			child.parentElement = paragraph;
+		};
+		paragraph.insertAdjacentElement = () => {
+			siblingInsertion = true;
+		};
+
+		assert.equal(_shouldAppendNoteInsideTarget(paragraph), true);
+		assert.equal(_getNoteElementTagName(paragraph, paragraph), "span");
+		_insertNoteForTarget(paragraph, note);
+		assert.equal(note.parentElement, paragraph);
+		assert.equal(siblingInsertion, false);
+
+		computedStyle.gridColumnStart = "1";
+		computedStyle.gridRowStart = "1";
+		assert.equal(note.parentElement, paragraph);
+	}
+});
+
+test("nested grid notes are excluded from source text", () => {
+	const note = createSerializableElement({
+		attributes: { "data-ot-role": "note" },
+		children: [createSerializableText("Translated text")],
+		matchedSelectors: ["[data-ot-role]"],
+		tagName: "SPAN",
+	});
+	const source = createSerializableElement({
+		children: [createSerializableText("Source text"), note],
 		tagName: "P",
 	});
 
-	assert.deepEqual(_getGridColumnPlacement(paragraph), {
-		end: "text",
-		start: "text",
-	});
-	assert.equal(
-		_getGridColumnPlacement(
-			createFakeElement({
-				parentElement: createFakeElement(),
-				tagName: "P",
-			}),
-		),
-		null,
-	);
+	assert.equal(getSegmentContent(source).text, "Source text");
 });
 
 test("extraction debug exposes a site profile label", () => {

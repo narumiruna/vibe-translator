@@ -38,7 +38,26 @@ export function createContentRenderer(options = {}) {
 		settleYoutubeCaptionFallbacks,
 		isDebugInfoEnabled,
 	} = options;
-	function getNoteElementTagName(sourceElement) {
+	function isGridItem(element) {
+		const parent = element?.parentElement;
+
+		if (!parent) {
+			return false;
+		}
+
+		const parentDisplay = window.getComputedStyle(parent).display;
+
+		return parentDisplay === "grid" || parentDisplay === "inline-grid";
+	}
+
+	function getNoteElementTagName(
+		sourceElement,
+		insertionTarget = sourceElement,
+	) {
+		if (isGridItem(insertionTarget)) {
+			return "span";
+		}
+
 		if (
 			isHeadingLikeElement(sourceElement) ||
 			isReadableTitleLink(sourceElement)
@@ -60,28 +79,7 @@ export function createContentRenderer(options = {}) {
 	function shouldAppendNoteInsideTarget(element) {
 		const tagName = element?.tagName ? element.tagName.toLowerCase() : "";
 
-		return tagName === "td" || tagName === "th";
-	}
-
-	function getGridColumnPlacement(element) {
-		const parent = element?.parentElement;
-
-		if (!parent) {
-			return null;
-		}
-
-		const parentDisplay = window.getComputedStyle(parent).display;
-
-		if (parentDisplay !== "grid" && parentDisplay !== "inline-grid") {
-			return null;
-		}
-
-		const style = window.getComputedStyle(element);
-
-		return {
-			end: style.gridColumnEnd,
-			start: style.gridColumnStart,
-		};
+		return tagName === "td" || tagName === "th" || isGridItem(element);
 	}
 
 	function insertNoteForTarget(insertionTarget, note) {
@@ -90,20 +88,13 @@ export function createContentRenderer(options = {}) {
 			return;
 		}
 
-		const gridColumn = getGridColumnPlacement(insertionTarget);
-
-		if (gridColumn) {
-			note.style.gridColumnStart = gridColumn.start;
-			note.style.gridColumnEnd = gridColumn.end;
-		}
-
 		insertionTarget.insertAdjacentElement("afterend", note);
 	}
 
-	function buildNote(sourceElement, id) {
+	function buildNote(sourceElement, id, insertionTarget = sourceElement) {
 		const tagName = SubtitleApi.isSubtitleProfile(ACTIVE_SITE_PROFILE)
 			? "div"
-			: getNoteElementTagName(sourceElement);
+			: getNoteElementTagName(sourceElement, insertionTarget);
 		const note = document.createElement(tagName);
 		const label = document.createElement("span");
 		const body = document.createElement("span");
@@ -390,7 +381,7 @@ export function createContentRenderer(options = {}) {
 		}
 
 		const existingNote = getExistingNoteForSource(element, id);
-		const note = existingNote || buildNote(element, id);
+		const note = existingNote || buildNote(element, id, insertionTarget);
 		const label = note.querySelector(`[${ROOT_ATTR}="note-label"]`);
 		const body = note.querySelector(`[${ROOT_ATTR}="note-body"]`);
 
@@ -441,7 +432,8 @@ export function createContentRenderer(options = {}) {
 			}
 
 			const note =
-				getExistingNoteForSource(element, id) || buildNote(element, id);
+				getExistingNoteForSource(element, id) ||
+				buildNote(element, id, insertionTarget);
 
 			withObserverPaused(() => {
 				setNotePending(note, payload.targetLanguage);
@@ -859,8 +851,8 @@ export function createContentRenderer(options = {}) {
 		clearSelectionTranslation,
 		cleanupRendering,
 		getDebugProfileLabel,
-		getGridColumnPlacement,
 		getNoteElementTagName,
+		insertNoteForTarget,
 		isSafeNoteInsertionTarget: _isSafeNoteInsertionTarget,
 		renderExtractionDebugPanel,
 		renderPagePlaceholders,
