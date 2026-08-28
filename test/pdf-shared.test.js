@@ -49,6 +49,7 @@ test("PDF reader messages enforce bounded identities and source text", () => {
 		Pdf.validatePdfClientMessage({
 			type: "queue",
 			sessionId: "pdf-session",
+			documentId: "document-1",
 			requestId: "request-1",
 			placement: "back",
 			items: [{ id: "doc:p1:b1", kind: "heading", text: " Heading " }],
@@ -56,6 +57,7 @@ test("PDF reader messages enforce bounded identities and source text", () => {
 		{
 			type: "queue",
 			sessionId: "pdf-session",
+			documentId: "document-1",
 			requestId: "request-1",
 			placement: "back",
 			items: [{ id: "doc:p1:b1", kind: "heading", text: "Heading" }],
@@ -66,6 +68,7 @@ test("PDF reader messages enforce bounded identities and source text", () => {
 			Pdf.validatePdfClientMessage({
 				type: "queue",
 				sessionId: "pdf-session",
+				documentId: "document-1",
 				requestId: "request-1",
 				items: [
 					{ id: "duplicate", text: "one" },
@@ -79,6 +82,7 @@ test("PDF reader messages enforce bounded identities and source text", () => {
 			Pdf.validatePdfClientMessage({
 				type: "queue",
 				sessionId: "pdf-session",
+				documentId: "document-1",
 				requestId: "request-1",
 				items: [{ id: "unsafe id", text: "text" }],
 			}),
@@ -94,8 +98,86 @@ test("PDF reader messages enforce bounded identities and source text", () => {
 		/unsupported fields/,
 	);
 	assert.throws(
+		() =>
+			Pdf.validatePdfClientMessage({
+				type: "queue",
+				sessionId: "pdf-session",
+				requestId: "request-1",
+				items: [{ id: "block-1", text: "text" }],
+			}),
+		/identity/,
+	);
+	assert.throws(
 		() => Pdf.validatePdfClientMessage({ type: "unknown" }),
 		/Unknown/,
+	);
+});
+
+test("PDF document messages require scoped identities and no extra data", () => {
+	assert.deepEqual(
+		Pdf.validatePdfClientMessage({
+			type: "document",
+			sessionId: "pdf-session",
+			documentId: "document-1",
+		}),
+		{
+			type: "document",
+			sessionId: "pdf-session",
+			documentId: "document-1",
+		},
+	);
+	assert.throws(
+		() =>
+			Pdf.validatePdfClientMessage({
+				type: "document",
+				sessionId: "pdf-session",
+				documentId: "document-1",
+				sourceUrl: "https://example.com/private.pdf",
+			}),
+		/unsupported fields/,
+	);
+});
+
+test("PDF batch validation enforces item and total character limits", () => {
+	const createMessage = (items) => ({
+		type: "queue",
+		sessionId: "pdf-session",
+		documentId: "document-1",
+		requestId: "request-1",
+		items,
+	});
+	const exactLimitItems = Array.from({ length: 5 }, (_, index) => ({
+		id: `item-${index}`,
+		text: "x".repeat(Pdf.PDF_LIMITS.maximumItemCharacters),
+	}));
+	assert.equal(
+		Pdf.validatePdfClientMessage(createMessage(exactLimitItems)).items.length,
+		5,
+	);
+	assert.throws(
+		() =>
+			Pdf.validatePdfClientMessage(
+				createMessage([
+					...exactLimitItems,
+					{
+						id: "item-6",
+						text: "x".repeat(Pdf.PDF_LIMITS.maximumItemCharacters),
+					},
+				]),
+			),
+		/too large/,
+	);
+	assert.throws(
+		() =>
+			Pdf.validatePdfClientMessage(
+				createMessage(
+					Array.from(
+						{ length: Pdf.PDF_LIMITS.maximumItemsPerBatch + 1 },
+						(_, index) => ({ id: `small-${index}`, text: "x" }),
+					),
+				),
+			),
+		/too many items/,
 	);
 });
 

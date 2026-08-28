@@ -146,12 +146,16 @@ async function requestTranslationsBatchedProgressive(options) {
 		typeof options.onChunkRejected === "function"
 			? options.onChunkRejected
 			: null;
+	const shouldContinue =
+		typeof options.shouldContinue === "function"
+			? options.shouldContinue
+			: () => true;
 	const successes = [];
 	const failures = [];
 	let nextIndex = 0;
 
 	async function worker() {
-		while (nextIndex < chunks.length) {
+		while (nextIndex < chunks.length && shouldContinue()) {
 			const chunkIndex = nextIndex;
 			const chunkItems = chunks[chunkIndex];
 			nextIndex += 1;

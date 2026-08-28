@@ -179,6 +179,8 @@ button:disabled {
 
 .source-pages {
 	display: grid;
+	width: max-content;
+	min-width: 100%;
 	justify-items: center;
 	gap: 1.25rem;
 	padding: 1.25rem;
@@ -186,15 +188,16 @@ button:disabled {
 
 .pdf-page {
 	position: relative;
-	max-width: 100%;
-	min-height: 8rem;
 	background: white;
 	box-shadow: 0 0.2rem 0.8rem rgb(0 0 0 / 0.18);
 }
 
+.pdf-page:empty {
+	min-height: 8rem;
+}
+
 .pdf-page canvas {
 	display: block;
-	max-width: 100%;
 }
 
 .text-layer {

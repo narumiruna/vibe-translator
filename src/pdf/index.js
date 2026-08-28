@@ -12,11 +12,15 @@ import {
 } from "./cache.js";
 import { analyzePdfPage, removeRepeatedFurniture } from "./extraction.js";
 import {
+	buildPdfTranslationCopy,
+	createBoundedPdfBatches,
 	decodeLaunchToken,
 	hashText,
 	renderSearchText,
 	sanitizeDocumentId,
+	splitPdfBlocks,
 } from "./reader-utils.js";
+import { announcePdfDocument } from "./session.js";
 import { inspectRemotePdf, readLocalPdf } from "./source.js";
 
 GlobalWorkerOptions.workerPort = new Worker(
@@ -87,8 +91,8 @@ const state = {
 	settingsFingerprint: "",
 	source: null,
 	sourceSequence: 0,
-	started: false,
 	targetLanguage: "",
+	translationDocumentId: "",
 	translations: new Map(),
 	zoom: 1,
 };
@@ -142,9 +146,8 @@ function getBlockElement(id) {
 	);
 }
 
-function updateBlockElement(id) {
+function updateBlockElement(id, element = getBlockElement(id)) {
 	const block = state.blocksById.get(id);
-	const element = getBlockElement(id);
 	if (!block || !element) {
 		return;
 	}
@@ -222,7 +225,7 @@ function createTranslationPages(pages) {
 				}
 			});
 			section.append(article);
-			updateBlockElement(block.id);
+			updateBlockElement(block.id, article);
 		}
 		elements.translationPages.append(section);
 	}
@@ -264,6 +267,7 @@ async function requestPassword(updatePassword, reason) {
 		elements.passwordDialog.addEventListener("close", handleClose, {
 			once: true,
 		});
+		elements.passwordDialog.returnValue = "cancel";
 		elements.passwordDialog.showModal();
 		elements.password.focus();
 	});
@@ -331,14 +335,18 @@ async function loadPdfDocument(source) {
 				page.getTextContent({ includeMarkedContent: true }),
 				page.getStructTree().catch(() => null),
 			]);
-			const blocks = analyzePdfPage({
+			const analyzedBlocks = analyzePdfPage({
 				documentId,
 				items: textContent.items,
 				pageNumber,
 				pageWidth: viewport.width,
 				structureTree,
 			});
-			characterCount += blocks.reduce(
+			const blocks = splitPdfBlocks(
+				analyzedBlocks,
+				Pdf.PDF_LIMITS.maximumItemCharacters,
+			);
+			characterCount += analyzedBlocks.reduce(
 				(sum, block) => sum + block.text.length,
 				0,
 			);
@@ -394,6 +402,7 @@ async function loadPdfDocument(source) {
 	state.pendingLoadingTask = null;
 	state.document = pdfDocument;
 	state.documentId = documentId;
+	state.translationDocumentId = `document-${crypto.randomUUID()}`;
 	state.pageCount = pdfDocument.numPages;
 	state.pageData = nextPageData;
 	state.currentPage = 1;
@@ -403,6 +412,7 @@ async function loadPdfDocument(source) {
 	state.failedIds.clear();
 	state.pendingIds.clear();
 	state.activeRequests.clear();
+	announcePdfDocument(state);
 	if (previousLoadingTask && previousLoadingTask !== nextLoadingTask) {
 		await previousLoadingTask.destroy().catch(() => {});
 	}
@@ -445,7 +455,10 @@ async function renderPage(pageNumber) {
 	const viewport = data.page.getViewport({ scale: state.zoom });
 	container.style.width = `${viewport.width}px`;
 	container.style.height = `${viewport.height}px`;
-	container.style.setProperty("--total-scale-factor", String(viewport.scale));
+	container.style.setProperty(
+		"--total-scale-factor",
+		String(viewport.scale * viewport.userUnit),
+	);
 	const canvas = document.createElement("canvas");
 	const outputScale = Math.min(devicePixelRatio || 1, 2);
 	canvas.width = Math.floor(viewport.width * outputScale);
@@ -558,6 +571,7 @@ async function applyCachedBlocks(blocks, snapshot) {
 		state.cacheContext !== snapshot.cacheContext ||
 		state.documentId !== snapshot.documentId ||
 		state.sessionId !== snapshot.sessionId ||
+		state.translationDocumentId !== snapshot.translationDocumentId ||
 		blocks.some((block) => state.blocksById.get(block.id) !== block)
 	) {
 		return false;
@@ -579,6 +593,7 @@ async function queueBlocks(blocks, placement = "front") {
 		cacheContext: state.cacheContext,
 		documentId: state.documentId,
 		sessionId: state.sessionId,
+		translationDocumentId: state.translationDocumentId,
 	};
 	if (!(await applyCachedBlocks(blocks, snapshot)) || state.paused) {
 		return;
@@ -589,15 +604,11 @@ async function queueBlocks(blocks, placement = "front") {
 			!state.completedIds.has(block.id) &&
 			!state.pendingIds.has(block.id),
 	);
-	for (
-		let index = 0;
-		index < pending.length;
-		index += Pdf.PDF_LIMITS.maximumItemsPerBatch
-	) {
-		const items = pending.slice(
-			index,
-			index + Pdf.PDF_LIMITS.maximumItemsPerBatch,
-		);
+	const batches = createBoundedPdfBatches(pending, {
+		maximumCharacters: Pdf.PDF_LIMITS.maximumBatchCharacters,
+		maximumItems: Pdf.PDF_LIMITS.maximumItemsPerBatch,
+	});
+	for (const items of batches) {
 		const requestId = `request-${++state.requestSequence}`;
 		state.activeRequests.add(requestId);
 		for (const item of items) {
@@ -608,6 +619,7 @@ async function queueBlocks(blocks, placement = "front") {
 		try {
 			post({
 				type: Pdf.CLIENT_MESSAGE_TYPES.QUEUE,
+				documentId: snapshot.translationDocumentId,
 				items: items.map(({ id, role: kind, text }) => ({ id, kind, text })),
 				placement,
 				requestId,
@@ -664,15 +676,11 @@ async function retryFailed() {
 	const blocks = Array.from(state.failedIds)
 		.map((id) => state.blocksById.get(id))
 		.filter(Boolean);
-	for (
-		let index = 0;
-		index < blocks.length;
-		index += Pdf.PDF_LIMITS.maximumItemsPerBatch
-	) {
-		const items = blocks.slice(
-			index,
-			index + Pdf.PDF_LIMITS.maximumItemsPerBatch,
-		);
+	const batches = createBoundedPdfBatches(blocks, {
+		maximumCharacters: Pdf.PDF_LIMITS.maximumBatchCharacters,
+		maximumItems: Pdf.PDF_LIMITS.maximumItemsPerBatch,
+	});
+	for (const items of batches) {
 		const requestId = `retry-${++state.requestSequence}`;
 		for (const item of items) {
 			state.pendingIds.add(item.id);
@@ -682,6 +690,7 @@ async function retryFailed() {
 		try {
 			post({
 				type: Pdf.CLIENT_MESSAGE_TYPES.RETRY,
+				documentId: state.translationDocumentId,
 				items: items.map(({ id, role: kind, text }) => ({ id, kind, text })),
 				placement: "front",
 				requestId,
@@ -750,7 +759,6 @@ async function handleServerMessage(message) {
 		state.targetLanguage = message.targetLanguage;
 		state.source = message.source;
 		state.cacheContext = `${state.documentId}:${state.settingsFingerprint}:${state.targetLanguage}`;
-		state.started = true;
 		elements.openOriginal.disabled = false;
 		setStatus(`Ready to translate to ${state.targetLanguage}`);
 		updateControls();
@@ -768,11 +776,18 @@ async function handleServerMessage(message) {
 		} else if (!state.document) {
 			setStatus("Choose the local PDF file to continue");
 		} else {
+			announcePdfDocument(state);
 			await queuePageWindow(state.currentPage);
 		}
 		return;
 	}
 	if (message.sessionId && message.sessionId !== state.sessionId) {
+		return;
+	}
+	if (
+		message.documentId &&
+		message.documentId !== state.translationDocumentId
+	) {
 		return;
 	}
 	if (message.type === Pdf.SERVER_MESSAGE_TYPES.BATCH_STARTED) {
@@ -896,22 +911,11 @@ async function copyTranslations(pageNumber) {
 	const blocks = Array.from(state.blocksById.values()).filter(
 		(block) => pageNumber === undefined || block.pageNumber === pageNumber,
 	);
-	const completed = blocks
-		.map((block) => state.translations.get(block.id))
-		.filter(Boolean);
-	if (completed.length === 0) {
+	const text = buildPdfTranslationCopy(blocks, state.translations);
+	if (!text) {
 		return;
 	}
-	const translatableCount = blocks.filter(
-		(block) => !block.originalOnly,
-	).length;
-	const partialLabel =
-		completed.length < translatableCount
-			? `[Partial translation: ${completed.length} of ${translatableCount} blocks completed]\n\n`
-			: "";
-	await navigator.clipboard.writeText(
-		`${partialLabel}${completed.join("\n\n")}`,
-	);
+	await navigator.clipboard.writeText(text);
 	setStatus(
 		pageNumber ? `Copied page ${pageNumber}` : "Copied translated document",
 	);
