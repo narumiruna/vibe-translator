@@ -9,6 +9,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 - Translations are injected as sibling blocks — the original text is never removed on ordinary pages
 - Visible content translates first; more is queued as you scroll
 - Available YouTube captions, including auto-generated tracks, are pretranslated in a playback-rate-aware rolling window and shown in saved bilingual or translation-only mode
+- Text-based PDFs open in a PDF.js reader with selectable original pages, synchronized progressive translations, page highlighting, search, copy, encrypted-file support, and explicit complete-document translation
 - Large pages are split into batches and translated with bounded parallel requests; oversized blocks are broken down recursively
 - Inline code, file paths, URLs, math expressions, and common technical terms are protected by placeholder substitution so they are never mangled
 - Fully configurable: API key, base URL, model, target language, and prompt templates
@@ -27,6 +28,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 | `src/translation/` | API requests, cache, chunking, responses, and protected fragments |
 | `src/shared/` | Settings, appearance, messages, frame rules, logging, and sessions |
 | `src/options/` | React options application, Radix UI sections, state model, Chrome adapters, previews, and scoped styles |
+| `src/pdf/` | PDF.js reader, source validation, text and layout analysis, rendering, and persistent translation cache |
 | `extension.config.mjs` | Extension.js development profile and context logging configuration |
 | `scripts/verify-build.mjs` | Production manifest, file-reference, content-bundle, and size checks |
 | `test/` | Node unit tests and compatibility fixtures |
@@ -70,6 +72,8 @@ The options page also shows a live prompt preview and a **Test Connection** butt
 
 The extension requests access to supported YouTube pages for its in-player subtitle control.
 It separately requests API host permission only for the origin derived from your configured **Base URL**.
+When opening a remote PDF reader, it also requests only that PDF source origin and keeps the original PDF tab open.
+PDF bytes stay in the browser, while extracted text is sent to the configured translation provider.
 
 ## Usage
 
@@ -78,6 +82,18 @@ It separately requests API host permission only for the origin derived from your
 1. Open any `http://` or `https://` page
 2. Click the extension icon, or right-click a blank area and choose **Translate entire page**
 3. Translations appear below each original text block as the content enters the viewport
+
+### Translate a PDF
+
+1. Open a text-based HTTP or HTTPS PDF in Chrome
+2. Click the extension icon and approve access to that PDF origin if Chrome asks
+3. Read the selectable original pages beside progressive translations in the Vibe PDF Reader tab
+4. Navigate or scroll to prioritize nearby pages, or choose **Translate entire document** after reviewing its character estimate
+5. Use **Choose PDF** as a fallback for a local, authenticated, redirected, or encrypted file
+
+Scanned image-only documents report that OCR is not supported.
+Formula-heavy and uncertain structured regions remain visible in the original PDF instead of being translated as prose.
+The reader never modifies the source PDF and does not export a translated PDF.
 
 ### Translate YouTube subtitles
 
@@ -115,8 +131,9 @@ npm install       # install exact development dependencies and the Husky hook
 npm run dev       # Extension.js development build with labeled context logs
 npm run build     # production Chrome artifact in dist/chrome
 npm run preview   # preview the production Chrome build
-npm run check     # module checks, 202 unit tests, production build, artifact verification
+npm run check     # module checks, unit tests, production build, artifact verification
 npm run e2e:mock  # production-artifact Playwright smoke suite with a local API
+npm run e2e:pdf   # PDF reader Playwright smoke suite with local PDF and API fixtures
 npm run zip       # production build plus dist/chrome/vibe-translator-<version>.zip
 npm run icons     # regenerate extension icon PNGs from icons/icon.svg
 ```

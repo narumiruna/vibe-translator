@@ -26,5 +26,8 @@
 	"name": "Vibe Translator",
 	"optional_host_permissions": ["http://*/*", "https://*/*"],
 	"permissions": ["activeTab", "contextMenus", "scripting", "storage"],
+	"sidePanel": {
+		"default_path": "sidebar/index.html"
+	},
 	"version": "0.1.3"
 }

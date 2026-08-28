@@ -1,3 +1,8 @@
+import {
+	buildProgressiveRequestChunks,
+	buildProgressiveRequestConcurrency,
+	translateItemsProgressively,
+} from "../translation/progressive.js";
 import { getSelectionAnchor } from "./selection-anchor.js";
 import { createYoutubeCaptionPrefetch } from "./youtube-caption-prefetch.js";
 import {
@@ -6,26 +11,9 @@ import {
 } from "./youtube-caption-runtime.js";
 import { resolveYoutubeCaptionTracks } from "./youtube-caption-tracks.js";
 
-export function buildPageTranslationRequestChunks(Api, items, chunkPlan) {
-	const canGroupSubtitles =
-		items.length > 0 &&
-		items.every((item) => item.kind === "subtitle") &&
-		chunkPlan.expandedItems?.every((item) => item.partCount === 1);
-
-	return canGroupSubtitles
-		? Api.chunkTranslationItems(chunkPlan.expandedItems)
-		: chunkPlan.chunks;
-}
-
-export function buildPageTranslationRequestConcurrency(
-	items,
-	requestChunks,
-	maximum,
-) {
-	return items.length > 0 && items.every((item) => item.kind === "subtitle")
-		? 1
-		: Math.min(maximum, requestChunks.length || 1);
-}
+export const buildPageTranslationRequestChunks = buildProgressiveRequestChunks;
+export const buildPageTranslationRequestConcurrency =
+	buildProgressiveRequestConcurrency;
 
 export function createBackgroundController(options = {}) {
 	const {
@@ -36,6 +24,7 @@ export function createBackgroundController(options = {}) {
 		SiteProfiles,
 		TranslationSession,
 		logger,
+		openPdfTranslator,
 		platform,
 	} = options;
 	const {
@@ -52,6 +41,7 @@ export function createBackgroundController(options = {}) {
 		isDomainDisabled,
 		isSupportedPage,
 		isTabMessageDisconnectError,
+		loadSettingsOrOpenOptions,
 		renderPageTranslationUpdates,
 		sendToast,
 		sendYoutubeDiagnosticEvent,
@@ -64,16 +54,6 @@ export function createBackgroundController(options = {}) {
 	function createSelectionRequestId() {
 		selectionRequestSequence += 1;
 		return `selection-${Date.now()}-${selectionRequestSequence}`;
-	}
-	async function loadSettingsOrOpenOptions() {
-		const settings = await Settings.getSettings();
-
-		if (Settings.hasCompleteSettings(settings)) {
-			return settings;
-		}
-
-		await chrome.runtime.openOptionsPage();
-		throw new Error("Settings are incomplete. Configure the extension first.");
 	}
 
 	const pageTranslationQueue = TranslationSession.createPageTranslationQueue({
@@ -162,80 +142,63 @@ export function createBackgroundController(options = {}) {
 				);
 			}
 
-			const chunkPlan = Api.createRecursiveChunkPlan(batchItems);
-			const requestChunks = buildPageTranslationRequestChunks(
+			const progressiveResult = await translateItemsProgressively({
 				Api,
-				batchItems,
-				chunkPlan,
-			);
-			const mergeState = Api.createProgressiveMergeState(chunkPlan);
-			const progressiveResult = await Api.requestTranslationsBatchedProgressive(
-				{
-					settings: session.settings,
-					chunks: requestChunks,
-					concurrency: buildPageTranslationRequestConcurrency(
-						batchItems,
-						requestChunks,
-						PAGE_TRANSLATION_CONCURRENCY,
-					),
-					onChunkResolved: async ({ translations }) => {
-						const currentSession = getPageTranslationSession(
+				settings: session.settings,
+				items: batchItems,
+				maximumConcurrency: 1,
+				isCurrent: () =>
+					Boolean(getPageTranslationSession(tabId, sessionId, frameId)),
+				onTranslations: async (completedTranslations) => {
+					const currentSession = getPageTranslationSession(
+						tabId,
+						sessionId,
+						frameId,
+					);
+
+					if (!currentSession) {
+						return;
+					}
+
+					if (
+						completedTranslations.some(
+							(translation) => translation.kind === "subtitle",
+						)
+					) {
+						await sendYoutubeDiagnosticEvent(
 							tabId,
-							sessionId,
 							frameId,
+							"api-success",
+							`API returned ${completedTranslations.length} completed translation(s)`,
 						);
+					}
 
-						if (!currentSession) {
-							return;
-						}
+					pageTranslationQueue.markTranslated(
+						tabId,
+						sessionId,
+						completedTranslations.map((translation) => translation.id),
+						frameId,
+					);
 
-						const completedTranslations = Api.consumeProgressiveTranslations(
-							chunkPlan,
-							mergeState,
-							translations,
-						);
-
-						if (completedTranslations.length > 0) {
-							if (
-								completedTranslations.some(
-									(translation) => translation.kind === "subtitle",
-								)
-							) {
-								await sendYoutubeDiagnosticEvent(
-									tabId,
-									frameId,
-									"api-success",
-									`API returned ${completedTranslations.length} completed translation(s)`,
-								);
-							}
-
-							pageTranslationQueue.markTranslated(
-								tabId,
-								sessionId,
-								completedTranslations.map((translation) => translation.id),
-								frameId,
-							);
-
-							await renderPageTranslationUpdates(
-								tabId,
-								currentSession.settings.targetLanguage,
-								completedTranslations,
-								currentSession.settings,
-								frameId,
-							);
-							setBadge(
-								tabId,
-								String(pageTranslationQueue.getTranslatedCount(tabId)),
-							);
-						}
-					},
+					await renderPageTranslationUpdates(
+						tabId,
+						currentSession.settings.targetLanguage,
+						completedTranslations,
+						currentSession.settings,
+						frameId,
+					);
+					setBadge(
+						tabId,
+						String(pageTranslationQueue.getTranslatedCount(tabId)),
+					);
 				},
-			);
+			});
 
-			const incompleteSegmentIds = Api.getIncompleteSegmentIds(
-				chunkPlan,
-				mergeState,
-			);
+			if (progressiveResult.stale) {
+				return;
+			}
+
+			const { incompleteSegmentIds } = progressiveResult;
 
 			if (incompleteSegmentIds.length > 0) {
 				await clearPagePlaceholders(tabId, incompleteSegmentIds, frameId);
@@ -814,6 +777,23 @@ export function createBackgroundController(options = {}) {
 				...buildYoutubeSubtitlePayload(session.settings),
 				...buildDebugPayload(session.settings),
 			};
+		}
+
+		if (message.type === Messages.MESSAGE_TYPES.AUTOMATION_OPEN_PDF) {
+			if (!sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`)) {
+				return {
+					ok: false,
+					error: "Automation commands require an extension page.",
+				};
+			}
+			const tabs = await chrome.tabs.query({});
+			const tab = tabs.find((item) => item.url === message.payload?.pageUrl);
+			if (!tab?.id)
+				throw new Error("Could not resolve the PDF automation tab.");
+			if (typeof openPdfTranslator !== "function") {
+				throw new Error("PDF translation is unavailable.");
+			}
+			return { ok: true, ...(await openPdfTranslator(tab)) };
 		}
 
 		if (message.type === Messages.MESSAGE_TYPES.AUTOMATION_TRANSLATE_PAGE) {

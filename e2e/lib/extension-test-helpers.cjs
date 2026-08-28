@@ -127,6 +127,8 @@ function getContentType(filePath) {
 			return "text/css; charset=utf-8";
 		case ".json":
 			return "application/json; charset=utf-8";
+		case ".pdf":
+			return "application/pdf";
 		default:
 			return "application/octet-stream";
 	}
@@ -545,9 +547,12 @@ async function callBackground(context, operation, payload) {
 		return response?.ok ? [] : ["background"];
 	}
 
-	if (operation === "translatePage") {
+	if (operation === "translatePage" || operation === "openPdf") {
 		const response = await sendExtensionMessage(context, {
-			type: "automation-translate-page",
+			type:
+				operation === "openPdf"
+					? "automation-open-pdf"
+					: "automation-translate-page",
 			payload: { pageUrl: payload?.pageUrl },
 		});
 		return response;
