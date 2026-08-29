@@ -3,6 +3,8 @@ const DEFAULT_PROFILE_ID = "default";
 const ANTIREZ_PROSE_CONTAINER_SELECTOR = "article.comment > pre";
 const ANTIREZ_PROSE_TEXT_SELECTOR =
 	"article.comment > pre > [data-ot-prose-block]";
+const CARMINA_ARTICLE_ROOT_SELECTOR = "main #module-special-category-header";
+const CARMINA_ARTICLE_TEXT_SELECTOR = `${CARMINA_ARTICLE_ROOT_SELECTOR} .html-output`;
 const DISQUS_COMMENT_TEXT_SELECTOR = '[data-role="message"] p';
 const FINDY_ARTICLE_ROOT_SELECTOR = ".p-single__wrap";
 const SCHIIT_ARTICLE_ROOT_SELECTOR =
@@ -40,6 +42,17 @@ const SITE_PROFILES = Object.freeze([
 		]),
 		directNoteTargetSelectors: Object.freeze([ANTIREZ_PROSE_TEXT_SELECTOR]),
 		embeddedFramePatterns: Object.freeze(["https://disqus.com/*"]),
+		windowed: true,
+	}),
+	Object.freeze({
+		id: "carmina-article",
+		hosts: Object.freeze(["carminashoemaker.com", "www.carminashoemaker.com"]),
+		socialTextSelectors: Object.freeze([]),
+		proseTextSelectors: Object.freeze([CARMINA_ARTICLE_TEXT_SELECTOR]),
+		rootSelectors: Object.freeze([CARMINA_ARTICLE_ROOT_SELECTOR]),
+		splitProseContainerSelectors: Object.freeze([]),
+		directNoteTargetSelectors: Object.freeze([CARMINA_ARTICLE_TEXT_SELECTOR]),
+		embeddedFramePatterns: Object.freeze([]),
 		windowed: true,
 	}),
 	Object.freeze({
@@ -180,6 +193,8 @@ function getActiveSiteProfile(locationLike) {
 const api = {
 	ANTIREZ_PROSE_CONTAINER_SELECTOR,
 	ANTIREZ_PROSE_TEXT_SELECTOR,
+	CARMINA_ARTICLE_ROOT_SELECTOR,
+	CARMINA_ARTICLE_TEXT_SELECTOR,
 	DEFAULT_PROFILE_ID,
 	DISQUS_COMMENT_TEXT_SELECTOR,
 	DEFAULT_SITE_PROFILE,
@@ -206,6 +221,8 @@ export {
 	ANTIREZ_PROSE_TEXT_SELECTOR,
 	buildProfileSelectors,
 	buildSelector,
+	CARMINA_ARTICLE_ROOT_SELECTOR,
+	CARMINA_ARTICLE_TEXT_SELECTOR,
 	DEFAULT_PROFILE_ID,
 	DEFAULT_SITE_PROFILE,
 	DISQUS_COMMENT_TEXT_SELECTOR,

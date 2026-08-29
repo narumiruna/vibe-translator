@@ -3,6 +3,8 @@ import test from "node:test";
 import { createExtractionSelectorsForProfile } from "../src/content/extraction/rules.js";
 import {
 	buildProfileSelectors,
+	CARMINA_ARTICLE_ROOT_SELECTOR,
+	CARMINA_ARTICLE_TEXT_SELECTOR,
 	DISQUS_COMMENT_TEXT_SELECTOR,
 	FINDY_ARTICLE_ROOT_SELECTOR,
 	getActiveSiteProfile,
@@ -36,6 +38,8 @@ test("resolveSiteProfile matches exact built-in hosts", () => {
 		["mobile.twitter.com", "x"],
 		["threads.net", "threads"],
 		["disqus.com", "disqus"],
+		["carminashoemaker.com", "carmina-article"],
+		["www.carminashoemaker.com", "carmina-article"],
 		["findy.co.jp", "findy-article"],
 		["www.findy.co.jp", "findy-article"],
 		["schiit.com", "schiit-article"],
@@ -130,6 +134,22 @@ test("Disqus extraction targets comment text without discussion controls", () =>
 	assert.ok(
 		selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
 			DISQUS_COMMENT_TEXT_SELECTOR,
+		),
+	);
+});
+
+test("Carmina leather extraction targets the primary description", () => {
+	const profile = resolveSiteProfile("www.carminashoemaker.com");
+	const selectors = createExtractionSelectorsForProfile(profile);
+
+	assert.deepEqual(profile.rootSelectors, [CARMINA_ARTICLE_ROOT_SELECTOR]);
+	assert.equal(selectors.SITE_ROOT_SELECTOR, CARMINA_ARTICLE_ROOT_SELECTOR);
+	assert.ok(
+		selectors.READABLE_BLOCK_SELECTOR.includes(CARMINA_ARTICLE_TEXT_SELECTOR),
+	);
+	assert.ok(
+		selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
+			CARMINA_ARTICLE_TEXT_SELECTOR,
 		),
 	);
 });

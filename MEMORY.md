@@ -38,6 +38,7 @@
 - Symptom: translating a page immediately after `DOMContentLoaded` fails with `Receiving end does not exist`. Cause: Extension.js programmatic injection resolves before its generated `document_idle` wrapper mounts the content listener. Fix: poll the content-script ping after injection until the generated bundle reports ready.
 - Symptom: Findy news pages report already-translated offscreen content but render no notes. Cause: generic root scoring can select a related-news `article` card instead of the `.p-single__wrap` news body. Fix: keep the Findy profile rooted at `.p-single__wrap`.
 - Symptom: an inline translation appears beside, above, or outside its source in a CSS Grid article. Cause: a sibling note is independently auto-placed, and copied grid coordinates fail for auto placement, explicit rows, and responsive layouts. Fix: append a block-styled `span` note inside the source grid item so both share one responsive grid placement.
+- Symptom: Carmina leather pages translate only the hero heading and place its note over the banner. Cause: the primary description is a `div.html-output`, while the semantic heading prevents fallback extraction. Fix: root the Carmina profile at `#module-special-category-header` and target its `.html-output` directly.
 
 ## TASTE
 - Selection translation UI should default to a compact tooltip-sized card; long content can expand, but the default should prefer density over empty space.
