@@ -44,7 +44,7 @@ global.chrome = {
 	},
 };
 
-import { createExtractionSelectorsForProfile } from "../src/content/extraction/rules.js";
+import { createContentRulesForProfile } from "../src/content/extraction/rules.js";
 import {
 	ANTIREZ_PROSE_CONTAINER_SELECTOR,
 	ANTIREZ_PROSE_TEXT_SELECTOR,
@@ -60,8 +60,8 @@ const contentTestApi = createContentRuntime({ mount: false }).__TEST__;
 
 const {
 	ARTICLE_CONTENT_SELECTOR,
+	EXPLICIT_TEXT_BLOCK_SELECTOR,
 	READABLE_BLOCK_SELECTOR,
-	SOCIAL_TEXT_BLOCK_SELECTOR,
 	_createExtractionDebugState,
 	_finalizeExtractionDebug,
 	_getDebugProfileLabel,
@@ -85,6 +85,10 @@ const {
 	scoreCandidateBlock,
 	scoreTranslationRoot,
 } = contentTestApi;
+
+function createExtractionSelectorsForProfile(profile) {
+	return createContentRulesForProfile(profile).selectors;
+}
 
 function splitSelector(selector) {
 	return String(selector)
@@ -496,7 +500,7 @@ test("plain heading blocks keep a positive heading bonus", () => {
 	);
 });
 
-test("default readable selectors exclude site profile social text selectors", () => {
+test("default readable selectors exclude site-specific text blocks", () => {
 	assert.equal(READABLE_BLOCK_SELECTOR.includes(X_TWEET_TEXT_SELECTOR), false);
 	assert.equal(
 		READABLE_BLOCK_SELECTOR.includes(X_CURRENT_POST_TEXT_SELECTOR),
@@ -506,7 +510,90 @@ test("default readable selectors exclude site profile social text selectors", ()
 		READABLE_BLOCK_SELECTOR.includes(THREADS_TEXT_BLOCK_SELECTOR),
 		false,
 	);
-	assert.equal(SOCIAL_TEXT_BLOCK_SELECTOR, ":not(*)");
+	assert.equal(EXPLICIT_TEXT_BLOCK_SELECTOR, ":not(*)");
+});
+
+test("generic content rules derive readable and direct note selectors", () => {
+	const rules = createContentRulesForProfile({
+		rootSelectors: [".article-shell"],
+		textBlockSelectors: [".article-copy"],
+		splitContainerSelectors: ["pre.article-copy"],
+	});
+	const selectors = rules.selectors;
+	const articleCopy = createFakeElement({
+		matchedSelectors: [".article-copy"],
+		tagName: "DIV",
+	});
+
+	assert.equal(selectors.SITE_ROOT_SELECTOR, ".article-shell");
+	assert.equal(selectors.EXPLICIT_TEXT_BLOCK_SELECTOR, ".article-copy");
+	assert.ok(selectors.READABLE_BLOCK_SELECTOR.includes(".article-copy"));
+	assert.ok(selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(".article-copy"));
+	assert.equal(selectors.SPLIT_CONTAINER_SELECTOR, "pre.article-copy");
+	assert.ok(
+		scoreCandidateBlock(articleCopy, "Short non-semantic article text", {
+			explicitTextBlockSelector: selectors.EXPLICIT_TEXT_BLOCK_SELECTOR,
+		}) >= 40,
+	);
+	assert.equal(_isSafeNoteInsertionTarget(articleCopy, selectors), true);
+});
+
+test("generic content rules describe dynamic and embedded text blocks", () => {
+	const dynamicRules = createContentRulesForProfile({
+		allowAncestorTransforms: true,
+		dynamic: true,
+		textBlockSelectors: [".feed-text"],
+	});
+	const commentRules = createContentRulesForProfile({
+		embeddedFramePatterns: ["https://comments.example/*"],
+		rootSelectors: ["#comments"],
+		textBlockSelectors: [".comment-body"],
+		windowed: false,
+	});
+
+	assert.equal(dynamicRules.dynamic, true);
+	assert.equal(dynamicRules.allowAncestorTransforms, true);
+	assert.ok(
+		dynamicRules.selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(".feed-text"),
+	);
+	assert.deepEqual(commentRules.embeddedFramePatterns, [
+		"https://comments.example/*",
+	]);
+	assert.equal(commentRules.windowed, false);
+	assert.equal(commentRules.selectors.SITE_ROOT_SELECTOR, "#comments");
+	assert.ok(
+		commentRules.selectors.READABLE_BLOCK_SELECTOR.includes(".comment-body"),
+	);
+	assert.ok(
+		commentRules.selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
+			".comment-body",
+		),
+	);
+});
+
+test("generic content rules support safe empty and direct-target overrides", () => {
+	const emptyRules = createContentRulesForProfile({});
+	const overrideRules = createContentRulesForProfile({
+		directNoteTargetSelectors: [".translation-anchor"],
+		textBlockSelectors: [".source-copy"],
+	});
+
+	assert.equal(emptyRules.selectors.EXPLICIT_TEXT_BLOCK_SELECTOR, ":not(*)");
+	assert.equal(emptyRules.selectors.SITE_ROOT_SELECTOR, ":not(*)");
+	assert.ok(
+		overrideRules.selectors.READABLE_BLOCK_SELECTOR.includes(".source-copy"),
+	);
+	assert.equal(
+		overrideRules.selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
+			".source-copy",
+		),
+		false,
+	);
+	assert.ok(
+		overrideRules.selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
+			".translation-anchor",
+		),
+	);
 });
 
 test("Antirez preformatted article paragraphs are readable direct note targets", () => {
@@ -525,13 +612,13 @@ test("Antirez preformatted article paragraphs are readable direct note targets",
 		),
 	);
 	assert.ok(
-		antirezSelectors.PROSE_TEXT_BLOCK_SELECTOR.includes(
+		antirezSelectors.EXPLICIT_TEXT_BLOCK_SELECTOR.includes(
 			ANTIREZ_PROSE_TEXT_SELECTOR,
 		),
 	);
 	assert.equal(antirezSelectors.SITE_ROOT_SELECTOR, "#content");
 	assert.ok(
-		antirezSelectors.SPLIT_PROSE_CONTAINER_SELECTOR.includes(
+		antirezSelectors.SPLIT_CONTAINER_SELECTOR.includes(
 			ANTIREZ_PROSE_CONTAINER_SELECTOR,
 		),
 	);
@@ -545,7 +632,7 @@ test("explicit prose text blocks receive enough score for short FAQ questions", 
 
 	assert.ok(
 		scoreCandidateBlock(question, "How do I return something?", {
-			proseTextSelector: SCHIIT_ARTICLE_TEXT_SELECTOR,
+			explicitTextBlockSelector: SCHIIT_ARTICLE_TEXT_SELECTOR,
 		}) >= 40,
 	);
 });
@@ -567,7 +654,7 @@ test("X tweet text blocks are readable direct note targets", () => {
 
 	assert.ok(
 		scoreCandidateBlock(tweetText, "Short status", {
-			socialTextSelector: xSelectors.SOCIAL_TEXT_BLOCK_SELECTOR,
+			explicitTextBlockSelector: xSelectors.EXPLICIT_TEXT_BLOCK_SELECTOR,
 		}) >= 40,
 	);
 });
@@ -586,7 +673,7 @@ test("current X post text blocks are readable direct note targets", () => {
 		),
 	);
 	assert.ok(
-		xSelectors.SOCIAL_TEXT_BLOCK_SELECTOR.includes(
+		xSelectors.EXPLICIT_TEXT_BLOCK_SELECTOR.includes(
 			X_CURRENT_POST_TEXT_SELECTOR,
 		),
 	);
@@ -600,7 +687,9 @@ test("current X post text blocks are readable direct note targets", () => {
 		scoreCandidateBlock(
 			tweetText,
 			"Btw anybody with some Mistral insider info is understanding WTF the company is doing?",
-			{ socialTextSelector: xSelectors.SOCIAL_TEXT_BLOCK_SELECTOR },
+			{
+				explicitTextBlockSelector: xSelectors.EXPLICIT_TEXT_BLOCK_SELECTOR,
+			},
 		) >= 40,
 	);
 });
@@ -621,7 +710,7 @@ test("Threads language text blocks are readable direct note targets", () => {
 		),
 	);
 	assert.ok(
-		threadsSelectors.SOCIAL_TEXT_BLOCK_SELECTOR.includes(
+		threadsSelectors.EXPLICIT_TEXT_BLOCK_SELECTOR.includes(
 			THREADS_TEXT_BLOCK_SELECTOR,
 		),
 	);
@@ -635,7 +724,7 @@ test("Threads language text blocks are readable direct note targets", () => {
 
 	assert.ok(
 		scoreCandidateBlock(threadText, "佳子様、しっかり見えますね", {
-			socialTextSelector: threadsSelectors.SOCIAL_TEXT_BLOCK_SELECTOR,
+			explicitTextBlockSelector: threadsSelectors.EXPLICIT_TEXT_BLOCK_SELECTOR,
 		}) >= 40,
 	);
 });
@@ -669,10 +758,9 @@ test("scroll listener captures nested scrolling containers", () => {
 	});
 });
 
-test("X virtualized feed transforms do not block tweet note insertion", () => {
-	const xSelectors = createExtractionSelectorsForProfile(
-		resolveSiteProfile("x.com"),
-	);
+test("declared layout capability allows only ancestor transforms", () => {
+	const xRules = createContentRulesForProfile(resolveSiteProfile("x.com"));
+	const xSelectors = xRules.selectors;
 	const body = {};
 	const parent = {
 		computedStyle: {
@@ -709,9 +797,23 @@ test("X virtualized feed transforms do not block tweet note insertion", () => {
 	assert.equal(
 		_isSafeNoteInsertionTarget(tweetText, {
 			...xSelectors,
-			SITE_PROFILE_ID: "x",
+			allowAncestorTransforms: xRules.allowAncestorTransforms,
 		}),
 		true,
+	);
+
+	tweetText.computedStyle = {
+		backdropFilter: "none",
+		filter: "none",
+		mixBlendMode: "normal",
+		transform: "matrix(1, 0, 0, 1, 0, 12)",
+	};
+	assert.equal(
+		_isSafeNoteInsertionTarget(tweetText, {
+			...xSelectors,
+			allowAncestorTransforms: xRules.allowAncestorTransforms,
+		}),
+		false,
 	);
 });
 

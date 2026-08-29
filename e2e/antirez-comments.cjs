@@ -16,7 +16,8 @@ const {
 const TARGET_URL = "https://antirez.com/news/169";
 const DISQUS_FRAME_PREFIX = "https://disqus.com/embed/comments/";
 const COMMENT_SELECTOR = '[data-role="message"] > div > p:not([data-ot-role])';
-const READY_COMMENT_NOTE_SELECTOR = `${COMMENT_SELECTOR} + [data-ot-role="note"][data-phase="ready"]`;
+const ELIGIBLE_COMMENT_SELECTOR = `${COMMENT_SELECTOR}[data-ot-source-id]`;
+const READY_COMMENT_NOTE_SELECTOR = `${ELIGIBLE_COMMENT_SELECTOR} + [data-ot-role="note"][data-phase="ready"]`;
 
 async function main() {
 	const config = getConfig();
@@ -73,7 +74,9 @@ async function main() {
 
 		const analysis = await waitFor(
 			async () => {
-				const sourceCount = await disqusFrame.locator(COMMENT_SELECTOR).count();
+				const sourceCount = await disqusFrame
+					.locator(ELIGIBLE_COMMENT_SELECTOR)
+					.count();
 				const readyCount = await disqusFrame
 					.locator(READY_COMMENT_NOTE_SELECTOR)
 					.count();

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createExtractionSelectorsForProfile } from "../src/content/extraction/rules.js";
+import { createContentRulesForProfile } from "../src/content/extraction/rules.js";
 import {
+	ANTIREZ_PROSE_CONTAINER_SELECTOR,
+	ANTIREZ_PROSE_TEXT_SELECTOR,
 	buildProfileSelectors,
 	CARMINA_ARTICLE_ROOT_SELECTOR,
 	CARMINA_ARTICLE_TEXT_SELECTOR,
@@ -19,6 +21,10 @@ import {
 	YOUTUBE_CAPTION_ROOT_SELECTOR,
 	YOUTUBE_CAPTION_TEXT_SELECTOR,
 } from "../src/content/extraction/site-profiles.js";
+
+function createExtractionSelectorsForProfile(profile) {
+	return createContentRulesForProfile(profile).selectors;
+}
 
 test("normalizeHostname lowercases and strips trailing dots", () => {
 	assert.equal(normalizeHostname(" WWW.X.COM. "), "www.x.com");
@@ -76,7 +82,7 @@ test("default extraction selectors exclude site-only social selectors", () => {
 		resolveSiteProfile("example.com"),
 	);
 
-	assert.equal(selectors.SOCIAL_TEXT_BLOCK_SELECTOR, SAFE_EMPTY_SELECTOR);
+	assert.equal(selectors.EXPLICIT_TEXT_BLOCK_SELECTOR, SAFE_EMPTY_SELECTOR);
 	assert.equal(
 		selectors.READABLE_BLOCK_SELECTOR.includes(X_TWEET_TEXT_SELECTOR),
 		false,
@@ -91,14 +97,123 @@ test("default extraction selectors exclude site-only social selectors", () => {
 	);
 });
 
+test("site profiles compile into generic content capabilities", () => {
+	const cases = [
+		{
+			host: "antirez.com",
+			root: "#content",
+			text: ANTIREZ_PROSE_TEXT_SELECTOR,
+			split: ANTIREZ_PROSE_CONTAINER_SELECTOR,
+			frames: ["https://disqus.com/*"],
+		},
+		{
+			host: "carminashoemaker.com",
+			root: CARMINA_ARTICLE_ROOT_SELECTOR,
+			text: CARMINA_ARTICLE_TEXT_SELECTOR,
+		},
+		{
+			host: "findy.co.jp",
+			root: FINDY_ARTICLE_ROOT_SELECTOR,
+		},
+		{
+			host: "schiit.com",
+			root: SCHIIT_ARTICLE_ROOT_SELECTOR,
+			text: SCHIIT_ARTICLE_TEXT_SELECTOR,
+		},
+		{
+			host: "x.com",
+			root: '[data-testid="primaryColumn"]',
+			text: X_TWEET_TEXT_SELECTOR,
+			allowAncestorTransforms: true,
+		},
+		{
+			host: "threads.net",
+			text: THREADS_TEXT_BLOCK_SELECTOR,
+		},
+		{
+			host: "disqus.com",
+			root: "#posts",
+			text: DISQUS_COMMENT_TEXT_SELECTOR,
+			windowed: false,
+		},
+	];
+
+	for (const expected of cases) {
+		const profile = resolveSiteProfile(expected.host);
+		const rules = createContentRulesForProfile(profile);
+		const selectors = rules.selectors;
+
+		assert.equal(
+			selectors.SITE_ROOT_SELECTOR.includes(expected.root || "missing-root"),
+			Boolean(expected.root),
+			expected.host,
+		);
+		assert.equal(
+			selectors.EXPLICIT_TEXT_BLOCK_SELECTOR.includes(
+				expected.text || "missing-text",
+			),
+			Boolean(expected.text),
+			expected.host,
+		);
+		assert.equal(
+			selectors.DIRECT_NOTE_TARGET_SELECTOR.includes(
+				expected.text || "missing-text",
+			),
+			Boolean(expected.text),
+			expected.host,
+		);
+		assert.equal(
+			selectors.SPLIT_CONTAINER_SELECTOR.includes(
+				expected.split || "missing-split",
+			),
+			Boolean(expected.split),
+			expected.host,
+		);
+		assert.deepEqual(rules.embeddedFramePatterns, expected.frames || []);
+		assert.equal(rules.windowed, expected.windowed !== false);
+		assert.equal(
+			rules.allowAncestorTransforms,
+			expected.allowAncestorTransforms === true,
+		);
+	}
+});
+
+test("site text selectors default to direct note targets without duplication", () => {
+	for (const hostname of [
+		"antirez.com",
+		"carminashoemaker.com",
+		"schiit.com",
+		"x.com",
+		"threads.net",
+		"disqus.com",
+	]) {
+		const profile = resolveSiteProfile(hostname);
+
+		assert.equal(
+			Object.hasOwn(profile, "directNoteTargetSelectors"),
+			false,
+			hostname,
+		);
+		assert.ok(profile.textBlockSelectors.length > 0, hostname);
+	}
+
+	const findyProfile = resolveSiteProfile("findy.co.jp");
+	assert.deepEqual(Object.keys(findyProfile).sort(), [
+		"hosts",
+		"id",
+		"rootSelectors",
+	]);
+});
+
 test("YouTube extraction is restricted to persistent native caption text", () => {
 	const profile = resolveSiteProfile("www.youtube.com");
-	const selectors = createExtractionSelectorsForProfile(profile);
+	const rules = createContentRulesForProfile(profile);
+	const selectors = rules.selectors;
 
-	assert.equal(profile.dynamic, true);
-	assert.equal(profile.presentation, "subtitle");
-	assert.equal(profile.requireRoot, true);
-	assert.equal(profile.windowed, false);
+	assert.equal(rules.dynamic, true);
+	assert.equal(rules.presentation, "subtitle");
+	assert.equal(rules.requireRoot, true);
+	assert.equal(rules.windowed, false);
 	assert.deepEqual(profile.rootSelectors, [YOUTUBE_CAPTION_ROOT_SELECTOR]);
 	assert.equal(selectors.SITE_ROOT_SELECTOR, YOUTUBE_CAPTION_ROOT_SELECTOR);
 	assert.equal(

@@ -2,7 +2,7 @@ export function createPageProfile(options = {}) {
 	const {
 		document,
 		Node,
-		activeSiteProfile,
+		contentRules,
 		detectContentMode,
 		isInsideTranslation,
 		mainContentSelector,
@@ -11,11 +11,12 @@ export function createPageProfile(options = {}) {
 		proseSplitAttr,
 		scoreTranslationRoot,
 		semanticBlockSelector,
-		siteRootSelector,
-		siteProfileWindowed,
-		splitProseContainerSelector,
 		rootAttr,
 	} = options;
+	const siteRootSelector =
+		contentRules?.selectors?.SITE_ROOT_SELECTOR || ":not(*)";
+	const splitContainerSelector =
+		contentRules?.selectors?.SPLIT_CONTAINER_SELECTOR || ":not(*)";
 
 	function getRootCandidates() {
 		const candidates = new Set();
@@ -43,7 +44,7 @@ export function createPageProfile(options = {}) {
 		});
 	}
 
-	function splitProseContainer(container) {
+	function splitContainer(container) {
 		if (!container || container.hasAttribute(proseSplitAttr)) {
 			return;
 		}
@@ -92,17 +93,15 @@ export function createPageProfile(options = {}) {
 		container.setAttribute(proseSplitAttr, "true");
 	}
 
-	function prepareSplitProseContainers() {
-		for (const container of document.querySelectorAll(
-			splitProseContainerSelector,
-		)) {
-			splitProseContainer(container);
+	function prepareSplitContainers() {
+		for (const container of document.querySelectorAll(splitContainerSelector)) {
+			splitContainer(container);
 		}
 	}
 
 	function getTranslationProfile() {
 		const siteRoot = document.querySelector(siteRootSelector);
-		const requireSiteRoot = activeSiteProfile?.requireRoot === true;
+		const requireSiteRoot = contentRules?.requireRoot === true;
 		const candidates = siteRoot || requireSiteRoot ? [] : getRootCandidates();
 		let root = siteRoot || (requireSiteRoot ? null : document.body);
 		let bestScore = Number.NEGATIVE_INFINITY;
@@ -140,16 +139,16 @@ export function createPageProfile(options = {}) {
 			root,
 			mode,
 			allowFallback: semanticCount > 0,
-			windowed: siteProfileWindowed && mode !== "directory",
+			windowed: contentRules?.windowed !== false && mode !== "directory",
 		};
 	}
 
 	return {
 		getTranslationProfile,
 		isTranslatorOwned,
-		prepareSplitProseContainers,
+		prepareSplitContainers,
 		scoreTranslationRoot: scoreRoot,
-		splitProseContainer,
+		splitContainer,
 	};
 }
 

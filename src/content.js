@@ -35,22 +35,21 @@ export function createContentRuntime(options = {}) {
 		passive: true,
 	});
 	const {
+		ACTIVE_CONTENT_RULES,
 		ACTIVE_SITE_PROFILE,
 		ARTICLE_CONTENT_SELECTOR,
 		DIRECT_NOTE_TARGET_SELECTOR,
+		EXPLICIT_TEXT_BLOCK_SELECTOR,
 		HEADING_SELECTOR,
 		INLINE_CODE_SELECTOR,
 		MAIN_CONTENT_SELECTOR,
 		MATH_SELECTOR,
-		PROSE_TEXT_BLOCK_SELECTOR,
 		READABLE_BLOCK_SELECTOR,
 		SEMANTIC_BLOCK_SELECTOR,
 		SITE_PROFILE_ID,
-		SITE_PROFILE_WINDOWED,
 		SITE_ROOT_SELECTOR,
 		SKIP_ANCESTOR_SELECTOR,
-		SPLIT_PROSE_CONTAINER_SELECTOR,
-		SOCIAL_TEXT_BLOCK_SELECTOR,
+		SPLIT_CONTAINER_SELECTOR,
 		TERMINAL_LIKE_SELECTOR,
 		TITLE_LIKE_SELECTOR,
 		UNSUPPORTED_ANCESTOR_SELECTOR,
@@ -206,12 +205,12 @@ export function createContentRuntime(options = {}) {
 	const {
 		getTranslationProfile,
 		isTranslatorOwned,
-		prepareSplitProseContainers,
+		prepareSplitContainers,
 		scoreTranslationRoot,
-		splitProseContainer,
+		splitContainer,
 	} = createPageProfile({
 		Node,
-		activeSiteProfile: ACTIVE_SITE_PROFILE,
+		contentRules: ACTIVE_CONTENT_RULES,
 		detectContentMode,
 		document,
 		isInsideTranslation,
@@ -222,9 +221,6 @@ export function createContentRuntime(options = {}) {
 		rootAttr: ROOT_ATTR,
 		scoreTranslationRoot: ExtractionApi.scoreTranslationRoot,
 		semanticBlockSelector: SEMANTIC_BLOCK_SELECTOR,
-		siteProfileWindowed: SITE_PROFILE_WINDOWED,
-		siteRootSelector: SITE_ROOT_SELECTOR,
-		splitProseContainerSelector: SPLIT_PROSE_CONTAINER_SELECTOR,
 	});
 
 	function activatePageTranslationSession(sessionId) {
@@ -266,8 +262,7 @@ export function createContentRuntime(options = {}) {
 		mathSelector: MATH_SELECTOR,
 		skipAncestorSelector: SKIP_ANCESTOR_SELECTOR,
 		inlineCodeSelector: INLINE_CODE_SELECTOR,
-		proseTextBlockSelector: PROSE_TEXT_BLOCK_SELECTOR,
-		readableBlockSelector: READABLE_BLOCK_SELECTOR,
+		contentRules: ACTIVE_CONTENT_RULES,
 		terminalLikeSelector: TERMINAL_LIKE_SELECTOR,
 		ExtractionApi,
 		SubtitleApi,
@@ -561,7 +556,7 @@ export function createContentRuntime(options = {}) {
 	}
 
 	function collectPageItems(options) {
-		prepareSplitProseContainers();
+		prepareSplitContainers();
 		ensureStyles();
 		ensureObserver();
 
@@ -577,7 +572,7 @@ export function createContentRuntime(options = {}) {
 				items: semantic.items,
 				totalSegments: semantic.totalSegments,
 				pendingSegments: semantic.items.length,
-				keepAlive: SubtitleApi.shouldKeepSessionAlive(ACTIVE_SITE_PROFILE),
+				keepAlive: SubtitleApi.shouldKeepSessionAlive(ACTIVE_CONTENT_RULES),
 				profileId: SITE_PROFILE_ID,
 				debug: finalizeExtractionDebug(debugState),
 			};
@@ -589,7 +584,7 @@ export function createContentRuntime(options = {}) {
 			items: fallback.items,
 			totalSegments: fallback.totalSegments,
 			pendingSegments: fallback.items.length,
-			keepAlive: SubtitleApi.shouldKeepSessionAlive(ACTIVE_SITE_PROFILE),
+			keepAlive: SubtitleApi.shouldKeepSessionAlive(ACTIVE_CONTENT_RULES),
 			profileId: SITE_PROFILE_ID,
 			debug: finalizeExtractionDebug(debugState),
 		};
@@ -757,6 +752,7 @@ export function createContentRuntime(options = {}) {
 		pageState,
 		activeSiteProfile: ACTIVE_SITE_PROFILE,
 		siteProfileId: SITE_PROFILE_ID,
+		allowAncestorTransforms: ACTIVE_CONTENT_RULES.allowAncestorTransforms,
 		sourceAttr: SOURCE_ATTR,
 		noteAttr: NOTE_ATTR,
 		staleAttr: STALE_ATTR,
@@ -959,10 +955,10 @@ export function createContentRuntime(options = {}) {
 			detectContentMode,
 			ARTICLE_CONTENT_SELECTOR,
 			DIRECT_NOTE_TARGET_SELECTOR,
+			EXPLICIT_TEXT_BLOCK_SELECTOR,
 			HEADING_SELECTOR,
-			PROSE_TEXT_BLOCK_SELECTOR,
 			READABLE_BLOCK_SELECTOR,
-			SOCIAL_TEXT_BLOCK_SELECTOR,
+			SPLIT_CONTAINER_SELECTOR,
 			TITLE_LIKE_SELECTOR,
 			UNSUPPORTED_ANCESTOR_SELECTOR,
 			UNSUPPORTED_ELEMENT_SELECTOR,
@@ -980,7 +976,7 @@ export function createContentRuntime(options = {}) {
 			_resetSourceTextSnapshotsForTest: resetSourceTextSnapshotsForTest,
 			_SCROLL_LISTENER_OPTIONS: SCROLL_LISTENER_OPTIONS,
 			_shouldAppendNoteInsideTarget: shouldAppendNoteInsideTarget,
-			_splitProseContainer: splitProseContainer,
+			_splitContainer: splitContainer,
 			getSegmentContent,
 			isHeadingLikeElement,
 			isInsideTranslation,

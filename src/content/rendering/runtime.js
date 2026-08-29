@@ -6,6 +6,7 @@ export function createContentRenderer(options = {}) {
 		pageState,
 		activeSiteProfile: ACTIVE_SITE_PROFILE,
 		siteProfileId: SITE_PROFILE_ID,
+		allowAncestorTransforms: ALLOW_ANCESTOR_TRANSFORMS,
 		sourceAttr: SOURCE_ATTR,
 		noteAttr: NOTE_ATTR,
 		staleAttr: STALE_ATTR,
@@ -237,7 +238,10 @@ export function createContentRenderer(options = {}) {
 			selectors.READABLE_BLOCK_SELECTOR || READABLE_BLOCK_SELECTOR;
 		const directNoteTargetSelector =
 			selectors.DIRECT_NOTE_TARGET_SELECTOR || DIRECT_NOTE_TARGET_SELECTOR;
-		const siteProfileId = selectors.SITE_PROFILE_ID || SITE_PROFILE_ID;
+		const allowAncestorTransforms =
+			typeof selectors.allowAncestorTransforms === "boolean"
+				? selectors.allowAncestorTransforms
+				: ALLOW_ANCESTOR_TRANSFORMS;
 		let current = element;
 
 		while (current && current !== document.body) {
@@ -250,7 +254,7 @@ export function createContentRenderer(options = {}) {
 				!hasUnsafeLayoutContext(current, {
 					allowAncestorTransforms:
 						isDirectNoteTarget &&
-						(siteProfileId === "x" ||
+						(allowAncestorTransforms ||
 							SubtitleApi.shouldAllowAncestorTransforms(ACTIVE_SITE_PROFILE)),
 				})
 			) {

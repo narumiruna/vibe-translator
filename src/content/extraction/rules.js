@@ -20,15 +20,13 @@ const ACTIVE_SITE_PROFILE = SiteProfiles?.getActiveSiteProfile?.(
 	globalThis.location,
 ) || {
 	id: "default",
-	directNoteTargetSelectors: [],
-	proseTextSelectors: [],
+	textBlockSelectors: [],
 	rootSelectors: [],
-	socialTextSelectors: [],
-	splitProseContainerSelectors: [],
+	splitContainerSelectors: [],
+	embeddedFramePatterns: [],
 	windowed: true,
 };
 const SITE_PROFILE_ID = ACTIVE_SITE_PROFILE.id || "default";
-const SITE_PROFILE_WINDOWED = ACTIVE_SITE_PROFILE.windowed !== false;
 
 const ARTICLE_CONTENT_SELECTOR = [
 	"article",
@@ -78,62 +76,73 @@ const SUMMARY_BLOCK_SELECTOR = [
 	".description",
 	".p-novel__summary",
 ].join(", ");
-const DEFAULT_SOCIAL_TEXT_BLOCK_SELECTORS = [];
 const DIRECTORY_SECTION_TITLE_SELECTOR = ".p-eplist__chapter-title";
 const READABLE_LINK_SELECTOR = ".p-eplist__subtitle";
 
-function createExtractionSelectorsForProfile(profile = ACTIVE_SITE_PROFILE) {
-	const socialTextSelector = buildProfileSelectors(
-		DEFAULT_SOCIAL_TEXT_BLOCK_SELECTORS,
-		profile?.socialTextSelectors || [],
+function createContentRulesForProfile(profile = ACTIVE_SITE_PROFILE) {
+	const textBlockSelectors = profile?.textBlockSelectors || [];
+	const hasDirectNoteOverride = Object.hasOwn(
+		profile || {},
+		"directNoteTargetSelectors",
 	);
-	const proseTextSelector = buildProfileSelectors(
+	const directNoteTargetSelectors = hasDirectNoteOverride
+		? profile.directNoteTargetSelectors
+		: textBlockSelectors;
+	const explicitTextBlockSelector = buildProfileSelectors(
 		[],
-		profile?.proseTextSelectors || [],
+		textBlockSelectors,
+	);
+	const directNoteProfileSelector = buildProfileSelectors(
+		[],
+		directNoteTargetSelectors,
 	);
 	const siteRootSelector = buildProfileSelectors(
 		[],
 		profile?.rootSelectors || [],
 	);
-	const splitProseContainerSelector = buildProfileSelectors(
+	const splitContainerSelector = buildProfileSelectors(
 		[],
-		profile?.splitProseContainerSelectors || [],
-	);
-	const directNoteProfileSelector = buildProfileSelectors(
-		[],
-		profile?.directNoteTargetSelectors || [],
+		profile?.splitContainerSelectors || [],
 	);
 
 	return {
-		DIRECT_NOTE_TARGET_SELECTOR: [
-			SUMMARY_BLOCK_SELECTOR,
-			directNoteProfileSelector,
-			DIRECTORY_SECTION_TITLE_SELECTOR,
-		].join(", "),
-		READABLE_BLOCK_SELECTOR: [
-			SEMANTIC_BLOCK_SELECTOR,
-			HEADING_SELECTOR,
-			SUMMARY_BLOCK_SELECTOR,
-			socialTextSelector,
-			proseTextSelector,
-			DIRECTORY_SECTION_TITLE_SELECTOR,
-			READABLE_LINK_SELECTOR,
-		].join(", "),
-		PROSE_TEXT_BLOCK_SELECTOR: proseTextSelector,
-		SITE_ROOT_SELECTOR: siteRootSelector,
-		SOCIAL_TEXT_BLOCK_SELECTOR: socialTextSelector,
-		SPLIT_PROSE_CONTAINER_SELECTOR: splitProseContainerSelector,
+		allowAncestorTransforms: profile?.allowAncestorTransforms === true,
+		dynamic: profile?.dynamic === true,
+		embeddedFramePatterns: Array.isArray(profile?.embeddedFramePatterns)
+			? [...profile.embeddedFramePatterns]
+			: [],
+		presentation: profile?.presentation || "inline",
+		requireRoot: profile?.requireRoot === true,
+		windowed: profile?.windowed !== false,
+		selectors: {
+			DIRECT_NOTE_TARGET_SELECTOR: [
+				SUMMARY_BLOCK_SELECTOR,
+				directNoteProfileSelector,
+				DIRECTORY_SECTION_TITLE_SELECTOR,
+			].join(", "),
+			EXPLICIT_TEXT_BLOCK_SELECTOR: explicitTextBlockSelector,
+			READABLE_BLOCK_SELECTOR: [
+				SEMANTIC_BLOCK_SELECTOR,
+				HEADING_SELECTOR,
+				SUMMARY_BLOCK_SELECTOR,
+				explicitTextBlockSelector,
+				DIRECTORY_SECTION_TITLE_SELECTOR,
+				READABLE_LINK_SELECTOR,
+			].join(", "),
+			SITE_ROOT_SELECTOR: siteRootSelector,
+			SPLIT_CONTAINER_SELECTOR: splitContainerSelector,
+		},
 	};
 }
 
+const ACTIVE_CONTENT_RULES = createContentRulesForProfile(ACTIVE_SITE_PROFILE);
 const {
 	DIRECT_NOTE_TARGET_SELECTOR,
-	PROSE_TEXT_BLOCK_SELECTOR,
+	EXPLICIT_TEXT_BLOCK_SELECTOR,
 	READABLE_BLOCK_SELECTOR,
 	SITE_ROOT_SELECTOR,
-	SOCIAL_TEXT_BLOCK_SELECTOR,
-	SPLIT_PROSE_CONTAINER_SELECTOR,
-} = createExtractionSelectorsForProfile(ACTIVE_SITE_PROFILE);
+	SPLIT_CONTAINER_SELECTOR,
+} = ACTIVE_CONTENT_RULES.selectors;
 const DIRECT_BLOCK_CHILD_SELECTOR = [
 	"article",
 	"aside",
@@ -391,10 +400,8 @@ function isLikelyUiMetaBlock(element, text) {
 }
 
 function scoreCandidateBlock(element, text, options = {}) {
-	const socialTextSelector =
-		options.socialTextSelector || SOCIAL_TEXT_BLOCK_SELECTOR;
-	const proseTextSelector =
-		options.proseTextSelector || PROSE_TEXT_BLOCK_SELECTOR;
+	const explicitTextBlockSelector =
+		options.explicitTextBlockSelector || EXPLICIT_TEXT_BLOCK_SELECTOR;
 	const textLength = text.length;
 	const linkCount = element.querySelectorAll("a").length;
 	const interactiveCount =
@@ -403,14 +410,12 @@ function scoreCandidateBlock(element, text, options = {}) {
 	const linkDensity = getElementLinkDensity(element, textLength);
 	const isHeading = isHeadingLikeElement(element);
 	const isTitleLink = isReadableTitleLink(element);
-	const isSocialTextBlock = element.matches(socialTextSelector);
-	const isProseTextBlock = element.matches(proseTextSelector);
+	const isExplicitTextBlock = element.matches(explicitTextBlockSelector);
 	const base = Math.min(320, textLength);
 	const semanticBonus = element.matches(SEMANTIC_BLOCK_SELECTOR) ? 60 : 0;
 	const headingBonus = isHeading ? 140 : 0;
 	const summaryBonus = element.matches(SUMMARY_BLOCK_SELECTOR) ? 140 : 0;
-	const socialTextBonus = isSocialTextBlock ? 160 : 0;
-	const proseTextBonus = isProseTextBlock ? 160 : 0;
+	const explicitTextBonus = isExplicitTextBlock ? 160 : 0;
 	const readableLinkBonus = isTitleLink ? 320 : 0;
 	const linkPenalty =
 		isHeading || isTitleLink ? linkDensity * 60 : linkDensity * 280;
@@ -422,8 +427,7 @@ function scoreCandidateBlock(element, text, options = {}) {
 		semanticBonus +
 		headingBonus +
 		summaryBonus +
-		socialTextBonus +
-		proseTextBonus +
+		explicitTextBonus +
 		readableLinkBonus -
 		linkPenalty -
 		linkCountPenalty -
@@ -508,31 +512,30 @@ function detectContentMode(rootElement) {
 }
 
 const api = {
+	ACTIVE_CONTENT_RULES,
 	ACTIVE_SITE_PROFILE,
 	ARTICLE_CONTENT_SELECTOR,
 	DIRECT_BLOCK_CHILD_SELECTOR,
 	DIRECT_NOTE_TARGET_SELECTOR,
+	EXPLICIT_TEXT_BLOCK_SELECTOR,
 	HEADING_SELECTOR,
 	INLINE_CODE_SELECTOR,
 	INTERACTIVE_SELECTOR,
 	MAIN_CONTENT_SELECTOR,
 	MATH_SELECTOR,
-	PROSE_TEXT_BLOCK_SELECTOR,
 	READABLE_BLOCK_SELECTOR,
 	READABLE_LINK_SELECTOR,
 	SEMANTIC_BLOCK_SELECTOR,
 	SITE_PROFILE_ID,
-	SITE_PROFILE_WINDOWED,
 	SITE_ROOT_SELECTOR,
 	SKIP_ANCESTOR_SELECTOR,
-	SPLIT_PROSE_CONTAINER_SELECTOR,
-	SOCIAL_TEXT_BLOCK_SELECTOR,
+	SPLIT_CONTAINER_SELECTOR,
 	SUMMARY_BLOCK_SELECTOR,
 	TERMINAL_LIKE_SELECTOR,
 	TITLE_LIKE_SELECTOR,
 	UNSUPPORTED_ANCESTOR_SELECTOR,
 	UNSUPPORTED_ELEMENT_SELECTOR,
-	createExtractionSelectorsForProfile,
+	createContentRulesForProfile,
 	detectContentMode,
 	getCandidateElements,
 	getDirectBlockChildCount,
@@ -551,12 +554,14 @@ const api = {
 };
 
 export {
+	ACTIVE_CONTENT_RULES,
 	ACTIVE_SITE_PROFILE,
 	ARTICLE_CONTENT_SELECTOR,
-	createExtractionSelectorsForProfile,
+	createContentRulesForProfile,
 	DIRECT_BLOCK_CHILD_SELECTOR,
 	DIRECT_NOTE_TARGET_SELECTOR,
 	detectContentMode,
+	EXPLICIT_TEXT_BLOCK_SELECTOR,
 	getCandidateElements,
 	getDirectBlockChildCount,
 	getElementLinkDensity,
@@ -574,16 +579,13 @@ export {
 	MATH_SELECTOR,
 	normalizeInlineWhitespace,
 	normalizeSegmentText,
-	PROSE_TEXT_BLOCK_SELECTOR,
 	READABLE_BLOCK_SELECTOR,
 	READABLE_LINK_SELECTOR,
 	SEMANTIC_BLOCK_SELECTOR,
 	SITE_PROFILE_ID,
-	SITE_PROFILE_WINDOWED,
 	SITE_ROOT_SELECTOR,
 	SKIP_ANCESTOR_SELECTOR,
-	SOCIAL_TEXT_BLOCK_SELECTOR,
-	SPLIT_PROSE_CONTAINER_SELECTOR,
+	SPLIT_CONTAINER_SELECTOR,
 	SUMMARY_BLOCK_SELECTOR,
 	scoreCandidateBlock,
 	scoreTranslationRoot,
