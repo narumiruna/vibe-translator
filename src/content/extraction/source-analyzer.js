@@ -12,8 +12,7 @@ export function createSourceAnalyzer(options = {}) {
 		mathSelector: MATH_SELECTOR,
 		skipAncestorSelector: SKIP_ANCESTOR_SELECTOR,
 		inlineCodeSelector: INLINE_CODE_SELECTOR,
-		proseTextBlockSelector: PROSE_TEXT_BLOCK_SELECTOR,
-		readableBlockSelector: READABLE_BLOCK_SELECTOR,
+		contentRules,
 		terminalLikeSelector: TERMINAL_LIKE_SELECTOR,
 		ExtractionApi,
 		SubtitleApi,
@@ -22,6 +21,10 @@ export function createSourceAnalyzer(options = {}) {
 		normalizeInlineWhitespace,
 		normalizeSegmentText,
 	} = options;
+	const EXPLICIT_TEXT_BLOCK_SELECTOR =
+		contentRules?.selectors?.EXPLICIT_TEXT_BLOCK_SELECTOR || ":not(*)";
+	const READABLE_BLOCK_SELECTOR =
+		contentRules?.selectors?.READABLE_BLOCK_SELECTOR || ":not(*)";
 	let sourceIdCounter = null;
 	let sourceTextSnapshots = new WeakMap();
 	function shouldTranslateText(text) {
@@ -263,7 +266,10 @@ export function createSourceAnalyzer(options = {}) {
 			return `\`${normalizeInlineWhitespace(element.textContent || "")}\``;
 		}
 
-		if (element.matches("pre") && !element.matches(PROSE_TEXT_BLOCK_SELECTOR)) {
+		if (
+			element.matches("pre") &&
+			!element.matches(EXPLICIT_TEXT_BLOCK_SELECTOR)
+		) {
 			return `\`${normalizeInlineWhitespace(element.textContent || "")}\``;
 		}
 
@@ -400,7 +406,11 @@ export function createSourceAnalyzer(options = {}) {
 		const minimumScore =
 			isHeadingLikeElement(element) || isReadableTitleLink(element) ? 20 : 40;
 
-		if (scoreCandidateBlock(element, content.text) < minimumScore) {
+		if (
+			scoreCandidateBlock(element, content.text, {
+				explicitTextBlockSelector: EXPLICIT_TEXT_BLOCK_SELECTOR,
+			}) < minimumScore
+		) {
 			debugSkip("ui/meta block", element);
 			return {
 				ok: false,

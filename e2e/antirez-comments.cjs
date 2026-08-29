@@ -16,7 +16,9 @@ const {
 const TARGET_URL = "https://antirez.com/news/169";
 const DISQUS_FRAME_PREFIX = "https://disqus.com/embed/comments/";
 const COMMENT_SELECTOR = '[data-role="message"] > div > p:not([data-ot-role])';
-const READY_COMMENT_NOTE_SELECTOR = `${COMMENT_SELECTOR} + [data-ot-role="note"][data-phase="ready"]`;
+const ELIGIBLE_COMMENT_SELECTOR = `${COMMENT_SELECTOR}[data-ot-source-id]`;
+const READY_COMMENT_NOTE_SELECTOR = `${ELIGIBLE_COMMENT_SELECTOR} + [data-ot-role="note"][data-phase="ready"]`;
+const MAX_EXPECTED_SKIPPED_COMMENT_COUNT = 1;
 
 async function main() {
 	const config = getConfig();
@@ -73,18 +75,30 @@ async function main() {
 
 		const analysis = await waitFor(
 			async () => {
-				const sourceCount = await disqusFrame.locator(COMMENT_SELECTOR).count();
+				const loadedCount = await disqusFrame.locator(COMMENT_SELECTOR).count();
+				const sourceCount = await disqusFrame
+					.locator(ELIGIBLE_COMMENT_SELECTOR)
+					.count();
 				const readyCount = await disqusFrame
 					.locator(READY_COMMENT_NOTE_SELECTOR)
 					.count();
 				const pendingCount = await disqusFrame
 					.locator('[data-ot-role="note"][data-phase="pending"]')
 					.count();
+				const skippedCount = loadedCount - sourceCount;
 
 				return sourceCount > 0 &&
+					skippedCount >= 0 &&
+					skippedCount <= MAX_EXPECTED_SKIPPED_COMMENT_COUNT &&
 					readyCount === sourceCount &&
 					pendingCount === 0
-					? { sourceCount, readyCount, pendingCount }
+					? {
+							loadedCount,
+							sourceCount,
+							skippedCount,
+							readyCount,
+							pendingCount,
+						}
 					: null;
 			},
 			{
@@ -97,6 +111,11 @@ async function main() {
 			.locator('[data-ot-role="note"][data-phase="ready"]')
 			.count();
 
+		assert.ok(
+			analysis.sourceCount >=
+				analysis.loadedCount - MAX_EXPECTED_SKIPPED_COMMENT_COUNT,
+			"Expected extraction to retain all but the known UI-only comment paragraph.",
+		);
 		assert.ok(
 			topReadyCount > 0,
 			"Expected the Antirez article to translate too.",
