@@ -46,6 +46,7 @@ async function translateItemsProgressively(options) {
 	const result = await Api.requestTranslationsBatchedProgressive({
 		settings,
 		chunks: requestChunks,
+		shouldContinue: isCurrent,
 		concurrency: buildProgressiveRequestConcurrency(
 			items,
 			requestChunks,

@@ -6,6 +6,84 @@ function decodeLaunchToken(hash) {
 	}
 }
 
+function buildPdfTranslationCopy(blocks, translations) {
+	const completed = blocks
+		.map((block) => translations.get(block.id))
+		.filter(Boolean);
+	if (completed.length === 0) {
+		return "";
+	}
+	const translatableCount = blocks.filter(
+		(block) => !block.originalOnly,
+	).length;
+	const partialLabel =
+		completed.length < translatableCount
+			? `[Partial translation: ${completed.length} of ${translatableCount} blocks completed]\n\n`
+			: "";
+	return `${partialLabel}${completed.join("\n\n")}`;
+}
+
+function createBoundedPdfBatches(items, limits) {
+	const maximumCharacters = Math.max(1, Number(limits?.maximumCharacters) || 1);
+	const maximumItems = Math.max(1, Number(limits?.maximumItems) || 1);
+	const batches = [];
+	let batch = [];
+	let characterCount = 0;
+
+	for (const item of items) {
+		const itemCharacters = String(item.text || "").length;
+		if (itemCharacters > maximumCharacters) {
+			throw new Error(
+				"A PDF translation item exceeds the batch character limit.",
+			);
+		}
+		if (
+			batch.length > 0 &&
+			(batch.length >= maximumItems ||
+				characterCount + itemCharacters > maximumCharacters)
+		) {
+			batches.push(batch);
+			batch = [];
+			characterCount = 0;
+		}
+		batch.push(item);
+		characterCount += itemCharacters;
+	}
+	if (batch.length > 0) {
+		batches.push(batch);
+	}
+	return batches;
+}
+
+function splitPdfBlocks(blocks, maximumCharacters) {
+	const limit = Math.max(1, Number(maximumCharacters) || 1);
+	return blocks.flatMap((block) => {
+		if (block.text.length <= limit) {
+			return block;
+		}
+
+		const parts = [];
+		let remaining = block.text;
+		while (remaining.length > limit) {
+			let splitAt = remaining.lastIndexOf(" ", limit);
+			if (splitAt < limit / 2) {
+				splitAt = limit;
+			}
+			parts.push(remaining.slice(0, splitAt).trim());
+			remaining = remaining.slice(splitAt).trimStart();
+		}
+		if (remaining) {
+			parts.push(remaining);
+		}
+
+		return parts.map((text, index) => ({
+			...block,
+			id: `${block.id}:part${index + 1}`,
+			text,
+		}));
+	});
+}
+
 function hashText(text) {
 	let hash = 2166136261;
 	for (let index = 0; index < text.length; index += 1) {
@@ -43,4 +121,12 @@ function sanitizeDocumentId(value, randomUUID = () => crypto.randomUUID()) {
 	return `d${normalized || randomUUID().replaceAll("-", "").slice(0, 20)}`;
 }
 
-export { decodeLaunchToken, hashText, renderSearchText, sanitizeDocumentId };
+export {
+	buildPdfTranslationCopy,
+	createBoundedPdfBatches,
+	decodeLaunchToken,
+	hashText,
+	renderSearchText,
+	sanitizeDocumentId,
+	splitPdfBlocks,
+};

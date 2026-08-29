@@ -13,6 +13,7 @@ const PDF_LIMITS = Object.freeze({
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,127}$/u;
 const CLIENT_MESSAGE_TYPES = Object.freeze({
 	CANCEL: "cancel",
+	DOCUMENT: "document",
 	QUEUE: "queue",
 	RETRY: "retry",
 	START: "start",
@@ -190,6 +191,22 @@ function validatePdfClientMessage(message) {
 		return { type: message.type, launchToken: message.launchToken };
 	}
 
+	if (message.type === CLIENT_MESSAGE_TYPES.DOCUMENT) {
+		assertAllowedKeys(
+			message,
+			["type", "sessionId", "documentId"],
+			"PDF document message",
+		);
+		if (!isSafePdfId(message.sessionId) || !isSafePdfId(message.documentId)) {
+			throw new Error("Invalid PDF document identity.");
+		}
+		return {
+			type: message.type,
+			sessionId: message.sessionId,
+			documentId: message.documentId,
+		};
+	}
+
 	if (message.type === CLIENT_MESSAGE_TYPES.CANCEL) {
 		assertAllowedKeys(message, ["type", "sessionId"], "PDF cancel message");
 		if (!isSafePdfId(message.sessionId)) {
@@ -204,15 +221,20 @@ function validatePdfClientMessage(message) {
 	) {
 		assertAllowedKeys(
 			message,
-			["type", "sessionId", "requestId", "placement", "items"],
+			["type", "sessionId", "documentId", "requestId", "placement", "items"],
 			"PDF batch message",
 		);
-		if (!isSafePdfId(message.sessionId) || !isSafePdfId(message.requestId)) {
+		if (
+			!isSafePdfId(message.sessionId) ||
+			!isSafePdfId(message.documentId) ||
+			!isSafePdfId(message.requestId)
+		) {
 			throw new Error("Invalid PDF batch identity.");
 		}
 		return {
 			type: message.type,
 			sessionId: message.sessionId,
+			documentId: message.documentId,
 			requestId: message.requestId,
 			placement: message.placement === "back" ? "back" : "front",
 			items: validatePdfItems(message.items),

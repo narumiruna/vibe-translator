@@ -633,6 +633,45 @@ test("requestTranslationsBatchedProgressive emits chunks in completion order", a
 	assert.equal(result.successes.length, 3);
 });
 
+test("requestTranslationsBatchedProgressive stops scheduling stale chunks", async () => {
+	clearTranslationCache();
+	let current = true;
+	let requestCount = 0;
+	const result = await requestTranslationsBatchedProgressive({
+		settings: buildSettings({ model: "stale-progressive-batch" }),
+		chunks: ["a", "b", "c"].map((id) => [
+			{ id, kind: "paragraph", text: id, protectedFragments: [] },
+		]),
+		concurrency: 1,
+		shouldContinue: () => current,
+		async fetchImpl(_url, options) {
+			requestCount += 1;
+			const body = JSON.parse(options.body);
+			const item = JSON.parse(body.input[1].content.split("\n\n").at(-1));
+			return {
+				ok: true,
+				text: async () =>
+					JSON.stringify({
+						output_parsed: {
+							translations: [
+								{ id: item.id, translation: `translated-${item.id}` },
+							],
+						},
+					}),
+			};
+		},
+		onChunkResolved() {
+			current = false;
+		},
+	});
+
+	assert.equal(requestCount, 1);
+	assert.deepEqual(
+		result.successes.map((item) => item.id),
+		["a"],
+	);
+});
+
 test("requestTranslationsBatchedProgressive preserves every id in a grouped subtitle request", async () => {
 	clearTranslationCache();
 

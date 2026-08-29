@@ -22,6 +22,7 @@ function createEvent() {
 
 function createHarness(options = {}) {
 	const storage = new Map();
+	const pdf = options.Pdf || Pdf;
 	const createdTabs = [];
 	const permissionRequests = [];
 	const chrome = {
@@ -64,6 +65,12 @@ function createHarness(options = {}) {
 	const progressiveApi = {
 		...Api,
 		async requestTranslationsBatchedProgressive(request) {
+			if (options.requestTranslationsBatchedProgressive) {
+				return options.requestTranslationsBatchedProgressive(request);
+			}
+			if (options.translationFailure) {
+				throw new Error("Expected translation failure");
+			}
 			const successes = [];
 			for (const chunk of request.chunks) {
 				const translations = chunk.map((item) => ({
@@ -98,7 +105,7 @@ function createHarness(options = {}) {
 	};
 	const controller = createPdfController({
 		Api: progressiveApi,
-		Pdf,
+		Pdf: pdf,
 		chrome,
 		logger: { error() {}, info() {} },
 		platform,
@@ -154,6 +161,12 @@ async function openAndStart(harness, port = createPort()) {
 	const started = port.posted.find(
 		(message) => message.type === "session-started",
 	);
+	port.onMessage.emit({
+		type: "document",
+		sessionId: started.sessionId,
+		documentId: "document-1",
+	});
+	await new Promise((resolve) => setTimeout(resolve, 0));
 	return { opened, port, started };
 }
 
@@ -279,6 +292,7 @@ test("PDF controller starts one scoped session and emits progressive results", a
 	port.onMessage.emit({
 		type: "queue",
 		sessionId: started.sessionId,
+		documentId: "document-1",
 		requestId: "request-1",
 		items: [{ id: "doc:p1:b1", kind: "paragraph", text: "Sensitive source" }],
 	});
@@ -296,12 +310,46 @@ test("PDF controller starts one scoped session and emits progressive results", a
 	assert.equal(JSON.stringify(port.posted).includes("apiKey"), false);
 });
 
+test("PDF controller rejects batches before a document is announced", async () => {
+	const harness = createHarness();
+	const opened = await harness.controller.openPdfTranslator({
+		id: 42,
+		title: "Paper",
+		url: "https://papers.example/document.pdf",
+	});
+	const port = createPort();
+	harness.controller.handleConnect(port);
+	port.onMessage.emit({ type: "start", launchToken: opened.token });
+	await waitFor(() =>
+		port.posted.some((message) => message.type === "session-started"),
+	);
+	const started = port.posted.find(
+		(message) => message.type === "session-started",
+	);
+	port.onMessage.emit({
+		type: "queue",
+		sessionId: started.sessionId,
+		documentId: "document-1",
+		requestId: "request-1",
+		items: [{ id: "block-1", text: "text" }],
+	});
+	await waitFor(() =>
+		port.posted.some(
+			(message) =>
+				message.type === "error" &&
+				message.requestId === "request-1" &&
+				/Start the PDF document/.test(message.error),
+		),
+	);
+});
+
 test("PDF controller rejects duplicate request ids and skips retries of completed blocks", async () => {
 	const harness = createHarness();
 	const { port, started } = await openAndStart(harness);
 	const batch = {
 		type: "queue",
 		sessionId: started.sessionId,
+		documentId: "document-1",
 		requestId: "request-1",
 		items: [{ id: "doc:p1:b1", text: "First" }],
 	};
@@ -343,6 +391,7 @@ test("PDF controller rejects changed text under a reused block id", async () => 
 	port.onMessage.emit({
 		type: "queue",
 		sessionId: started.sessionId,
+		documentId: "document-1",
 		requestId: "request-1",
 		items: [{ id: "doc:p1:b1", text: "First" }],
 	});
@@ -352,6 +401,7 @@ test("PDF controller rejects changed text under a reused block id", async () => 
 	port.onMessage.emit({
 		type: "retry",
 		sessionId: started.sessionId,
+		documentId: "document-1",
 		requestId: "request-2",
 		items: [{ id: "doc:p1:b1", text: "Changed" }],
 	});
@@ -378,6 +428,261 @@ test("PDF controller reuses a tab-bound launch after a Port disconnect", async (
 	assert.notEqual(replacementStarted.sessionId, started.sessionId);
 });
 
+test("PDF controller resets document accounting when the reader changes files", async () => {
+	const limitedPdf = {
+		...Pdf,
+		PDF_LIMITS: {
+			...Pdf.PDF_LIMITS,
+			maximumDocumentCharacters: 10,
+		},
+	};
+	const harness = createHarness({ Pdf: limitedPdf });
+	const { port, started } = await openAndStart(harness);
+	port.onMessage.emit({
+		type: "document",
+		sessionId: started.sessionId,
+		documentId: "document-1",
+	});
+	port.onMessage.emit({
+		type: "queue",
+		sessionId: started.sessionId,
+		documentId: "document-1",
+		requestId: "request-1",
+		items: [{ id: "shared-block", text: "12345678" }],
+	});
+	await waitFor(() =>
+		port.posted.some(
+			(message) =>
+				message.type === "batch-complete" && message.requestId === "request-1",
+		),
+	);
+
+	port.onMessage.emit({
+		type: "queue",
+		sessionId: started.sessionId,
+		documentId: "document-1",
+		requestId: "request-over-limit",
+		items: [{ id: "second-block", text: "1234" }],
+	});
+	await waitFor(() =>
+		port.posted.some(
+			(message) =>
+				message.type === "error" &&
+				message.requestId === "request-over-limit" &&
+				/too much text/.test(message.error),
+		),
+	);
+
+	port.onMessage.emit({
+		type: "document",
+		sessionId: started.sessionId,
+		documentId: "document-2",
+	});
+	port.onMessage.emit({
+		type: "queue",
+		sessionId: started.sessionId,
+		documentId: "document-2",
+		requestId: "request-2",
+		items: [{ id: "shared-block", text: "abcdefgh" }],
+	});
+	await waitFor(() =>
+		port.posted.some(
+			(message) =>
+				message.type === "batch-complete" && message.requestId === "request-2",
+		),
+	);
+
+	assert.equal(
+		port.posted.some(
+			(message) =>
+				message.type === "error" && message.requestId === "request-2",
+		),
+		false,
+	);
+	assert.equal(
+		port.posted.some(
+			(message) =>
+				message.type === "translation-update" &&
+				message.documentId === "document-2" &&
+				message.requestId === "request-2",
+		),
+		true,
+	);
+
+	port.onMessage.emit({
+		type: "queue",
+		sessionId: started.sessionId,
+		documentId: "document-1",
+		requestId: "request-stale",
+		items: [{ id: "stale-block", text: "x" }],
+	});
+	await waitFor(() =>
+		port.posted.some(
+			(message) =>
+				message.type === "error" &&
+				message.requestId === "request-stale" &&
+				/document is stale/.test(message.error),
+		),
+	);
+	port.onMessage.emit({
+		type: "queue",
+		sessionId: started.sessionId,
+		documentId: "document-2",
+		requestId: "request-3",
+		items: [{ id: "current-block", text: "x" }],
+	});
+	await waitFor(() =>
+		port.posted.some(
+			(message) =>
+				message.type === "batch-complete" && message.requestId === "request-3",
+		),
+	);
+});
+
+test("PDF controller suppresses stale work after the document changes", async () => {
+	let oldRequestSettled = false;
+	let releaseOldRequest;
+	const oldRequestGate = new Promise((resolve) => {
+		releaseOldRequest = resolve;
+	});
+	const harness = createHarness({
+		async requestTranslationsBatchedProgressive(request) {
+			const ids = request.chunks.flat().map((item) => item.id);
+			if (ids.includes("old-active")) {
+				await oldRequestGate;
+			}
+			const translations = request.chunks
+				.flat()
+				.map((item) => ({ id: item.id, translation: `translated:${item.id}` }));
+			await request.onChunkResolved({ translations });
+			if (ids.includes("old-active")) {
+				oldRequestSettled = true;
+			}
+			return { failures: [], successes: translations };
+		},
+	});
+	const { port, started } = await openAndStart(harness);
+	const queue = (documentId, requestId, id) => {
+		port.onMessage.emit({
+			type: "queue",
+			sessionId: started.sessionId,
+			documentId,
+			requestId,
+			items: [{ id, text: id }],
+		});
+	};
+	queue("document-1", "request-1", "old-active");
+	await waitFor(() =>
+		port.posted.some(
+			(message) =>
+				message.type === "batch-started" && message.requestId === "request-1",
+		),
+	);
+	queue("document-1", "request-2", "old-queued");
+	port.onMessage.emit({
+		type: "document",
+		sessionId: started.sessionId,
+		documentId: "document-2",
+	});
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	queue("document-2", "request-3", "new-active");
+	await waitFor(() =>
+		port.posted.some(
+			(message) =>
+				message.type === "batch-complete" && message.requestId === "request-3",
+		),
+	);
+
+	assert.equal(
+		port.posted.some(
+			(message) =>
+				message.type === "translation-update" &&
+				message.documentId === "document-1",
+		),
+		false,
+	);
+	assert.equal(
+		port.posted.some(
+			(message) =>
+				message.type === "batch-started" && message.requestId === "request-2",
+		),
+		false,
+	);
+	assert.equal(
+		oldRequestSettled,
+		false,
+		"The replacement document must not wait for stale provider work.",
+	);
+	assert.equal(
+		port.posted.some(
+			(message) =>
+				message.type === "translation-update" &&
+				message.documentId === "document-2" &&
+				message.translations.some((item) => item.id === "new-active"),
+		),
+		true,
+	);
+	releaseOldRequest();
+	await waitFor(() => oldRequestSettled);
+});
+
+test("PDF controller accepts failed retries after a Port reconnect", async () => {
+	const options = { translationFailure: true };
+	const harness = createHarness(options);
+	const { opened, port, started } = await openAndStart(harness);
+	port.onMessage.emit({
+		type: "queue",
+		sessionId: started.sessionId,
+		documentId: "document-1",
+		requestId: "request-1",
+		items: [{ id: "failed-block", text: "Retry me" }],
+	});
+	await waitFor(() =>
+		port.posted.some(
+			(message) =>
+				message.type === "error" && message.requestId === "request-1",
+		),
+	);
+
+	port.disconnect();
+	options.translationFailure = false;
+	const replacement = createPort();
+	harness.controller.handleConnect(replacement);
+	replacement.onMessage.emit({ type: "start", launchToken: opened.token });
+	await waitFor(() =>
+		replacement.posted.some((message) => message.type === "session-started"),
+	);
+	const replacementStarted = replacement.posted.find(
+		(message) => message.type === "session-started",
+	);
+	replacement.onMessage.emit({
+		type: "document",
+		sessionId: replacementStarted.sessionId,
+		documentId: "document-1",
+	});
+	replacement.onMessage.emit({
+		type: "retry",
+		sessionId: replacementStarted.sessionId,
+		documentId: "document-1",
+		requestId: "request-2",
+		items: [{ id: "failed-block", text: "Retry me" }],
+	});
+	await waitFor(() =>
+		replacement.posted.some(
+			(message) =>
+				message.type === "batch-complete" && message.requestId === "request-2",
+		),
+	);
+	assert.equal(
+		replacement.posted.some(
+			(message) =>
+				message.type === "translation-update" &&
+				message.translations.some((item) => item.id === "failed-block"),
+		),
+		true,
+	);
+});
+
 test("PDF controller cancellation prevents later queue work", async () => {
 	const harness = createHarness();
 	const { port, started } = await openAndStart(harness);
@@ -388,6 +693,7 @@ test("PDF controller cancellation prevents later queue work", async () => {
 	port.onMessage.emit({
 		type: "queue",
 		sessionId: started.sessionId,
+		documentId: "document-1",
 		requestId: "request-1",
 		items: [{ id: "doc:p1:b1", text: "Late" }],
 	});

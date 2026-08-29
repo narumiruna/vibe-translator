@@ -196,8 +196,30 @@ function createPdfController(options = {}) {
 		}
 	}
 
+	function startDocument(session, documentId) {
+		if (session.documentId === documentId) {
+			return;
+		}
+
+		session.documentId = documentId;
+		session.documentSequence += 1;
+		session.characterCount = 0;
+		session.pendingBatches.length = 0;
+		session.completedIds.clear();
+		session.failedIds.clear();
+		session.pendingIds.clear();
+		session.sourceById.clear();
+	}
+
+	function isCurrentBatch(session, batch) {
+		return (
+			isCurrentSession(session) &&
+			session.documentSequence === batch.documentSequence
+		);
+	}
+
 	async function processBatch(session, batch) {
-		if (!isCurrentSession(session)) {
+		if (!isCurrentBatch(session, batch)) {
 			return;
 		}
 
@@ -205,6 +227,7 @@ function createPdfController(options = {}) {
 			session,
 			Pdf.pdfBatchStarted({
 				sessionId: session.sessionId,
+				documentId: batch.documentId,
 				requestId: batch.requestId,
 				itemCount: batch.items.length,
 			}),
@@ -218,9 +241,9 @@ function createPdfController(options = {}) {
 				settings: session.settings,
 				items: batch.items,
 				maximumConcurrency: 5,
-				isCurrent: () => isCurrentSession(session),
+				isCurrent: () => isCurrentBatch(session, batch),
 				onTranslations: async (translations) => {
-					if (!isCurrentSession(session)) {
+					if (!isCurrentBatch(session, batch)) {
 						return;
 					}
 
@@ -235,6 +258,7 @@ function createPdfController(options = {}) {
 							session,
 							Pdf.pdfTranslationUpdate({
 								sessionId: session.sessionId,
+								documentId: batch.documentId,
 								requestId: batch.requestId,
 								translations: safeTranslations,
 							}),
@@ -249,7 +273,7 @@ function createPdfController(options = {}) {
 				},
 			});
 
-			if (!isCurrentSession(session) || result.stale) {
+			if (!isCurrentBatch(session, batch) || result.stale) {
 				return;
 			}
 
@@ -263,13 +287,14 @@ function createPdfController(options = {}) {
 				session,
 				Pdf.pdfBatchComplete({
 					sessionId: session.sessionId,
+					documentId: batch.documentId,
 					requestId: batch.requestId,
 					completedIds,
 					failedIds,
 				}),
 			);
 		} catch (_error) {
-			if (isCurrentSession(session)) {
+			if (isCurrentBatch(session, batch)) {
 				for (const item of batch.items) {
 					if (!session.completedIds.has(item.id)) {
 						session.failedIds.add(item.id);
@@ -279,6 +304,7 @@ function createPdfController(options = {}) {
 					session,
 					Pdf.pdfSessionError({
 						sessionId: session.sessionId,
+						documentId: batch.documentId,
 						requestId: batch.requestId,
 						recoverable: true,
 						failedIds: batch.items
@@ -289,25 +315,34 @@ function createPdfController(options = {}) {
 				);
 			}
 		} finally {
-			for (const item of batch.items) {
-				session.pendingIds.delete(item.id);
+			if (session.documentSequence === batch.documentSequence) {
+				for (const item of batch.items) {
+					session.pendingIds.delete(item.id);
+				}
 			}
 		}
 	}
 
-	async function drain(session) {
-		if (session.processing || !isCurrentSession(session)) {
+	async function drain(session, documentSequence) {
+		if (
+			session.processingDocuments.has(documentSequence) ||
+			!isCurrentSession(session)
+		) {
 			return;
 		}
-		session.processing = true;
+		session.processingDocuments.add(documentSequence);
 
 		try {
-			while (session.pendingBatches.length > 0 && isCurrentSession(session)) {
+			while (
+				session.pendingBatches.length > 0 &&
+				isCurrentSession(session) &&
+				session.documentSequence === documentSequence
+			) {
 				const batch = session.pendingBatches.shift();
 				await processBatch(session, batch);
 			}
 		} finally {
-			session.processing = false;
+			session.processingDocuments.delete(documentSequence);
 		}
 	}
 
@@ -317,6 +352,12 @@ function createPdfController(options = {}) {
 		}
 		if (session.requestIds.has(message.requestId)) {
 			throw new Error("This PDF batch request id was already used.");
+		}
+		if (!session.documentId) {
+			throw new Error("Start the PDF document before queuing translations.");
+		}
+		if (session.documentId !== message.documentId) {
+			throw new Error("The PDF document is stale.");
 		}
 
 		const acceptedItems = [];
@@ -329,6 +370,7 @@ function createPdfController(options = {}) {
 			if (
 				session.pendingIds.has(item.id) ||
 				(message.type === Pdf.CLIENT_MESSAGE_TYPES.RETRY &&
+					previousText !== undefined &&
 					!session.failedIds.has(item.id)) ||
 				(message.type !== Pdf.CLIENT_MESSAGE_TYPES.RETRY &&
 					session.completedIds.has(item.id))
@@ -360,6 +402,7 @@ function createPdfController(options = {}) {
 				session,
 				Pdf.pdfBatchComplete({
 					sessionId: session.sessionId,
+					documentId: message.documentId,
 					requestId: message.requestId,
 					completedIds: [],
 					failedIds: [],
@@ -368,13 +411,18 @@ function createPdfController(options = {}) {
 			return;
 		}
 
-		const batch = { items: acceptedItems, requestId: message.requestId };
+		const batch = {
+			documentId: message.documentId,
+			documentSequence: session.documentSequence,
+			items: acceptedItems,
+			requestId: message.requestId,
+		};
 		if (message.placement === "back") {
 			session.pendingBatches.push(batch);
 		} else {
 			session.pendingBatches.unshift(batch);
 		}
-		drain(session).catch((error) => {
+		drain(session, session.documentSequence).catch((error) => {
 			logger?.error("pdf-session-drain-failed", {
 				error: sanitizeError(error),
 				readerTabId: session.readerTabId,
@@ -412,12 +460,14 @@ function createPdfController(options = {}) {
 			cancelled: false,
 			characterCount: 0,
 			completedIds: new Set(),
+			documentId: "",
+			documentSequence: 0,
 			failedIds: new Set(),
 			launchToken,
 			pendingBatches: [],
 			pendingIds: new Set(),
 			port,
-			processing: false,
+			processingDocuments: new Set(),
 			readerTabId,
 			requestIds: new Set(),
 			sessionId: createRandomId("pdf"),
@@ -469,10 +519,14 @@ function createPdfController(options = {}) {
 					if (!session) {
 						throw new Error("Start the PDF translation session first.");
 					}
+					if (message.sessionId !== session.sessionId) {
+						throw new Error("The PDF translation session is stale.");
+					}
+					if (message.type === Pdf.CLIENT_MESSAGE_TYPES.DOCUMENT) {
+						startDocument(session, message.documentId);
+						return;
+					}
 					if (message.type === Pdf.CLIENT_MESSAGE_TYPES.CANCEL) {
-						if (message.sessionId !== session.sessionId) {
-							throw new Error("The PDF translation session is stale.");
-						}
 						cancelSession(session);
 						return;
 					}
@@ -487,6 +541,8 @@ function createPdfController(options = {}) {
 							: null;
 					const message = Pdf.pdfSessionError({
 						sessionId: session?.sessionId || "",
+						documentId:
+							batchMessage?.documentId || validatedMessage?.documentId,
 						requestId: batchMessage?.requestId,
 						failedIds: batchMessage?.items.map((item) => item.id) || [],
 						recoverable: Boolean(session),

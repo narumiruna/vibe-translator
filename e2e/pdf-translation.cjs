@@ -105,6 +105,19 @@ async function main() {
 				),
 			{ timeoutMessage: "PDF page status did not settle." },
 		);
+		assert.equal(
+			await reader.locator(".translation-block:empty").count(),
+			0,
+			"Translation blocks must render initial content before queue updates.",
+		);
+		const originalOnlyBlock = reader.locator(
+			'.translation-block[data-state="original"]',
+		);
+		assert.ok(await originalOnlyBlock.count());
+		assert.match(
+			(await originalOnlyBlock.first().textContent()) || "",
+			/kept in the original PDF/i,
+		);
 		await waitFor(
 			async () => (await reader.locator(".pdf-page canvas").count()) > 0,
 			{
@@ -217,6 +230,32 @@ async function main() {
 			),
 			true,
 		);
+		const narrowGeometry = await reader.evaluate(() => {
+			const sourceScroll = document.querySelector("#source-scroll");
+			const page = document.querySelector(".pdf-page:has(canvas)");
+			const canvas = page?.querySelector("canvas");
+			const textLayer = page?.querySelector(".text-layer");
+			const pageRect = page?.getBoundingClientRect();
+			const canvasRect = canvas?.getBoundingClientRect();
+			const textRect = textLayer?.getBoundingClientRect();
+			return {
+				canvasHeight: canvasRect?.height || 0,
+				canvasWidth: canvasRect?.width || 0,
+				pageHeight: pageRect?.height || 0,
+				pageWidth: pageRect?.width || 0,
+				scrollsInternally: sourceScroll.scrollWidth > sourceScroll.clientWidth,
+				textHeight: textRect?.height || 0,
+				textWidth: textRect?.width || 0,
+			};
+		});
+		assert.equal(narrowGeometry.scrollsInternally, true);
+		assert.ok(
+			Math.abs(narrowGeometry.pageWidth - narrowGeometry.canvasWidth) < 1 &&
+				Math.abs(narrowGeometry.pageWidth - narrowGeometry.textWidth) < 1 &&
+				Math.abs(narrowGeometry.pageHeight - narrowGeometry.canvasHeight) < 1 &&
+				Math.abs(narrowGeometry.pageHeight - narrowGeometry.textHeight) < 1,
+			`PDF visual layers diverged: ${JSON.stringify(narrowGeometry)}`,
+		);
 		await reader.emulateMedia({ reducedMotion: "reduce" });
 		await reader.reload({ waitUntil: "domcontentloaded" });
 		await waitFor(
@@ -260,6 +299,16 @@ async function main() {
 				timeoutMessage: "Encrypted local PDF did not open.",
 			},
 		);
+		await waitFor(
+			async () =>
+				(await reader
+					.locator('.translation-block[data-state="ready"]')
+					.count()) > 0,
+			{
+				timeoutMs: REQUEST_TIMEOUT_MS,
+				timeoutMessage: "Replacement PDF did not translate.",
+			},
+		);
 
 		const readableTitle = await reader.locator("#document-title").textContent();
 		await reader.locator("#local-file").setInputFiles(MALFORMED_PDF_PATH);
@@ -281,7 +330,8 @@ async function main() {
 
 		await reader.locator("#local-file").setInputFiles(ENCRYPTED_PDF_PATH);
 		await reader.locator("#password-dialog").waitFor({ state: "visible" });
-		await reader.locator('#password-dialog button[value="cancel"]').click();
+		await reader.locator("#pdf-password").fill("vibe-test");
+		await reader.locator("#pdf-password").press("Escape");
 		await waitFor(
 			async () =>
 				/password/i.test((await reader.locator("#error").textContent()) || ""),
