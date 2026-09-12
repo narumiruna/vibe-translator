@@ -659,51 +659,206 @@ async function runContentReinjectionSmoke(
 	await page.close();
 }
 
-async function runNestedScrollPageTranslationSmoke(context, serverOrigin) {
+async function runNestedScrollPageTranslationSmoke(
+	context,
+	serverOrigin,
+	mockApiServer,
+) {
 	const page = await context.newPage();
+	const requestOffset = mockApiServer?.getResponseItemIds().length || 0;
 
-	await page.goto(`${serverOrigin}${NESTED_SCROLL_FIXTURE_PATH}`, {
-		waitUntil: "domcontentloaded",
-	});
-	await page.bringToFront();
-	await callBackground(context, "translatePage", { pageUrl: page.url() });
+	mockApiServer?.setResponseDelayMs(2000);
 
-	await waitFor(
-		async () =>
-			(await page
-				.locator('#visible-source + [data-ot-role="note"][data-phase="ready"]')
-				.count()) > 0,
-		{
-			timeoutMs: REQUEST_TIMEOUT_MS,
-			timeoutMessage:
-				"Visible nested-scroll fixture content did not translate.",
-		},
-	);
-	assert.equal(
-		await page
-			.locator('#deep-source + [data-ot-role="note"][data-phase="ready"]')
-			.count(),
-		0,
-		"Expected deep nested-scroll content to stay outside the initial translation window.",
-	);
+	try {
+		await page.goto(`${serverOrigin}${NESTED_SCROLL_FIXTURE_PATH}`, {
+			waitUntil: "domcontentloaded",
+		});
+		await page.bringToFront();
+		await callBackground(context, "translatePage", { pageUrl: page.url() });
 
-	await page.locator("#scroll-region").evaluate((element) => {
-		element.scrollTop = element.scrollHeight;
-		element.dispatchEvent(new Event("scroll", { bubbles: true }));
-	});
+		if (mockApiServer) {
+			await waitFor(
+				async () =>
+					mockApiServer.getResponseItemIds().length - requestOffset >= 5,
+				{
+					timeoutMs: REQUEST_TIMEOUT_MS,
+					timeoutMessage:
+						"Initial nested-scroll translation workers did not start.",
+				},
+			);
+			const pendingCount = await page
+				.locator('[data-ot-role="note"][data-phase="pending"]')
+				.count();
 
-	await waitFor(
-		async () =>
-			(await page
-				.locator("#deep-source")
-				.getAttribute("data-ot-translated")) === "true",
-		{
-			timeoutMs: 6000,
-			timeoutMessage:
-				"Nested scrolling did not queue the newly visible paragraph.",
-		},
-	);
-	await page.close();
+			assert.ok(
+				pendingCount > 0 && pendingCount <= 5,
+				"Expected one pending note per active ordinary worker.",
+			);
+		} else {
+			await waitFor(
+				async () =>
+					(await page
+						.locator(
+							'#visible-source + [data-ot-role="note"][data-phase="ready"]',
+						)
+						.count()) > 0,
+				{
+					timeoutMs: REQUEST_TIMEOUT_MS,
+					timeoutMessage:
+						"Visible nested-scroll fixture content did not translate.",
+				},
+			);
+		}
+
+		assert.equal(
+			await page
+				.locator('#deep-source + [data-ot-role="note"][data-phase="ready"]')
+				.count(),
+			0,
+			"Expected deep nested-scroll content to stay outside the initial translation window.",
+		);
+
+		await page.locator("#scroll-region").evaluate((element) => {
+			element.scrollTop = element.scrollHeight;
+			element.dispatchEvent(new Event("scroll", { bubbles: true }));
+		});
+
+		const deepSource = page.locator("#deep-source");
+		assert.equal(await deepSource.isVisible(), true);
+		assert.match(
+			(await deepSource.textContent()) || "",
+			/This deeply nested paragraph/,
+		);
+
+		if (mockApiServer) {
+			const deepSourceId = await waitFor(
+				async () => await deepSource.getAttribute("data-ot-source-id"),
+				{
+					timeoutMs: REQUEST_TIMEOUT_MS,
+					timeoutMessage: "The newly visible source did not receive an id.",
+				},
+			);
+			const requestIndex = await waitFor(
+				async () => {
+					const index = mockApiServer
+						.getResponseItemIds()
+						.slice(requestOffset)
+						.indexOf(deepSourceId);
+
+					return index >= 0 ? index : null;
+				},
+				{
+					timeoutMs: REQUEST_TIMEOUT_MS,
+					timeoutMessage:
+						"The newly visible source did not enter the API request order.",
+				},
+			);
+
+			assert.equal(
+				requestIndex,
+				5,
+				"Expected the newly visible source to claim the first available worker.",
+			);
+			assert.equal(
+				await page
+					.locator(`[data-ot-note-id="${deepSourceId}"][data-phase="pending"]`)
+					.count(),
+				1,
+				"Expected one pending note without replacing the source text.",
+			);
+			assert.equal(
+				await deepSource.isVisible(),
+				true,
+				"Expected source text to remain visible beside its pending note.",
+			);
+			assert.ok(
+				(await page
+					.locator('[data-ot-role="note"][data-phase="pending"]')
+					.count()) <= 5,
+				"Expected pending ordinary notes to stay within worker concurrency.",
+			);
+
+			await page.locator("#scroll-region").evaluate((element) => {
+				const target = element.querySelector("#backlog-source-20");
+
+				element.scrollTop = target.offsetTop - element.offsetTop - 20;
+				element.dispatchEvent(new Event("scroll", { bubbles: true }));
+			});
+			const restoredVisibleIds = await page
+				.locator(".backlog-source")
+				.evaluateAll((elements) => {
+					const container = document.querySelector("#scroll-region");
+					const containerRect = container.getBoundingClientRect();
+
+					return elements
+						.filter((element) => {
+							const rect = element.getBoundingClientRect();
+
+							return (
+								rect.bottom >= containerRect.top &&
+								rect.top <= containerRect.bottom
+							);
+						})
+						.map((element) => element.getAttribute("data-ot-source-id"))
+						.filter(Boolean);
+				});
+
+			assert.ok(
+				restoredVisibleIds.length > 0,
+				"Expected visible work after reversing the scroll.",
+			);
+			mockApiServer.setResponseDelayMs(0);
+			await waitFor(
+				async () =>
+					await page.evaluate(
+						(ids) =>
+							ids.every(
+								(id) =>
+									document
+										.querySelector(`[data-ot-source-id="${id}"]`)
+										?.getAttribute("data-ot-translated") === "true",
+							),
+						restoredVisibleIds,
+					),
+				{
+					timeoutMs: 6000,
+					timeoutMessage:
+						"The restored stationary viewport did not drain to completion.",
+				},
+			);
+		}
+
+		await waitFor(
+			async () =>
+				(await deepSource.getAttribute("data-ot-translated")) === "true",
+			{
+				timeoutMs: 6000,
+				timeoutMessage:
+					"Nested scrolling did not queue the newly visible paragraph.",
+			},
+		);
+		mockApiServer?.setResponseDelayMs(0);
+
+		await page.locator("#scroll-region").evaluate((element) => {
+			element.scrollTop = 0;
+			element.dispatchEvent(new Event("scroll", { bubbles: true }));
+		});
+		await page.locator("#scroll-region").evaluate((element) => {
+			element.scrollTop = element.scrollHeight;
+			element.dispatchEvent(new Event("scroll", { bubbles: true }));
+		});
+		await new Promise((resolve) => setTimeout(resolve, 300));
+
+		const deepSourceId = await deepSource.getAttribute("data-ot-source-id");
+		assert.equal(
+			await page.locator(`[data-ot-note-id="${deepSourceId}"]`).count(),
+			1,
+			"Scrolling away and back duplicated a completed translation note.",
+		);
+	} finally {
+		mockApiServer?.setResponseDelayMs(0);
+		await page.close();
+	}
 }
 
 async function runSelectionTranslationSmoke(
@@ -1124,7 +1279,11 @@ async function main() {
 		);
 		console.log("Content reinjection smoke passed.");
 
-		await runNestedScrollPageTranslationSmoke(runState.context, server.origin);
+		await runNestedScrollPageTranslationSmoke(
+			runState.context,
+			server.origin,
+			mockApiServer,
+		);
 		console.log("Nested scroll page translation smoke passed.");
 
 		await runSelectionTranslationSmoke(

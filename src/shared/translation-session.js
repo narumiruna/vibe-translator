@@ -28,6 +28,10 @@ function createPageTranslationQueue(options = {}) {
 		options.batchSize,
 		DEFAULT_BATCH_SIZE,
 	);
+	const getBatchSize =
+		typeof options.getBatchSize === "function"
+			? options.getBatchSize
+			: () => batchSize;
 	const processBatch =
 		typeof options.processBatch === "function"
 			? options.processBatch
@@ -128,6 +132,13 @@ function createPageTranslationQueue(options = {}) {
 		return count;
 	}
 
+	function resolveClaimBatchSize(item, session) {
+		return Math.min(
+			batchSize,
+			normalizePositiveInteger(getBatchSize(item, session), batchSize),
+		);
+	}
+
 	function continueProcessing(tabId, sessionId, frameId) {
 		const session = get(tabId, sessionId, frameId);
 
@@ -139,7 +150,19 @@ function createPageTranslationQueue(options = {}) {
 			session.pendingItems.length > 0 &&
 			session.inFlightCount < concurrency
 		) {
-			const items = session.pendingItems.splice(0, batchSize);
+			const claimSize = resolveClaimBatchSize(session.pendingItems[0], session);
+			let itemCount = 1;
+
+			while (
+				itemCount < claimSize &&
+				itemCount < session.pendingItems.length &&
+				resolveClaimBatchSize(session.pendingItems[itemCount], session) ===
+					claimSize
+			) {
+				itemCount += 1;
+			}
+
+			const items = session.pendingItems.splice(0, itemCount);
 
 			if (items.length === 0) {
 				break;

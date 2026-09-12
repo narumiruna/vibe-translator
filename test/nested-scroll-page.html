@@ -21,6 +21,10 @@
         padding: 16px;
       }
 
+      .backlog-source {
+        margin: 4px 0;
+      }
+
       #deep-source {
         margin-top: 3200px;
       }
@@ -32,8 +36,21 @@
       <p id="visible-source">This paragraph starts in the visible translation window.</p>
       <section id="scroll-region">
         <p>Scroll this nested region to reveal more article content.</p>
+        <div id="backlog"></div>
         <p id="deep-source">This deeply nested paragraph should translate after its container scrolls.</p>
       </section>
     </main>
+    <script>
+      const backlog = document.querySelector("#backlog");
+
+      for (let index = 1; index <= 40; index += 1) {
+        const paragraph = document.createElement("p");
+
+        paragraph.id = `backlog-source-${index}`;
+        paragraph.className = "backlog-source";
+        paragraph.textContent = `Queued paragraph ${index} provides enough readable text to keep the initial translation workers occupied.`;
+        backlog.appendChild(paragraph);
+      }
+    </script>
   </body>
 </html>

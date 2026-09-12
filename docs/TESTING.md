@@ -86,10 +86,14 @@
 9. Save a different appearance while the article remains open and confirm existing notes stay unchanged until the page is translated again
 10. Confirm the action badge changes from empty to a numeric count as page translations complete
 11. Scroll downward and confirm newly visible blocks are queued and translated automatically
-12. Right-click a blank area and choose **Translate entire page** again
-13. Confirm existing notes are updated in place instead of duplicated and now use the latest saved appearance
-14. Test zero spacing/padding and maximum legal spacing/width in a table, list, `pre`, and narrow viewport; confirm there is no horizontal page overflow
-15. Confirm there is no per-block display toggle UI and no page-level display mode toolbar
+12. With mock API delay or browser network throttling enabled, start translation and rapidly jump several viewports downward while earlier requests remain pending; confirm the new visible block receives a pending note after the first active request finishes, without waiting for the earlier prefetched backlog
+13. While requests remain pending, immediately scroll upward; confirm restored visible blocks take priority at the next available request slot and existing completed notes remain unchanged
+14. Stop scrolling in each direction and confirm the current viewport plus its prefetch window drains to completion without another scroll event
+15. Repeat the jump inside a nested overflow container; confirm no more than five ordinary pending notes appear, every source remains readable beside its pending note, and scrolling away and back creates no duplicate completed note
+16. Right-click a blank area and choose **Translate entire page** again
+17. Confirm existing notes are updated in place instead of duplicated and now use the latest saved appearance
+18. Test zero spacing/padding and maximum legal spacing/width in a table, list, `pre`, and narrow viewport; confirm there is no horizontal page overflow
+19. Confirm there is no per-block display toggle UI and no page-level display mode toolbar
 
 ## YouTube subtitle translation
 
@@ -157,7 +161,9 @@
 3. Confirm the previous translation note becomes visually stale before the updated content is re-queued
 4. Confirm toggling a class or style without changing text does not make the previous translation note stale or re-queue the block
 5. Confirm the changed block is translated again once it is within the active translation window
-6. Confirm newly inserted readable blocks are picked up when they scroll into view
+6. Add readable blocks above and below the current position, then rapidly scroll down and back up while requests are delayed; confirm whichever block is visible moves ahead of older unclaimed work
+7. Stop scrolling and confirm all eligible blocks in the active translation window finish without another mutation or scroll event
+8. Confirm newly inserted readable blocks are picked up when they scroll into view and are not duplicated after scrolling away and back
 
 ## Disabled domains
 

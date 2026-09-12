@@ -88,6 +88,93 @@ test("page translation queue batches work with bounded concurrency", async () =>
 	assert.equal(queue.get(1, session.sessionId).inFlightCount, 0);
 });
 
+test("page translation queue reclaims ordinary work before an old reserved batch", async () => {
+	const processedBatches = [];
+	const resolvers = [];
+	const queue = createPageTranslationQueue({
+		batchSize: 8,
+		concurrency: 5,
+		getBatchSize(item) {
+			return item.kind === "subtitle" ? 8 : 1;
+		},
+		processBatch({ items }) {
+			processedBatches.push(items.map((item) => item.id));
+			return new Promise((resolve) => resolvers.push(resolve));
+		},
+	});
+	const session = queue.create(13, {});
+
+	queue.enqueue(
+		13,
+		session.sessionId,
+		Array.from({ length: 40 }, (_, index) => ({
+			id: `old-${index + 1}`,
+			kind: "paragraph",
+		})),
+	);
+	await nextTick();
+
+	assert.deepEqual(processedBatches, [
+		["old-1"],
+		["old-2"],
+		["old-3"],
+		["old-4"],
+		["old-5"],
+	]);
+
+	queue.enqueue(13, session.sessionId, [
+		{ id: "newly-visible", kind: "paragraph" },
+	]);
+	resolvers.shift()();
+	await nextTick();
+
+	assert.deepEqual(processedBatches.at(-1), ["newly-visible"]);
+
+	while (resolvers.length > 0) {
+		resolvers.shift()();
+		await nextTick();
+	}
+
+	assert.equal(session.inFlightCount, 0);
+});
+
+test("page translation queue does not mix different claim policies", async () => {
+	const processedBatches = [];
+	const resolvers = [];
+	const queue = createPageTranslationQueue({
+		batchSize: 8,
+		concurrency: 1,
+		getBatchSize(item) {
+			return item.kind === "subtitle" ? 8 : 1;
+		},
+		processBatch({ items }) {
+			processedBatches.push(items.map((item) => item.id));
+			return new Promise((resolve) => resolvers.push(resolve));
+		},
+	});
+	const session = queue.create(14, {});
+
+	queue.enqueue(14, session.sessionId, [
+		{ id: "caption-1", kind: "subtitle" },
+		{ id: "caption-2", kind: "subtitle" },
+		{ id: "paragraph", kind: "paragraph" },
+		{ id: "caption-3", kind: "subtitle" },
+	]);
+	await nextTick();
+
+	assert.deepEqual(processedBatches, [["caption-1", "caption-2"]]);
+	resolvers.shift()();
+	await nextTick();
+	assert.deepEqual(processedBatches.at(-1), ["paragraph"]);
+	resolvers.shift()();
+	await nextTick();
+	assert.deepEqual(processedBatches.at(-1), ["caption-3"]);
+	resolvers.shift()();
+	await nextTick();
+
+	assert.equal(session.inFlightCount, 0);
+});
+
 test("page translation queue caps 33 subtitle items at five active batch requests", async () => {
 	let active = 0;
 	let maxActive = 0;
