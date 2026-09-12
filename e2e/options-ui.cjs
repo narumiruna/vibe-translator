@@ -32,6 +32,35 @@ async function expectNoSeriousAccessibilityFindings(page) {
 	);
 }
 
+async function expectSaveActionsInViewport(page) {
+	const actions = await page
+		.locator(".save-bar-actions button")
+		.evaluateAll((buttons) =>
+			buttons.map((button) => {
+				const rect = button.getBoundingClientRect();
+				const hit = document.elementFromPoint(
+					rect.x + rect.width / 2,
+					rect.y + rect.height / 2,
+				);
+				return {
+					id: button.id,
+					inViewport:
+						rect.top >= -1 &&
+						rect.bottom <= innerHeight + 1 &&
+						rect.left >= -1 &&
+						rect.right <= innerWidth + 1,
+					unobscured: button.contains(hit),
+				};
+			}),
+		);
+	for (const action of actions) {
+		assert.ok(
+			action.inViewport && action.unobscured,
+			`Save action is obscured: ${JSON.stringify(action)}`,
+		);
+	}
+}
+
 async function expectResponsiveLayout(page, width, height) {
 	await page.setViewportSize({ height, width });
 	await page.waitForTimeout(100);
@@ -44,8 +73,55 @@ async function expectResponsiveLayout(page, width, height) {
 		bounds.scrollWidth <= bounds.clientWidth,
 		`Options overflowed horizontally at ${width}px: ${JSON.stringify(bounds)}`,
 	);
-	await page.locator("#save-button").scrollIntoViewIfNeeded();
-	assert.equal(await page.locator("#save-button").isVisible(), true);
+	for (const fraction of [0, 0.5, 1]) {
+		await page.evaluate(
+			(position) =>
+				window.scrollTo(
+					0,
+					(document.documentElement.scrollHeight - innerHeight) * position,
+				),
+			fraction,
+		);
+		await expectSaveActionsInViewport(page);
+	}
+	const previews = await page
+		.locator("#reading-preview:visible, #selection-appearance-preview:visible")
+		.evaluateAll((elements) =>
+			elements.map((element) => {
+				const rect = element.getBoundingClientRect();
+				const parent = element.parentElement.getBoundingClientRect();
+				return {
+					id: element.id,
+					fits:
+						rect.left >= parent.left &&
+						rect.right <= parent.right &&
+						element.scrollWidth <= element.clientWidth,
+				};
+			}),
+		);
+	for (const preview of previews) {
+		assert.ok(preview.fits, `Preview is clipped at ${width}px: ${preview.id}`);
+	}
+}
+
+async function expectFocusedField(page, tab, id) {
+	await waitFor(
+		async () =>
+			(await tab.getAttribute("aria-selected")) === "true" &&
+			(await page
+				.locator(`#${id}`)
+				.evaluate((element) => document.activeElement === element)),
+		{
+			timeoutMessage: `Validation did not reveal and focus ${id}.`,
+		},
+	);
+	assert.equal(await page.locator(`#${id}`).isVisible(), true);
+}
+
+async function takeOptionsScreenshot(page, artifactsDir, fileName) {
+	await page.mouse.move(0, 0);
+	await page.waitForTimeout(220);
+	await takeScreenshot(page, artifactsDir, fileName, false);
 }
 
 async function waitForStatus(page, matcher, message) {
@@ -111,6 +187,36 @@ async function main() {
 
 		assert.equal(await tabList.count(), 1);
 		assert.equal(await page.getByRole("tab").count(), 4);
+
+		const apiKey = page.locator("#api-key");
+		assert.equal(await apiKey.getAttribute("type"), "password");
+		await page.getByRole("button", { name: "Show API key" }).focus();
+		await page.keyboard.press("Enter");
+		assert.equal(await apiKey.getAttribute("type"), "text");
+		assert.equal(await apiKey.inputValue(), config.apiKey);
+		assert.equal(
+			await page
+				.getByRole("button", { name: "Hide API key" })
+				.getAttribute("aria-pressed"),
+			"true",
+		);
+		await page.keyboard.press("Space");
+		assert.equal(await apiKey.getAttribute("type"), "password");
+		assert.match(
+			(await page.locator("#save-state").textContent()) || "",
+			/No unsaved changes/u,
+		);
+
+		await page.locator("#model").fill("");
+		await promptsTab.click();
+		await page.locator("#save-button").click();
+		await expectFocusedField(page, setupTab, "model");
+		assert.equal(
+			await page.locator("#model").getAttribute("aria-invalid"),
+			"true",
+		);
+		await page.locator("#model").fill(config.model);
+
 		const tabAccessibilityTree = await tabList.ariaSnapshot();
 		const setupAccessibilityTree = await page
 			.locator('[data-panel="setup"]')
@@ -148,6 +254,10 @@ async function main() {
 		const systemPrompt = page.locator("#system-prompt-template");
 		const originalPrompt = await systemPrompt.inputValue();
 		await systemPrompt.fill(`${originalPrompt}\nKeep this draft.`);
+		assert.match(
+			(await page.locator("#save-state").textContent()) || "",
+			/Unsaved changes/u,
+		);
 		await setupTab.click();
 		await promptsTab.click();
 		assert.match(await systemPrompt.inputValue(), /Keep this draft\./u);
@@ -199,7 +309,9 @@ async function main() {
 		await setupTab.click();
 		await bilingualRadio.check();
 		await page.locator("#base-url").fill("https://example.com/not-v1");
+		await advancedTab.click();
 		await page.locator("#save-button").click();
+		await expectFocusedField(page, setupTab, "base-url");
 		await waitFor(
 			async () =>
 				/Base URL must include \/v1/u.test(
@@ -233,6 +345,9 @@ async function main() {
 			await page.locator("#user-prompt-template").getAttribute("aria-invalid"),
 			"true",
 		);
+		await setupTab.click();
+		await page.locator("#save-button").click();
+		await expectFocusedField(page, promptsTab, "user-prompt-template");
 		await page.locator("#reset-user-prompt-button").click();
 		assert.equal(
 			await page.locator("#user-prompt-template").getAttribute("aria-invalid"),
@@ -268,6 +383,7 @@ async function main() {
 			{ timeoutMessage: "Saved settings did not reload." },
 		);
 		assert.equal(await bilingualRadio.isChecked(), true);
+		assert.equal(await apiKey.getAttribute("type"), "password");
 		assert.equal(
 			await page.locator("#selection-panel-position-mode").inputValue(),
 			"bottom-right",
@@ -282,22 +398,80 @@ async function main() {
 		);
 		assert.match(await systemPrompt.inputValue(), /Keep this draft\./u);
 
-		for (const tab of [setupTab, appearanceTab, promptsTab, advancedTab]) {
-			await tab.click();
-			await expectNoSeriousAccessibilityFindings(page);
+		await appearanceTab.click();
+		const typography = page.getByRole("button", { name: "Typography" });
+		await typography.click();
+		await page.locator("#inline-font-size").fill("99");
+		await typography.click();
+		await setupTab.click();
+		await page.locator("#save-button").click();
+		await expectFocusedField(page, appearanceTab, "inline-font-size");
+		assert.equal(await typography.getAttribute("aria-expanded"), "true");
+		await page.locator("#inline-font-size").fill("16");
+		await page.locator("#reset-appearance-button").click();
+		await typography.click();
+
+		for (const colorScheme of ["light", "dark"]) {
+			await page.emulateMedia({ colorScheme });
+			for (const tab of [setupTab, appearanceTab, promptsTab, advancedTab]) {
+				await tab.click();
+				await page.waitForTimeout(200);
+				await expectNoSeriousAccessibilityFindings(page);
+				await expectResponsiveLayout(page, 320, 720);
+				await expectResponsiveLayout(page, 390, 844);
+				await expectResponsiveLayout(page, 720, 900);
+				await expectResponsiveLayout(page, 1280, 900);
+				await page.evaluate(() => window.scrollTo(0, 0));
+				await takeOptionsScreenshot(
+					page,
+					config.artifactsDir,
+					`options-${await tab.getAttribute("data-tab")}-${colorScheme}.png`,
+				);
+			}
 		}
 
+		await page.emulateMedia({ colorScheme: "light" });
+		await page.reload({ waitUntil: "domcontentloaded" });
+		await waitForTestReady(page);
+		await page.setViewportSize({ width: 1280, height: 1200 });
+		await page.evaluate(() => window.scrollTo(0, 0));
+		await takeOptionsScreenshot(
+			page,
+			config.artifactsDir,
+			"radix-options-light.png",
+		);
 		await appearanceTab.click();
-		await page.getByRole("button", { name: "Typography" }).click();
-		await expectResponsiveLayout(page, 320, 720);
-		await expectResponsiveLayout(page, 390, 844);
-		await expectResponsiveLayout(page, 720, 900);
-		await expectResponsiveLayout(page, 1280, 900);
-		await takeScreenshot(page, config.artifactsDir, "radix-options-light.png");
+		await page.setViewportSize({ width: 1280, height: 1600 });
+		await page.evaluate(() => window.scrollTo(0, 0));
+		await takeOptionsScreenshot(
+			page,
+			config.artifactsDir,
+			"radix-options-appearance.png",
+		);
 
+		await typography.click();
+		await page.locator("#selection-width").fill("480");
 		await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
-		await expectResponsiveLayout(page, 390, 844);
-		await takeScreenshot(
+		await expectResponsiveLayout(page, 320, 720);
+		assert.equal(
+			await page
+				.locator("#reading-preview-translation")
+				.evaluate((element) => getComputedStyle(element).animationName),
+			"none",
+		);
+		assert.equal(
+			await page
+				.locator('.appearance-disclosure-content[data-state="open"]')
+				.first()
+				.evaluate((element) => getComputedStyle(element).animationName),
+			"none",
+		);
+		await page.locator("#reset-appearance-button").click();
+		await page.reload({ waitUntil: "domcontentloaded" });
+		await waitForTestReady(page);
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.evaluate(() => window.scrollTo(0, 0));
+		await takeOptionsScreenshot(
 			page,
 			config.artifactsDir,
 			"radix-options-dark-mobile.png",
@@ -306,7 +480,7 @@ async function main() {
 			forcedColors: "active",
 			reducedMotion: "reduce",
 		});
-		assert.equal(await page.locator("#save-button").isVisible(), true);
+		await expectSaveActionsInViewport(page);
 		await page.emulateMedia({ colorScheme: "light", forcedColors: "none" });
 
 		await page.setViewportSize({ height: 900, width: 1280 });
@@ -318,6 +492,7 @@ async function main() {
 			scrollWidth: document.documentElement.scrollWidth,
 		}));
 		assert.ok(zoomBounds.scrollWidth <= zoomBounds.clientWidth);
+		await expectSaveActionsInViewport(page);
 		await page.evaluate(() => {
 			document.documentElement.style.zoom = "";
 		});

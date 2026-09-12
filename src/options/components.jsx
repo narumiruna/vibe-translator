@@ -1,6 +1,8 @@
 import {
 	CheckCircledIcon,
 	ExclamationTriangleIcon,
+	EyeClosedIcon,
+	EyeOpenIcon,
 	InfoCircledIcon,
 } from "@radix-ui/react-icons";
 import {
@@ -8,17 +10,40 @@ import {
 	Callout,
 	Card,
 	Heading,
+	IconButton,
 	Text,
 	TextArea,
 	TextField,
 } from "@radix-ui/themes";
+import { useState } from "react";
 
-function FormSection({ children, id, title }) {
+function FormSection({
+	children,
+	className = "",
+	description,
+	icon: Icon,
+	id,
+	title,
+}) {
 	return (
-		<section className="form-section" aria-labelledby={id}>
-			<Heading as="h2" id={id} className="form-section-title" size="2">
-				{title}
-			</Heading>
+		<section className={`form-section ${className}`} aria-labelledby={id}>
+			<div className="form-section-heading">
+				{Icon ? (
+					<span className="section-icon">
+						<Icon aria-hidden="true" />
+					</span>
+				) : null}
+				<div>
+					<Heading as="h2" id={id} className="form-section-title" size="3">
+						{title}
+					</Heading>
+					{description ? (
+						<Text as="p" className="field-note" size="2">
+							{description}
+						</Text>
+					) : null}
+				</div>
+			</div>
 			<div className="form-section-content">{children}</div>
 		</section>
 	);
@@ -28,21 +53,27 @@ function FieldLabel({ children, id, label, note }) {
 	const noteId = note ? `${id}-note` : undefined;
 
 	return (
-		<label className="field" htmlFor={id}>
-			<Text as="span" className="field-label" size="2" weight="medium">
+		<div className="field">
+			<Text
+				as="label"
+				htmlFor={id}
+				className="field-label"
+				size="2"
+				weight="medium"
+			>
 				{label}
 			</Text>
+			{children(noteId)}
 			{note ? (
 				<Text as="span" className="field-note" id={noteId} size="1">
 					{note}
 				</Text>
 			) : null}
-			{children(noteId)}
-		</label>
+		</div>
 	);
 }
 
-function TextInput({ id, invalid = false, label, note, ...props }) {
+function TextInput({ children, id, invalid = false, label, note, ...props }) {
 	return (
 		<FieldLabel id={id} label={label} note={note}>
 			{(noteId) => (
@@ -55,9 +86,35 @@ function TextInput({ id, invalid = false, label, note, ...props }) {
 					aria-invalid={invalid || undefined}
 					id={id}
 					size="3"
-				/>
+				>
+					{children}
+				</TextField.Root>
 			)}
 		</FieldLabel>
+	);
+}
+
+function PasswordInput(props) {
+	const [visible, setVisible] = useState(false);
+	const Icon = visible ? EyeClosedIcon : EyeOpenIcon;
+
+	return (
+		<TextInput {...props} type={visible ? "text" : "password"}>
+			<TextField.Slot side="right">
+				<IconButton
+					aria-controls={props.id}
+					aria-label={visible ? "Hide API key" : "Show API key"}
+					aria-pressed={visible}
+					className="password-toggle"
+					color="gray"
+					onClick={() => setVisible((current) => !current)}
+					type="button"
+					variant="ghost"
+				>
+					<Icon aria-hidden="true" />
+				</IconButton>
+			</TextField.Slot>
+		</TextInput>
 	);
 }
 
@@ -154,6 +211,7 @@ function StatusBanner({ banner }) {
 			aria-live={tone === "red" ? "assertive" : "polite"}
 			className="status-banner"
 			color={tone}
+			highContrast
 			hidden={!banner}
 			id="form-status"
 			role={tone === "red" ? "alert" : "status"}
@@ -174,6 +232,7 @@ export {
 	FormSection,
 	NativeSelect,
 	NumberInput,
+	PasswordInput,
 	StatusBanner,
 	StatusCard,
 	TextAreaInput,

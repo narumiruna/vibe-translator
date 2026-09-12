@@ -40,6 +40,10 @@
 29. Trigger Test Connection twice rapidly and confirm only one request runs while the button remains disabled until the operation settles
 30. Simulate a connection failure, confirm the same status area provides actionable recovery, retry, and confirm success without reloading the page
 31. Inspect the packaged options page network and console output and confirm it loads no remote UI resource, emits no page error, and never exposes the API key
+32. Confirm the API key is masked on load; use Enter and Space on **Show API key** / **Hide API key** and confirm the value and unsaved state do not change; reload and confirm it is masked again
+33. Clear **Model**, switch to Prompts, and save; confirm Setup opens, Model receives focus, and the error is announced. Repeat with a URL that omits `/v1` and with a User Prompt that omits `{{sourcePayload}}`
+34. Set an out-of-range Appearance number, close its disclosure, switch tabs, and save; confirm Appearance opens, the disclosure expands, and the invalid control receives focus without losing other drafts
+35. Scroll to the top, middle, and bottom of each tab in light and dark modes; confirm both save-bar actions remain inside the viewport and clickable. With reduced motion, confirm both preview fades and disclosure animations are disabled
 
 ## PDF translation
 

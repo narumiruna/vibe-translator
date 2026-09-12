@@ -41,6 +41,8 @@
 - Symptom: an inline translation appears beside, above, or outside its source in a CSS Grid article. Cause: a sibling note is independently auto-placed, and copied grid coordinates fail for auto placement, explicit rows, and responsive layouts. Fix: append a block-styled `span` note inside the source grid item so both share one responsive grid placement.
 - Symptom: Carmina leather pages translate only the hero heading and place its note over the banner. Cause: the primary description is a `div.html-output`, while the semantic heading prevents fallback extraction. Fix: root the Carmina profile at `#module-special-category-header` and target its `.html-output` directly.
 
+- Symptom: reduced-motion preview animations still run. Cause: `.has-fade` and Radix `[data-state="open"]` selectors outrank the media-query reset. Fix: match their specificity in reduced-motion rules and assert computed `animationName`, not only the emulated preference.
+
 ## TASTE
 - Selection translation UI should default to a compact tooltip-sized card; long content can expand, but the default should prefer density over empty space.
 - Inline page translations should default to a formal bilingual reading surface with subtle background and accent, bounded line measure, and no spellcheck-like per-line underlines.

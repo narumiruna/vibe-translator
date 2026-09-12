@@ -1,8 +1,14 @@
+import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { CheckboxField, FormSection, TextAreaInput } from "./components.jsx";
 
 function AdvancedSection({ draft, onField }) {
 	return (
-		<FormSection id="advanced-section-title" title="Advanced">
+		<FormSection
+			id="advanced-section-title"
+			icon={MixerHorizontalIcon}
+			title="Advanced"
+			description="Choose where translation runs and what diagnostic details you see."
+		>
 			<div className="field-stack">
 				<CheckboxField
 					checked={draft.showTranslationDebugInfo}

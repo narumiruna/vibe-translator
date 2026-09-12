@@ -1,4 +1,11 @@
-import { ChevronDownIcon, ResetIcon } from "@radix-ui/react-icons";
+import {
+	ChevronDownIcon,
+	EyeOpenIcon,
+	MoonIcon,
+	ResetIcon,
+	SunIcon,
+	TokensIcon,
+} from "@radix-ui/react-icons";
 import { Button, Card, Heading, Text } from "@radix-ui/themes";
 import { Accordion, ToggleGroup } from "radix-ui";
 import {
@@ -154,7 +161,13 @@ function AppearanceSection({
 	const selection = appearance.selection;
 
 	return (
-		<FormSection id="appearance-section-title" title="Appearance">
+		<FormSection
+			className="appearance-section"
+			id="appearance-section-title"
+			icon={TokensIcon}
+			title="Appearance"
+			description="A reading space that feels like you. Preview every detail before saving."
+		>
 			<Card
 				className="appearance-panel"
 				size="3"
@@ -171,6 +184,7 @@ function AppearanceSection({
 						</Text>
 					</div>
 					<Button
+						highContrast
 						id="reset-appearance-button"
 						onClick={onResetAppearance}
 						type="button"
@@ -194,28 +208,33 @@ function AppearanceSection({
 					<option value="custom">Custom</option>
 				</NativeSelect>
 
-				<ToggleGroup.Root
-					aria-label="Preview color scheme"
-					className="preview-toolbar"
-					onValueChange={(value) => value && setPreviewTheme(value)}
-					type="single"
-					value={previewTheme}
-				>
-					<ToggleGroup.Item
-						className="preview-theme-button"
-						data-appearance-theme="light"
-						value="light"
+				<div className="preview-heading">
+					<span className="preview-caption">
+						<EyeOpenIcon aria-hidden="true" /> Live preview
+					</span>
+					<ToggleGroup.Root
+						aria-label="Preview color scheme"
+						className="preview-toolbar"
+						onValueChange={(value) => value && setPreviewTheme(value)}
+						type="single"
+						value={previewTheme}
 					>
-						Light
-					</ToggleGroup.Item>
-					<ToggleGroup.Item
-						className="preview-theme-button"
-						data-appearance-theme="dark"
-						value="dark"
-					>
-						Dark
-					</ToggleGroup.Item>
-				</ToggleGroup.Root>
+						<ToggleGroup.Item
+							className="preview-theme-button"
+							data-appearance-theme="light"
+							value="light"
+						>
+							<SunIcon aria-hidden="true" /> Light
+						</ToggleGroup.Item>
+						<ToggleGroup.Item
+							className="preview-theme-button"
+							data-appearance-theme="dark"
+							value="dark"
+						>
+							<MoonIcon aria-hidden="true" /> Dark
+						</ToggleGroup.Item>
+					</ToggleGroup.Root>
+				</div>
 
 				<ReadingAppearancePreview
 					appearance={appearance}
@@ -402,11 +421,16 @@ function AppearanceSection({
 					))}
 				</Accordion.Root>
 
-				<SelectionAppearancePreview
-					appearance={appearance}
-					previewTheme={previewTheme}
-					targetLanguage={draft.targetLanguage}
-				/>
+				<div
+					className="selection-preview-stage"
+					data-preview-theme={previewTheme}
+				>
+					<SelectionAppearancePreview
+						appearance={appearance}
+						previewTheme={previewTheme}
+						targetLanguage={draft.targetLanguage}
+					/>
+				</div>
 				<Text
 					as="p"
 					className="field-note preview-only-note"
