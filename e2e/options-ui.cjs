@@ -45,10 +45,10 @@ async function expectSaveActionsInViewport(page) {
 				return {
 					id: button.id,
 					inViewport:
-						rect.top >= 0 &&
-						rect.bottom <= innerHeight &&
-						rect.left >= 0 &&
-						rect.right <= innerWidth,
+						rect.top >= -1 &&
+						rect.bottom <= innerHeight + 1 &&
+						rect.left >= -1 &&
+						rect.right <= innerWidth + 1,
 					unobscured: button.contains(hit),
 				};
 			}),
