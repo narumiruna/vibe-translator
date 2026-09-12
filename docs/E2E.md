@@ -18,16 +18,21 @@ Run `npm run build` first; the harness never loads raw files from `src/`.
 
 ## Options UI Regression Coverage
 
-The dedicated options regression loads the packaged React and Radix UI, exercises keyboard-correct tabs, settings drafts, validation, prompt resets, persistence, permission status, connection failure/retry, duplicate-action guards, responsive layouts, light/dark/reduced-motion/forced-color states, and local-only resources.
-It also runs axe against every active tab, inspects the Chrome accessibility tree, enforces a 500 ms local render budget, and saves `radix-options-light.png` plus `radix-options-dark-mobile.png` in `e2e-artifacts/`.
+The dedicated options regression loads the packaged React and Radix UI and exercises keyboard-correct tabs, API-key visibility, drafts, prompt resets, persistence, permission status, connection failure/retry, and duplicate-action guards. Native and application validation must reveal the relevant tab, expand a closed Appearance disclosure when needed, and focus the invalid field.
+
+Every tab is checked in light and dark modes at 320, 390, 720, and 1280 px. The suite verifies save actions remain inside the viewport and unobscured at the top, middle, and bottom of the page, and checks preview bounds, 200% zoom, reduced-motion animation styles, and forced colors. It runs axe in both themes, inspects the Chrome accessibility tree, enforces a 500 ms local render budget, and rejects remote UI resources or console errors.
+
+Screenshots in `e2e-artifacts/` include each tab in both themes, `radix-options-light.png`, `radix-options-appearance.png`, and `radix-options-dark-mobile.png`. Screen-reader announcement quality and Chrome's native permission prompt still require the manual options checklist in [TESTING.md](TESTING.md).
 
 ```bash
 PLAYWRIGHT_HEADLESS=1 npm run e2e:options
 ```
 
-![Radix options UI in light mode](images/radix-options-light.png)
+![Settings setup in light mode](images/radix-options-light.png)
 
-![Radix options UI in dark mobile mode](images/radix-options-dark-mobile.png)
+![Independent reading and selection appearance controls](images/radix-options-appearance.png)
+
+![Settings setup in dark mobile mode](images/radix-options-dark-mobile.png)
 
 ## Antirez Comment Regression Coverage
 

@@ -1,17 +1,10 @@
-import {
-	GearIcon,
-	GlobeIcon,
-	LightningBoltIcon,
-	ReloadIcon,
-} from "@radix-ui/react-icons";
-import { Card, Heading, Spinner, Text, Theme } from "@radix-ui/themes";
+import { Theme } from "@radix-ui/themes";
 import { Tabs } from "radix-ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import Settings from "../shared/settings.js";
 import { AdvancedSection } from "./advanced-section.jsx";
 import { AppearanceSection } from "./appearance-section.jsx";
-import { Button, StatusBanner } from "./components.jsx";
 import {
 	applyAppearancePreset,
 	buildPromptPreview,
@@ -24,6 +17,11 @@ import {
 	updateDraftField,
 } from "./model.js";
 import { createOptionsApi } from "./options-api.js";
+import {
+	OptionsHeader,
+	SaveBar,
+	SettingsNavigation,
+} from "./options-shell.jsx";
 import { PromptsSection } from "./prompts-section.jsx";
 import { SetupSection } from "./setup-section.jsx";
 import { useSystemTheme } from "./use-system-theme.js";
@@ -37,7 +35,7 @@ const INITIAL_PERMISSION = Object.freeze({
 });
 const INITIAL_TEST_STATE = Object.freeze({
 	details: "Checks both translation and the /models endpoint.",
-	status: "Run a test request after saving.",
+	status: "Ready to test your connection.",
 });
 
 function OptionsApp() {
@@ -48,6 +46,8 @@ function OptionsApp() {
 	const [savedSettings, setSavedSettings] = useState(() =>
 		createOptionsDraft(Settings.DEFAULT_SETTINGS),
 	);
+	const [activeTab, setActiveTab] = useState("setup");
+	const [focusTarget, setFocusTarget] = useState("");
 	const [loaded, setLoaded] = useState(false);
 	const [loadError, setLoadError] = useState("");
 	const [invalidFields, setInvalidFields] = useState(() => new Set());
@@ -105,6 +105,51 @@ function OptionsApp() {
 			active = false;
 		};
 	}, []);
+
+	useEffect(() => {
+		if (focusTarget) {
+			document.getElementById(focusTarget)?.focus();
+			setFocusTarget("");
+		}
+	}, [focusTarget]);
+
+	function revealInvalidField(id) {
+		const field = document.getElementById(id);
+		const panel = field?.closest("[data-panel]");
+		if (panel) {
+			field
+				.closest(".appearance-disclosure")
+				?.querySelector('.appearance-disclosure-trigger[data-state="closed"]')
+				?.click();
+			setActiveTab(panel.dataset.panel);
+			setFocusTarget(id);
+		}
+	}
+
+	function showValidationErrors(validation) {
+		const ids = getInvalidFieldIds(validation.errors);
+		setInvalidFields(new Set(ids));
+		setBanner({ message: validation.errors.join(" "), tone: "red" });
+		revealInvalidField(ids[0]);
+	}
+
+	function handleInvalid(event) {
+		event.preventDefault();
+		const fields = [
+			...event.currentTarget.querySelectorAll(
+				"input:invalid, select:invalid, textarea:invalid",
+			),
+		];
+		if (event.target !== fields[0]) {
+			return;
+		}
+		setInvalidFields(new Set(fields.map((field) => field.id)));
+		setBanner({
+			message: `${event.target.labels?.[0]?.textContent || "Invalid value"}: ${event.target.validationMessage}`,
+			tone: "red",
+		});
+		revealInvalidField(event.target.id);
+	}
 
 	const dirty = useMemo(
 		() => loaded && isOptionsDraftDirty(draft, savedSettings),
@@ -170,8 +215,7 @@ function OptionsApp() {
 			const validation = Settings.validateSettings(draft);
 
 			if (!validation.isValid) {
-				setInvalidFields(new Set(getInvalidFieldIds(validation.errors)));
-				setBanner({ message: validation.errors.join(" "), tone: "red" });
+				showValidationErrors(validation);
 				await refreshPermission(draft.baseUrl);
 				return;
 			}
@@ -219,12 +263,11 @@ function OptionsApp() {
 			const validation = Settings.validateSettings(draft);
 
 			if (!validation.isValid) {
-				setInvalidFields(new Set(getInvalidFieldIds(validation.errors)));
+				showValidationErrors(validation);
 				setTestState({
 					details: "Fix the settings errors and try again.",
 					status: "Validation failed.",
 				});
-				setBanner({ message: validation.errors.join(" "), tone: "red" });
 				return;
 			}
 
@@ -305,184 +348,99 @@ function OptionsApp() {
 
 	return (
 		<Theme
-			accentColor="indigo"
+			accentColor="teal"
 			appearance={theme}
-			grayColor="slate"
+			grayColor="sage"
 			hasBackground={false}
 			radius="large"
 			scaling="100%"
 		>
 			<main className="options-layout">
-				<Card className="options-panel" size="4">
-					<header className="hero">
-						<Text as="p" className="eyebrow" size="1" weight="bold">
-							<GlobeIcon aria-hidden="true" />
-							Vibe Translator
-						</Text>
-						<Heading as="h1" size="7">
-							Settings
-						</Heading>
-						<Text as="p" className="subtitle" color="gray" size="2">
-							Configure the API endpoint, model, prompt templates, and target
-							language used for page and selection translation.
-						</Text>
-					</header>
+				<OptionsHeader />
 
-					<form
-						aria-busy={!loaded}
-						className="options-form"
-						id="settings-form"
-						onSubmit={handleSave}
-					>
-						<fieldset className="options-fieldset" disabled={!loaded}>
-							<Tabs.Root defaultValue="setup">
-								<Tabs.List aria-label="Settings sections" className="tab-list">
-									<Tabs.Trigger
-										className="tab-trigger"
-										data-tab="setup"
-										value="setup"
-									>
-										Setup
-									</Tabs.Trigger>
-									<Tabs.Trigger
-										className="tab-trigger"
-										data-tab="appearance"
-										value="appearance"
-									>
-										Appearance
-									</Tabs.Trigger>
-									<Tabs.Trigger
-										className="tab-trigger"
-										data-tab="prompts"
-										value="prompts"
-									>
-										Prompts
-									</Tabs.Trigger>
-									<Tabs.Trigger
-										className="tab-trigger"
-										data-tab="advanced"
-										value="advanced"
-									>
-										Advanced
-									</Tabs.Trigger>
-								</Tabs.List>
+				<form
+					aria-busy={!loaded}
+					className="options-form"
+					data-validation-attempted={invalidFields.size > 0}
+					id="settings-form"
+					onInvalid={handleInvalid}
+					onSubmit={handleSave}
+				>
+					<fieldset className="options-fieldset" disabled={!loaded}>
+						<Tabs.Root value={activeTab} onValueChange={setActiveTab}>
+							<SettingsNavigation />
 
-								<Tabs.Content
-									className="tab-content"
-									data-panel="setup"
-									forceMount
-									value="setup"
-								>
-									<SetupSection
-										draft={draft}
-										invalidFields={invalidFields}
-										onBlurBaseUrl={() => refreshPermission(draft.baseUrl)}
-										onField={onField}
-										permission={permission}
-										testState={testState}
-									/>
-								</Tabs.Content>
-								<Tabs.Content
-									className="tab-content"
-									data-panel="appearance"
-									forceMount
-									value="appearance"
-								>
-									<AppearanceSection
-										dirty={dirty}
-										draft={draft}
-										onAppearanceField={onAppearanceField}
-										onApplyPreset={(presetId) =>
-											setDraft((current) =>
-												applyAppearancePreset(current, presetId),
-											)
-										}
-										onField={onField}
-										onResetAppearance={resetAppearance}
-										previewTheme={previewTheme}
-										setPreviewTheme={setPreviewTheme}
-									/>
-								</Tabs.Content>
-								<Tabs.Content
-									className="tab-content"
-									data-panel="prompts"
-									forceMount
-									value="prompts"
-								>
-									<PromptsSection
-										draft={draft}
-										invalidFields={invalidFields}
-										onField={onField}
-										onReset={resetPrompt}
-										preview={promptPreview}
-									/>
-								</Tabs.Content>
-								<Tabs.Content
-									className="tab-content"
-									data-panel="advanced"
-									forceMount
-									value="advanced"
-								>
-									<AdvancedSection draft={draft} onField={onField} />
-								</Tabs.Content>
-							</Tabs.Root>
-						</fieldset>
+							<Tabs.Content
+								className="tab-content"
+								data-panel="setup"
+								forceMount
+								value="setup"
+							>
+								<SetupSection
+									draft={draft}
+									invalidFields={invalidFields}
+									onBlurBaseUrl={() => refreshPermission(draft.baseUrl)}
+									onField={onField}
+									permission={permission}
+									testState={testState}
+								/>
+							</Tabs.Content>
+							<Tabs.Content
+								className="tab-content"
+								data-panel="appearance"
+								forceMount
+								value="appearance"
+							>
+								<AppearanceSection
+									dirty={dirty}
+									draft={draft}
+									onAppearanceField={onAppearanceField}
+									onApplyPreset={(presetId) =>
+										setDraft((current) =>
+											applyAppearancePreset(current, presetId),
+										)
+									}
+									onField={onField}
+									onResetAppearance={resetAppearance}
+									previewTheme={previewTheme}
+									setPreviewTheme={setPreviewTheme}
+								/>
+							</Tabs.Content>
+							<Tabs.Content
+								className="tab-content"
+								data-panel="prompts"
+								forceMount
+								value="prompts"
+							>
+								<PromptsSection
+									draft={draft}
+									invalidFields={invalidFields}
+									onField={onField}
+									onReset={resetPrompt}
+									preview={promptPreview}
+								/>
+							</Tabs.Content>
+							<Tabs.Content
+								className="tab-content"
+								data-panel="advanced"
+								forceMount
+								value="advanced"
+							>
+								<AdvancedSection draft={draft} onField={onField} />
+							</Tabs.Content>
+						</Tabs.Root>
+					</fieldset>
 
-						<div className="save-bar">
-							<div className="save-summary">
-								<Text
-									aria-live="polite"
-									className="save-state"
-									color={dirty ? "amber" : "gray"}
-									id="save-state"
-									size="1"
-									weight="medium"
-								>
-									{dirty
-										? "Unsaved changes — preview only until saved."
-										: "No unsaved changes."}
-								</Text>
-								{!loaded ? (
-									<Text as="span" className="loading-state" size="1">
-										<Spinner size="1" /> Loading settings…
-									</Text>
-								) : null}
-							</div>
-							<div className="save-bar-actions">
-								<Button
-									disabled={!loaded || saving || testing}
-									id="save-button"
-									size="3"
-									type="submit"
-								>
-									<GearIcon aria-hidden="true" />
-									{saving ? "Saving…" : "Save Settings"}
-								</Button>
-								<Button
-									disabled={!loaded || saving || testing}
-									id="test-button"
-									onClick={handleTestConnection}
-									size="3"
-									type="button"
-									variant="soft"
-								>
-									<LightningBoltIcon aria-hidden="true" />
-									{testing ? "Testing…" : "Test Connection"}
-								</Button>
-								{loadError ? (
-									<Button
-										onClick={() => globalThis.location.reload()}
-										type="button"
-										variant="soft"
-									>
-										<ReloadIcon aria-hidden="true" /> Retry loading
-									</Button>
-								) : null}
-							</div>
-							<StatusBanner banner={banner} />
-						</div>
-					</form>
-				</Card>
+					<SaveBar
+						banner={banner}
+						dirty={dirty}
+						loaded={loaded}
+						loadError={loadError}
+						onTest={handleTestConnection}
+						saving={saving}
+						testing={testing}
+					/>
+				</form>
 			</main>
 		</Theme>
 	);

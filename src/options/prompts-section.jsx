@@ -1,11 +1,20 @@
-import { ExclamationTriangleIcon, ResetIcon } from "@radix-ui/react-icons";
+import {
+	CodeIcon,
+	ExclamationTriangleIcon,
+	ResetIcon,
+} from "@radix-ui/react-icons";
 import { Button, Callout, Card, Heading, Text } from "@radix-ui/themes";
 
 import { FormSection, TextAreaInput } from "./components.jsx";
 
 function PromptsSection({ draft, invalidFields, onField, onReset, preview }) {
 	return (
-		<FormSection id="prompt-section-title" title="Prompt Templates">
+		<FormSection
+			id="prompt-section-title"
+			icon={CodeIcon}
+			title="Prompt Templates"
+			description="Fine-tune the instructions behind every translation. The defaults are a good place to start."
+		>
 			<div className="field-stack">
 				<TextAreaInput
 					id="system-prompt-template"
@@ -60,6 +69,7 @@ function PromptsSection({ draft, invalidFields, onField, onReset, preview }) {
 					</div>
 					<div className="prompt-preview-actions">
 						<Button
+							highContrast
 							id="reset-system-prompt-button"
 							onClick={() => onReset("system")}
 							type="button"
@@ -69,6 +79,7 @@ function PromptsSection({ draft, invalidFields, onField, onReset, preview }) {
 							Reset System Template
 						</Button>
 						<Button
+							highContrast
 							id="reset-user-prompt-button"
 							onClick={() => onReset("user")}
 							type="button"
@@ -86,6 +97,7 @@ function PromptsSection({ draft, invalidFields, onField, onReset, preview }) {
 				</Text>
 				<Callout.Root
 					color="amber"
+					highContrast
 					hidden={preview.warnings.length === 0}
 					id="prompt-lint-status"
 					role="status"
