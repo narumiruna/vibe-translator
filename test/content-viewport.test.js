@@ -76,6 +76,42 @@ test("selectWindowCandidates keeps viewport order", () => {
 	);
 });
 
+test("a long downward jump prioritizes the new viewport over both prefetch sides", () => {
+	const candidates = [
+		{ id: "old-above", rect: { top: -900, bottom: -820 } },
+		{ id: "new-visible", rect: { top: 80, bottom: 160 } },
+		{ id: "new-below", rect: { top: 840, bottom: 920 } },
+	];
+	const selected = selectWindowCandidates(candidates, {
+		viewportHeight: 700,
+		prefetchViewports: 2,
+	});
+
+	assert.equal(selected[0].id, "new-visible");
+	assert.deepEqual(
+		new Set(selected.slice(1).map((item) => item.id)),
+		new Set(["old-above", "new-below"]),
+	);
+});
+
+test("a return upward reprioritizes the restored viewport", () => {
+	const candidates = [
+		{ id: "restored-visible", rect: { top: 32, bottom: 112 } },
+		{ id: "prefetch-above", rect: { top: -620, bottom: -540 } },
+		{ id: "previous-position", rect: { top: 1180, bottom: 1260 } },
+	];
+	const selected = selectWindowCandidates(candidates, {
+		viewportHeight: 700,
+		prefetchViewports: 2,
+	});
+
+	assert.equal(selected[0].id, "restored-visible");
+	assert.deepEqual(
+		new Set(selected.slice(1).map((item) => item.id)),
+		new Set(["prefetch-above", "previous-position"]),
+	);
+});
+
 test("getTranslationWindowPriority prefers visible blocks over nearby offscreen blocks", () => {
 	const options = { viewportHeight: 700, prefetchViewports: 2, topMargin: 96 };
 

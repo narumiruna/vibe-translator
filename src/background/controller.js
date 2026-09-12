@@ -15,6 +15,13 @@ export const buildPageTranslationRequestChunks = buildProgressiveRequestChunks;
 export const buildPageTranslationRequestConcurrency =
 	buildProgressiveRequestConcurrency;
 
+const PAGE_TRANSLATION_CONCURRENCY = 5;
+const PAGE_TRANSLATION_BATCH_SIZE = 8;
+
+function getPageTranslationQueueBatchSize(item) {
+	return item?.kind === "subtitle" ? PAGE_TRANSLATION_BATCH_SIZE : 1;
+}
+
 export function createBackgroundController(options = {}) {
 	const {
 		chrome,
@@ -48,8 +55,6 @@ export function createBackgroundController(options = {}) {
 		setBadge,
 		setupContextMenus,
 	} = platform;
-	const PAGE_TRANSLATION_CONCURRENCY = 5;
-	const PAGE_TRANSLATION_BATCH_SIZE = 8;
 	let selectionRequestSequence = 0;
 	function createSelectionRequestId() {
 		selectionRequestSequence += 1;
@@ -59,6 +64,7 @@ export function createBackgroundController(options = {}) {
 	const pageTranslationQueue = TranslationSession.createPageTranslationQueue({
 		concurrency: PAGE_TRANSLATION_CONCURRENCY,
 		batchSize: PAGE_TRANSLATION_BATCH_SIZE,
+		getBatchSize: getPageTranslationQueueBatchSize,
 		processBatch: ({ tabId, frameId, sessionId, items }) =>
 			processPageTranslationItemBatch(tabId, frameId, sessionId, items),
 		onError(error, context) {

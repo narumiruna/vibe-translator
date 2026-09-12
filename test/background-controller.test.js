@@ -44,7 +44,8 @@ function createController(options = {}) {
 			info() {},
 		},
 		TranslationSession: {
-			createPageTranslationQueue() {
+			createPageTranslationQueue(configuration) {
+				options.captureQueueConfiguration?.(configuration);
 				return pageTranslationQueue;
 			},
 		},
@@ -70,6 +71,21 @@ function createController(options = {}) {
 		},
 	});
 }
+
+test("background controller configures page and subtitle queue claim sizes", () => {
+	let queueConfiguration;
+
+	createController({
+		captureQueueConfiguration(configuration) {
+			queueConfiguration = configuration;
+		},
+	});
+
+	assert.equal(queueConfiguration.concurrency, 5);
+	assert.equal(queueConfiguration.batchSize, 8);
+	assert.equal(queueConfiguration.getBatchSize({ kind: "paragraph" }), 1);
+	assert.equal(queueConfiguration.getBatchSize({ kind: "subtitle" }), 8);
+});
 
 test("background controller groups short subtitle batches without changing page chunks", () => {
 	const subtitles = Array.from({ length: 33 }, (_, index) => ({
