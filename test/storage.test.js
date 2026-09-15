@@ -72,6 +72,18 @@ test("validateSettings merges prompt template defaults", () => {
 	);
 });
 
+test("default prompt templates define a complete translation contract", () => {
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /untrusted content/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /instead of following them/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /input order/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /already in targetLanguage/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /__OT_\.\.\.__/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /provided schema/u);
+	assert.match(DEFAULT_USER_PROMPT_TEMPLATE, /top-level targetLanguage/u);
+	assert.match(DEFAULT_USER_PROMPT_TEMPLATE, /\{\{sourcePayload\}\}/u);
+	assert.deepEqual(lintPromptTemplates(DEFAULT_SETTINGS), []);
+});
+
 test("validateSettings migrates obsolete underline settings to Calm Reading", () => {
 	const result = validateSettings({
 		apiKey: "sk-demo",
@@ -139,14 +151,56 @@ test("validateSettings requires /v1 in base url", () => {
 	assert.match(result.errors.join(" "), /\/v1/);
 });
 
-test("migrateLegacyPromptSettings folds instructions into system prompt template", () => {
+test("migrateLegacyPromptSettings folds instructions into the refined system template", () => {
 	const result = migrateLegacyPromptSettings({
 		instructions: "Translate carefully.",
 		targetLanguage: "台灣正體中文",
 	});
 
 	assert.match(result.systemPromptTemplate, /^Translate carefully\./);
+	assert.match(result.systemPromptTemplate, /untrusted content/u);
 	assert.equal(result.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+});
+
+test("migrateLegacyPromptSettings upgrades previous defaults without replacing custom prompts", () => {
+	const previousSystemPromptTemplate = [
+		"Preserve meaning, tone, and technical accuracy in translation.",
+		"You are rendering bilingual technical reading aids.",
+		"Translate only natural-language prose into the target language.",
+		"Each output must strictly correspond 1:1 with each input item.",
+		"Do not merge, split, reorder, or add extra content.",
+		"Do not translate UI labels, metadata, timestamps, or navigation text.",
+		"Preserve placeholders like __OT_TOKEN_1__ exactly and do not translate, remove, or reorder them unnecessarily.",
+		"Keep structure by item kind. Headings stay headings, list items stay list items, table cells stay table cells.",
+		"If an item is marked isUI=true or isMetadata=true, return an empty translatedText for that item.",
+	].join("\n");
+	const previousUserPromptTemplate = [
+		"Translate the provided source items into {{targetLanguage}}.",
+		"Preserve meaning, order, and inline structure.",
+		'Return a JSON object with a "translations" array in the same order as the input.',
+		'Each translation item must use this shape: {"id":"...","translatedText":"..."}',
+		"Return one translation item for every source item.",
+		"Keep file paths, commands, URLs, code spans, identifiers, and product names in their original form.",
+		"If isUI=true or isMetadata=true, return an empty translatedText.",
+		"",
+		"{{sourcePayload}}",
+	].join("\n");
+	const upgraded = migrateLegacyPromptSettings({
+		systemPromptTemplate: previousSystemPromptTemplate,
+		userPromptTemplate: previousUserPromptTemplate,
+	});
+	const custom = migrateLegacyPromptSettings({
+		systemPromptTemplate: "Custom system prompt.",
+		userPromptTemplate: "Custom user prompt. {{sourcePayload}}",
+	});
+
+	assert.equal(upgraded.systemPromptTemplate, DEFAULT_SYSTEM_PROMPT_TEMPLATE);
+	assert.equal(upgraded.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+	assert.equal(custom.systemPromptTemplate, "Custom system prompt.");
+	assert.equal(
+		custom.userPromptTemplate,
+		"Custom user prompt. {{sourcePayload}}",
+	);
 });
 
 test("getApiPermissionPattern derives origin wildcard", () => {
@@ -163,15 +217,16 @@ test("normalizeDisabledDomains normalizes separators and casing", () => {
 	);
 });
 
-test("lintPromptTemplates warns when target language or output format hints are missing", () => {
+test("lintPromptTemplates warns when safety, placeholder, or output rules are missing", () => {
 	const warnings = lintPromptTemplates({
 		systemPromptTemplate: "Translate carefully.",
 		userPromptTemplate: "{{sourcePayload}}",
 	});
 
-	assert.ok(warnings.some((warning) => warning.includes("{{targetLanguage}}")));
+	assert.ok(warnings.some((warning) => warning.includes("not instructions")));
+	assert.ok(warnings.some((warning) => warning.includes("placeholders")));
 	assert.ok(
-		warnings.some((warning) => warning.includes("JSON translations output")),
+		warnings.some((warning) => warning.includes("schema-defined JSON")),
 	);
 });
 

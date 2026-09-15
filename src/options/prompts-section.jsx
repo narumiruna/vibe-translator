@@ -13,7 +13,7 @@ function PromptsSection({ draft, invalidFields, onField, onReset, preview }) {
 			id="prompt-section-title"
 			icon={CodeIcon}
 			title="Prompt Templates"
-			description="Fine-tune the instructions behind every translation. The defaults are a good place to start."
+			description="Customize the translation contract. The defaults separate stable rules from untrusted source content."
 		>
 			<div className="field-stack">
 				<TextAreaInput
@@ -23,9 +23,10 @@ function PromptsSection({ draft, invalidFields, onField, onReset, preview }) {
 					name="systemPromptTemplate"
 					note={
 						<>
-							Fully controls the system prompt sent to the model. You can use
-							placeholders like <code>{"{{targetLanguage}}"}</code>,{" "}
+							Sets stable translation rules. Supports{" "}
+							<code>{"{{targetLanguage}}"}</code>,{" "}
 							<code>{"{{itemCount}}"}</code>, and <code>{"{{itemKind}}"}</code>.
+							Keep source data in the user template.
 						</>
 					}
 					onChange={(event) =>
@@ -42,9 +43,10 @@ function PromptsSection({ draft, invalidFields, onField, onReset, preview }) {
 					name="userPromptTemplate"
 					note={
 						<>
-							Fully controls the user prompt. It must include{" "}
-							<code>{"{{sourcePayload}}"}</code> so source items are sent to the
-							model.
+							Provides the translation request and source data. It must include{" "}
+							<code>{"{{sourcePayload}}"}</code>; it also supports{" "}
+							<code>{"{{targetLanguage}}"}</code>,{" "}
+							<code>{"{{itemCount}}"}</code>, and <code>{"{{itemKind}}"}</code>.
 						</>
 					}
 					onChange={(event) =>

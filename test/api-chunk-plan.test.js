@@ -63,6 +63,29 @@ test("chunk plan splits oversized text and merges translations", () => {
 	assert.match(merged[0].translation, /Third sentence\.\]$/);
 });
 
+test("chunk plan preserves translation directives on every split part", () => {
+	const plan = createRecursiveChunkPlan(
+		[
+			{
+				id: "metadata",
+				kind: "paragraph",
+				text: "First sentence. Second sentence. Third sentence.",
+				isUI: true,
+				isMetadata: true,
+				containsMath: true,
+			},
+		],
+		20,
+	);
+
+	assert.ok(plan.expandedItems.length > 1);
+	assert.ok(
+		plan.expandedItems.every(
+			(item) => item.isUI && item.isMetadata && item.containsMath,
+		),
+	);
+});
+
 test("chunk plan progressive merge waits until all parts are available", () => {
 	const plan = createRecursiveChunkPlan(
 		[

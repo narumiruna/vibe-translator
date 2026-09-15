@@ -128,6 +128,14 @@ function chunkTranslationItems(items, maxChars) {
 	return chunks;
 }
 
+function getTranslationDirectives(item) {
+	return {
+		isUI: Boolean(item?.isUI),
+		isMetadata: Boolean(item?.isMetadata),
+		containsMath: Boolean(item?.containsMath),
+	};
+}
+
 function getTimedSubtitleMetadata(item) {
 	const cueStartMs = Number(item?.cueStartMs);
 	const durationMs = Number(item?.durationMs);
@@ -173,6 +181,7 @@ function createRecursiveChunkPlan(items, maxChars) {
 			expandedItems.push({
 				id: item.id,
 				...getTimedSubtitleMetadata(item),
+				...getTranslationDirectives(item),
 				kind: item.kind || "paragraph",
 				text: parts[0]
 					? parts[0].text
@@ -202,6 +211,7 @@ function createRecursiveChunkPlan(items, maxChars) {
 			expandedItems.push({
 				id: partId,
 				...getTimedSubtitleMetadata(item),
+				...getTranslationDirectives(item),
 				kind: item.kind || "paragraph",
 				text: parts[index].text,
 				sourceId: item.id,
