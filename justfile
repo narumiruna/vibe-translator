@@ -6,6 +6,7 @@ default:
 help:
     @echo "Available recipes:"
     @echo "  just check  - Run module checks, unit tests, build, and artifact verification"
+    @echo "  just build  - Create a production Chrome extension build"
     @echo "  just e2e    - Run Playwright extension smoke tests"
     @echo "  just e2e-mock - Run Playwright extension smoke tests with mock API"
     @echo "  just e2e-options - Run options UI accessibility and interaction regression test"
@@ -30,6 +31,9 @@ check:
 
 test:
     @node --test test/*.test.js
+
+build:
+    @npm run build
 
 e2e:
     @npm run e2e:smoke
