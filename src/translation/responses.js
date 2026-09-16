@@ -5,14 +5,22 @@ const TRANSLATION_RESPONSE_FORMAT = Object.freeze({
 	name: "translation_result",
 	schema: {
 		type: "object",
+		description: "Translations corresponding one-to-one with the input items.",
 		properties: {
 			translations: {
 				type: "array",
+				description: "One result per input item, in the same order.",
 				items: {
 					type: "object",
 					properties: {
-						id: { type: "string" },
-						translatedText: { type: "string" },
+						id: {
+							type: "string",
+							description: "The input item id copied without changes.",
+						},
+						translatedText: {
+							type: "string",
+							description: "Only the translated text for this item.",
+						},
 					},
 					required: ["id", "translatedText"],
 					additionalProperties: false,

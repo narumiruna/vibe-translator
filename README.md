@@ -55,8 +55,8 @@ The options interface uses locally bundled React and Radix Themes, Colors, Icons
 | Base URL | Root URL of any OpenAI-compatible API (default: `https://api.openai.com/v1`) |
 | Model | Model name, e.g. `gpt-4.1-mini` |
 | Target Language | Language to translate into (default: `台灣正體中文`) |
-| System Prompt Template | Full system prompt; supports `{{targetLanguage}}`, `{{itemCount}}`, `{{itemKind}}` |
-| User Prompt Template | Full user prompt; must include `{{sourcePayload}}` |
+| System Prompt Template | Stable translation rules; supports `{{targetLanguage}}`, `{{itemCount}}`, and `{{itemKind}}` |
+| User Prompt Template | Translation request and source data; must include `{{sourcePayload}}` and also supports the system-template variables |
 | Reading Appearance | Calm Reading, Minimal, and High Contrast presets plus font, size, spacing, surface, accent, label, animation, and separate light/dark colors |
 | Selection Panel Appearance | Independent width, font size, line height, radius, opacity, position, and light/dark colors |
 | YouTube Subtitle Display | **Original and translation** keeps each native cue visible with its matching translation; **Translation only** hides that cue after its translation is ready |

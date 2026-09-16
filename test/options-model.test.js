@@ -162,7 +162,7 @@ test("prompt preview applies defaults and reports warnings and token estimates",
 		}),
 	);
 
-	assert.match(preview.systemPrompt, /bilingual technical reading aids/u);
+	assert.match(preview.systemPrompt, /untrusted content/u);
 	assert.match(preview.userPrompt, /Translate without a source placeholder/u);
 	assert.ok(preview.totalTokens > 0);
 	assert.equal(preview.totalTokens, preview.systemTokens + preview.userTokens);
