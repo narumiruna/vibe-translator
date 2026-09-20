@@ -139,10 +139,4 @@ function resolveYoutubeCaptionTracks(input = {}) {
 	};
 }
 
-const api = {
-	resolveNativeYoutubeCaptionRequestUrl,
-	resolveYoutubeCaptionTracks,
-};
-
 export { resolveNativeYoutubeCaptionRequestUrl, resolveYoutubeCaptionTracks };
-export default api;

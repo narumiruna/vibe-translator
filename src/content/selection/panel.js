@@ -1,25 +1,10 @@
-const SELECTION_PANEL_POSITION_MODES = Object.freeze([
-	"near-selection",
-	"bottom-right",
-]);
+import { normalizeSelectionPanelPositionMode } from "../../shared/settings.js";
+
 const SELECTION_PANEL_MARGIN = 12;
 const SELECTION_PANEL_GAP = 12;
 const SELECTION_PANEL_COMPACT_WIDTH = 280;
-const SELECTION_PANEL_EXPANDED_WIDTH = 420;
 const SELECTION_PANEL_MAX_WIDTH = 480;
-const SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT = 132;
-const SELECTION_PANEL_EXPANDED_MAX_BODY_HEIGHT = 320;
 const SELECTION_PANEL_MOBILE_BREAKPOINT = 640;
-
-function normalizeSelectionPanelPositionMode(value) {
-	const normalized = String(value || "")
-		.trim()
-		.toLowerCase();
-
-	return SELECTION_PANEL_POSITION_MODES.includes(normalized)
-		? normalized
-		: "near-selection";
-}
 
 function normalizeSelectionRequestId(value) {
 	return String(value || "").trim();
@@ -54,7 +39,6 @@ function clampSelectionPanelValue(value, min, max) {
 
 function getSelectionPanelWidth(
 	viewportWidth,
-	_expanded,
 	compactWidth = SELECTION_PANEL_COMPACT_WIDTH,
 ) {
 	const numericWidth = Number(compactWidth);
@@ -195,7 +179,6 @@ function createSelectionPanelRenderer(options = {}) {
 		if (viewportWidth > SELECTION_PANEL_MOBILE_BREAKPOINT) {
 			const targetWidth = getSelectionPanelWidth(
 				viewportWidth,
-				isExpanded(),
 				state.compactWidth,
 			);
 
@@ -217,7 +200,6 @@ function createSelectionPanelRenderer(options = {}) {
 		);
 		const targetWidth = getSelectionPanelWidth(
 			viewportWidth,
-			isExpanded(),
 			state.compactWidth,
 		);
 		const measuredWidth = panel.offsetWidth || targetWidth;
@@ -587,33 +569,13 @@ function createSelectionPanelRenderer(options = {}) {
 	};
 }
 
-const api = {
-	SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT,
-	SELECTION_PANEL_COMPACT_WIDTH,
-	SELECTION_PANEL_EXPANDED_MAX_BODY_HEIGHT,
-	SELECTION_PANEL_EXPANDED_WIDTH,
-	SELECTION_PANEL_MAX_WIDTH,
-	SELECTION_PANEL_MOBILE_BREAKPOINT,
-	createSelectionPanelRenderer,
-	getSelectionPanelWidth,
-	normalizeSelectionAnchorRect,
-	normalizeSelectionPanelPositionMode,
-	normalizeSelectionRequestId,
-	shouldCloseSelectionPanelOnKey,
-};
-
 export {
 	createSelectionPanelRenderer,
 	getSelectionPanelWidth,
 	normalizeSelectionAnchorRect,
-	normalizeSelectionPanelPositionMode,
 	normalizeSelectionRequestId,
-	SELECTION_PANEL_COMPACT_MAX_BODY_HEIGHT,
 	SELECTION_PANEL_COMPACT_WIDTH,
-	SELECTION_PANEL_EXPANDED_MAX_BODY_HEIGHT,
-	SELECTION_PANEL_EXPANDED_WIDTH,
 	SELECTION_PANEL_MAX_WIDTH,
 	SELECTION_PANEL_MOBILE_BREAKPOINT,
 	shouldCloseSelectionPanelOnKey,
 };
-export default api;

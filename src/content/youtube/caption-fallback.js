@@ -151,7 +151,4 @@ function createCaptionFallbackStore(options = {}) {
 	return { clear, getLatest, getSummary, offer, retain, settle };
 }
 
-const api = { createCaptionFallbackStore };
-
 export { createCaptionFallbackStore };
-export default api;

@@ -1,5 +1,5 @@
-import Messages from "../shared/messages.js";
-import Settings from "../shared/settings.js";
+import * as Messages from "../shared/messages.js";
+import * as Settings from "../shared/settings.js";
 
 function createOptionsApi(options = {}) {
 	const chromeApi = options.chrome || globalThis.chrome;
@@ -54,7 +54,4 @@ function createOptionsApi(options = {}) {
 	return { getPermissionStatus, requestPermission, testConnection };
 }
 
-const api = { createOptionsApi };
-
 export { createOptionsApi };
-export default api;

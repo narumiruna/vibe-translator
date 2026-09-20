@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import Api from "../src/translation/api.js";
+import * as Api from "../src/translation/api.js";
 import {
 	buildProgressiveRequestChunks,
 	buildProgressiveRequestConcurrency,

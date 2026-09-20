@@ -321,17 +321,6 @@ function createDiagnosticReport(snapshot, events, notableEvents) {
 	].join("\n");
 }
 
-const api = {
-	CAPTION_BUTTON_SELECTOR,
-	CAPTION_SEGMENT_SELECTOR,
-	CONTROL_SELECTOR,
-	collectYoutubeDiagnostics,
-	createCaptionTraceStore,
-	createDiagnosticReport,
-	createDiagnosticStore,
-	diagnoseYoutubePipeline,
-};
-
 export {
 	CAPTION_BUTTON_SELECTOR,
 	CAPTION_SEGMENT_SELECTOR,
@@ -342,4 +331,3 @@ export {
 	createDiagnosticStore,
 	diagnoseYoutubePipeline,
 };
-export default api;

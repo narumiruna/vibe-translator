@@ -1,7 +1,7 @@
-import CacheApi from "./cache.js";
-import ChunkPlan from "./chunk-plan.js";
-import ProtectedFragments from "./protected-fragments.js";
-import ResponsesApi from "./responses.js";
+import * as CacheApi from "./cache.js";
+import * as ChunkPlan from "./chunk-plan.js";
+import * as ProtectedFragments from "./protected-fragments.js";
+import * as ResponsesApi from "./responses.js";
 
 const DEFAULT_MAX_BATCH_CHARS = 5000;
 const DEFAULT_MAX_CONCURRENCY = 5;
@@ -41,6 +41,32 @@ const parseTranslationResponse = ResponsesApi.parseTranslationResponse;
 const stripCodeFences = ResponsesApi.stripCodeFences;
 const validateProtectedFragments =
 	ProtectedFragments.validateProtectedFragments;
+const InvalidTranslationResponseError =
+	ResponsesApi.InvalidTranslationResponseError;
+
+async function runBoundedScheduler(options) {
+	const taskCount = Math.max(0, Math.floor(Number(options.taskCount) || 0));
+	const concurrency = Math.max(
+		1,
+		Math.floor(Number(options.concurrency) || DEFAULT_MAX_CONCURRENCY),
+	);
+	const shouldContinue = options.shouldContinue || (() => true);
+	let nextIndex = 0;
+
+	async function worker() {
+		while (nextIndex < taskCount && shouldContinue()) {
+			const taskIndex = nextIndex;
+
+			nextIndex += 1;
+			await options.runTask(taskIndex);
+		}
+	}
+
+	await Promise.all(
+		Array.from({ length: Math.min(concurrency, taskCount) }, () => worker()),
+	);
+}
+
 async function requestTranslations(options) {
 	const settings = options.settings;
 	const items = options.items || [];
@@ -70,12 +96,7 @@ async function requestTranslations(options) {
 			fetchImpl,
 		);
 	} catch (error) {
-		if (
-			error instanceof SyntaxError ||
-			/Response JSON|Unexpected token|missing id|duplicate id|unknown id|parsed output|translations array|Protected placeholder/i.test(
-				error.message,
-			)
-		) {
+		if (error instanceof InvalidTranslationResponseError) {
 			freshTranslations = await callResponsesApi(
 				settings,
 				missingItems,
@@ -98,34 +119,19 @@ async function requestTranslationsBatched(options) {
 	const settings = options.settings;
 	const chunks = options.chunks || [];
 	const fetchImpl = options.fetchImpl || globalThis.fetch;
-	const concurrency = Math.max(
-		1,
-		Math.floor(options.concurrency || DEFAULT_MAX_CONCURRENCY),
-	);
 	const results = new Array(chunks.length);
-	let nextIndex = 0;
 
-	async function worker() {
-		while (nextIndex < chunks.length) {
-			const chunkIndex = nextIndex;
-			nextIndex += 1;
-
+	await runBoundedScheduler({
+		taskCount: chunks.length,
+		concurrency: options.concurrency,
+		async runTask(chunkIndex) {
 			results[chunkIndex] = await requestTranslations({
 				settings,
 				items: chunks[chunkIndex],
 				fetchImpl,
 			});
-		}
-	}
-
-	const workers = [];
-	const workerCount = Math.min(concurrency, chunks.length);
-
-	for (let index = 0; index < workerCount; index += 1) {
-		workers.push(worker());
-	}
-
-	await Promise.all(workers);
+		},
+	});
 
 	return results.flat();
 }
@@ -134,10 +140,6 @@ async function requestTranslationsBatchedProgressive(options) {
 	const settings = options.settings;
 	const chunks = options.chunks || [];
 	const fetchImpl = options.fetchImpl || globalThis.fetch;
-	const concurrency = Math.max(
-		1,
-		Math.floor(options.concurrency || DEFAULT_MAX_CONCURRENCY),
-	);
 	const onChunkResolved =
 		typeof options.onChunkResolved === "function"
 			? options.onChunkResolved
@@ -152,13 +154,13 @@ async function requestTranslationsBatchedProgressive(options) {
 			: () => true;
 	const successes = [];
 	const failures = [];
-	let nextIndex = 0;
 
-	async function worker() {
-		while (nextIndex < chunks.length && shouldContinue()) {
-			const chunkIndex = nextIndex;
+	await runBoundedScheduler({
+		taskCount: chunks.length,
+		concurrency: options.concurrency,
+		shouldContinue,
+		async runTask(chunkIndex) {
 			const chunkItems = chunks[chunkIndex];
-			nextIndex += 1;
 
 			try {
 				const result = await requestTranslations({
@@ -189,48 +191,14 @@ async function requestTranslationsBatchedProgressive(options) {
 					await onChunkRejected(failure);
 				}
 			}
-		}
-	}
-
-	const workers = [];
-	const workerCount = Math.min(concurrency, chunks.length);
-
-	for (let index = 0; index < workerCount; index += 1) {
-		workers.push(worker());
-	}
-
-	await Promise.all(workers);
+		},
+	});
 
 	return {
 		successes: successes.filter(Boolean).flat(),
 		failures,
 	};
 }
-
-const api = {
-	DEFAULT_MAX_BATCH_CHARS,
-	DEFAULT_MAX_CONCURRENCY,
-	buildResponsesRequest,
-	buildTranslationInput,
-	clearTranslationCache,
-	chunkTranslationItems,
-	createRecursiveChunkPlan,
-	extractOutputText,
-	maskProtectedFragments,
-	mergeRecursiveTranslations,
-	estimateTokenCount,
-	parseTranslationResponse,
-	consumeProgressiveTranslations,
-	createProgressiveMergeState,
-	requestTranslations,
-	requestTranslationsBatched,
-	requestTranslationsBatchedProgressive,
-	splitTextRecursively,
-	stripCodeFences,
-	unmaskProtectedFragments,
-	validateProtectedFragments,
-	getIncompleteSegmentIds,
-};
 
 export {
 	buildResponsesRequest,
@@ -256,4 +224,3 @@ export {
 	unmaskProtectedFragments,
 	validateProtectedFragments,
 };
-export default api;

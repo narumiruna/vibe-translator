@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import YoutubeDiagnosticsApi from "../src/content/youtube/diagnostics.js";
-import YoutubePlayerControlApi from "../src/content/youtube/player-control.js";
+import * as YoutubeDiagnosticsApi from "../src/content/youtube/diagnostics.js";
+import * as YoutubePlayerControlApi from "../src/content/youtube/player-control.js";
 import { createYoutubeRuntime } from "../src/content/youtube/runtime.js";
-import SubtitleApi from "../src/content/youtube/subtitles.js";
-import TimedCaptionApi from "../src/content/youtube/timed-captions.js";
-import Messages from "../src/shared/messages.js";
+import * as SubtitleApi from "../src/content/youtube/subtitles.js";
+import * as TimedCaptionApi from "../src/content/youtube/timed-captions.js";
+import * as Messages from "../src/shared/messages.js";
 
 test("YouTube runtime coalesces progressive fallbacks and recovers caption timeouts", () => {
 	const events = [];

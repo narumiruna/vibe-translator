@@ -5,10 +5,10 @@ import {
 	createSelectionPanelRenderer,
 	getSelectionPanelWidth,
 	normalizeSelectionAnchorRect,
-	normalizeSelectionPanelPositionMode,
 	normalizeSelectionRequestId,
 	shouldCloseSelectionPanelOnKey,
 } from "../src/content/selection/panel.js";
+import { normalizeSelectionPanelPositionMode } from "../src/shared/settings.js";
 
 class FakeClassList {
 	constructor() {
@@ -245,13 +245,10 @@ test("normalizeSelectionAnchorRect requires finite rectangle values", () => {
 });
 
 test("getSelectionPanelWidth keeps one stable width within viewport margins", () => {
-	assert.equal(getSelectionPanelWidth(1024, false), 280);
-	assert.equal(getSelectionPanelWidth(1024, true), 280);
-	assert.equal(getSelectionPanelWidth(300, true), 276);
-	assert.equal(getSelectionPanelWidth(1024, false, 360), 360);
-	assert.equal(getSelectionPanelWidth(1024, true, 360), 360);
-	assert.equal(getSelectionPanelWidth(1024, false, 480), 480);
-	assert.equal(getSelectionPanelWidth(1024, true, 480), 480);
+	assert.equal(getSelectionPanelWidth(1024), 280);
+	assert.equal(getSelectionPanelWidth(300), 276);
+	assert.equal(getSelectionPanelWidth(1024, 360), 360);
+	assert.equal(getSelectionPanelWidth(1024, 480), 480);
 });
 
 test("normalizeSelectionRequestId trims valid ids and rejects empty ids", () => {
@@ -391,6 +388,36 @@ test("selection panel renderer exposes an actionable error and explicit retry", 
 			targetLanguage: "台灣正體中文",
 		},
 	]);
+});
+
+test("selection panel consumes normalized near-selection and bottom-right modes", () => {
+	const { document, renderer } = createRendererHarness();
+	const selectionAnchor = {
+		top: 100,
+		right: 240,
+		bottom: 120,
+		left: 120,
+		width: 120,
+		height: 20,
+	};
+
+	renderer.renderPlaceholder({
+		requestId: "request-near",
+		selectionAnchor,
+		selectionPanelPositionMode: " NEAR-SELECTION ",
+		targetLanguage: "日本語",
+	});
+	const panel = document.querySelector('[data-ot-role="selection-panel"]');
+
+	assert.notEqual(panel.style.left, "");
+	renderer.renderPlaceholder({
+		requestId: "request-corner",
+		selectionAnchor,
+		selectionPanelPositionMode: " BOTTOM-RIGHT ",
+		targetLanguage: "日本語",
+	});
+	assert.equal(panel.style.left, "");
+	assert.equal(panel.style.bottom, "");
 });
 
 test("selection panel expansion keeps the configured width stable", () => {

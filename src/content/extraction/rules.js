@@ -1,4 +1,4 @@
-import SiteProfiles from "./site-profiles.js";
+import * as SiteProfiles from "./site-profiles.js";
 
 const buildProfileSelectors =
 	SiteProfiles?.buildProfileSelectors ||
@@ -511,48 +511,6 @@ function detectContentMode(rootElement) {
 	return semanticBlocks.length > 0 ? "leaf" : "empty";
 }
 
-const api = {
-	ACTIVE_CONTENT_RULES,
-	ACTIVE_SITE_PROFILE,
-	ARTICLE_CONTENT_SELECTOR,
-	DIRECT_BLOCK_CHILD_SELECTOR,
-	DIRECT_NOTE_TARGET_SELECTOR,
-	EXPLICIT_TEXT_BLOCK_SELECTOR,
-	HEADING_SELECTOR,
-	INLINE_CODE_SELECTOR,
-	INTERACTIVE_SELECTOR,
-	MAIN_CONTENT_SELECTOR,
-	MATH_SELECTOR,
-	READABLE_BLOCK_SELECTOR,
-	READABLE_LINK_SELECTOR,
-	SEMANTIC_BLOCK_SELECTOR,
-	SITE_PROFILE_ID,
-	SITE_ROOT_SELECTOR,
-	SKIP_ANCESTOR_SELECTOR,
-	SPLIT_CONTAINER_SELECTOR,
-	SUMMARY_BLOCK_SELECTOR,
-	TERMINAL_LIKE_SELECTOR,
-	TITLE_LIKE_SELECTOR,
-	UNSUPPORTED_ANCESTOR_SELECTOR,
-	UNSUPPORTED_ELEMENT_SELECTOR,
-	createContentRulesForProfile,
-	detectContentMode,
-	getCandidateElements,
-	getDirectBlockChildCount,
-	getElementLinkDensity,
-	getElementPlainText,
-	hasNestedReadableBlocks,
-	hasSelectedRelative,
-	isHeadingLikeElement,
-	isLikelyUiMetaBlock,
-	isReadableTitleLink,
-	isUnsupportedElement,
-	normalizeInlineWhitespace,
-	normalizeSegmentText,
-	scoreCandidateBlock,
-	scoreTranslationRoot,
-};
-
 export {
 	ACTIVE_CONTENT_RULES,
 	ACTIVE_SITE_PROFILE,
@@ -594,4 +552,3 @@ export {
 	UNSUPPORTED_ANCESTOR_SELECTOR,
 	UNSUPPORTED_ELEMENT_SELECTOR,
 };
-export default api;

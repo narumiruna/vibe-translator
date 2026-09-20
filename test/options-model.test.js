@@ -11,8 +11,8 @@ import {
 	resetAppearanceDraft,
 	updateDraftField,
 } from "../src/options/model.js";
-import Appearance from "../src/shared/appearance.js";
-import Settings from "../src/shared/settings.js";
+import * as Appearance from "../src/shared/appearance.js";
+import * as Settings from "../src/shared/settings.js";
 
 function createValidSettings(overrides = {}) {
 	return {

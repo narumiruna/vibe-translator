@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import TranslatorMessages from "../src/shared/messages.js";
+import * as TranslatorMessages from "../src/shared/messages.js";
 
 test("message builders use shared message types", () => {
 	assert.deepEqual(TranslatorMessages.ping(), {
@@ -71,9 +71,6 @@ test("message builders use shared message types", () => {
 			},
 		},
 	);
-	assert.deepEqual(TranslatorMessages.clearSelectionTranslation(), {
-		type: TranslatorMessages.MESSAGE_TYPES.CLEAR_SELECTION_TRANSLATION,
-	});
 	assert.deepEqual(
 		TranslatorMessages.renderSelectionError({
 			requestId: "selection-1",

@@ -1,3 +1,5 @@
+import { resolveSiteProfile } from "../extraction/site-profiles.js";
+
 const CONTROL_ATTR = "data-ot-youtube-control";
 const CONTROL_SELECTOR = `[${CONTROL_ATTR}]`;
 const handledClickEvents = new WeakSet();
@@ -5,28 +7,16 @@ const playerControlBindings = new WeakMap();
 const PLAYER_SELECTOR = "#movie_player";
 const CAPTION_BUTTON_SELECTOR = ".ytp-subtitles-button";
 const RIGHT_CONTROLS_LEFT_SELECTOR = ".ytp-right-controls-left";
-const WATCH_HOSTS = new Set([
-	"youtube.com",
-	"www.youtube.com",
-	"m.youtube.com",
-]);
 const ICON_PATH =
 	"M7 5.5C7 4.12 8.12 3 9.5 3h5C15.88 3 17 4.12 17 5.5v7c0 1.38-1.12 2.5-2.5 2.5H13l-2.5 2.25V15h-1A2.5 2.5 0 0 1 7 12.5v-7Zm2.5-.75a.75.75 0 0 0-.75.75v7c0 .41.34.75.75.75h2.75v.08l.79-.71.21-.19h1.25a.75.75 0 0 0 .75-.75V5.5a.75.75 0 0 0-.75-.75h-5ZM4 7.5c0-.95.53-1.78 1.3-2.2v7.2c0 1.77 1.43 3.2 3.2 3.2h.75v1.55L8.42 18H6.5A2.5 2.5 0 0 1 4 15.5v-8Zm7.18-1.38h1.64l1.93 5.75h-1.53l-.35-1.18h-1.83l-.35 1.18H9.25l1.93-5.75Zm.22 3.35h1.1l-.55-1.85-.55 1.85Z";
 
-function normalizeHostname(hostname) {
-	return String(hostname || "")
-		.trim()
-		.toLowerCase()
-		.replace(/\.+$/u, "");
-}
-
 function isYoutubeWatchLocation(locationLike) {
-	const hostname = normalizeHostname(locationLike?.hostname);
+	const profile = resolveSiteProfile(locationLike?.hostname);
 	const pathname = String(locationLike?.pathname || "");
 	const search = new URLSearchParams(String(locationLike?.search || ""));
 
 	return Boolean(
-		WATCH_HOSTS.has(hostname) &&
+		profile.id === "youtube" &&
 			((pathname === "/watch" && search.get("v")) ||
 				/^\/shorts\/[^/]+/u.test(pathname)),
 	);
@@ -227,24 +217,6 @@ function mountYoutubePlayerControl(options = {}) {
 	return button;
 }
 
-const api = {
-	CAPTION_BUTTON_SELECTOR,
-	CONTROL_ATTR,
-	CONTROL_SELECTOR,
-	bindYoutubePlayerControl,
-	PLAYER_SELECTOR,
-	createYoutubePlayerControl,
-	findYoutubePlayerControlAnchor,
-	getVisibleYoutubeCaptionText,
-	handleYoutubePlayerControlClick,
-	getYoutubeCaptionTracks,
-	hasAvailableYoutubeCaptionTrack,
-	isYoutubeWatchLocation,
-	mountYoutubePlayerControl,
-	turnOnNativeYoutubeCaptions,
-	unbindYoutubePlayerControl,
-};
-
 export {
 	bindYoutubePlayerControl,
 	CAPTION_BUTTON_SELECTOR,
@@ -262,4 +234,3 @@ export {
 	turnOnNativeYoutubeCaptions,
 	unbindYoutubePlayerControl,
 };
-export default api;

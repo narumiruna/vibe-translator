@@ -431,20 +431,6 @@ function hexToRgbaColor(hexColor, opacityPercent) {
 	return `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${opacity})`;
 }
 
-const api = {
-	ALL_PRESET_IDS,
-	APPEARANCE_LIMITS,
-	DEFAULT_TRANSLATION_APPEARANCE,
-	FONT_FAMILY_STACKS,
-	PRESET_IDS,
-	TRANSLATION_APPEARANCE_PRESETS,
-	calculateContrastRatio,
-	createTranslationAppearancePreset,
-	getContrastingTextColor,
-	hexToRgbaColor,
-	normalizeTranslationAppearance,
-};
-
 export {
 	ALL_PRESET_IDS,
 	APPEARANCE_LIMITS,
@@ -458,4 +444,3 @@ export {
 	PRESET_IDS,
 	TRANSLATION_APPEARANCE_PRESETS,
 };
-export default api;

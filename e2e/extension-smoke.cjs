@@ -1024,6 +1024,62 @@ async function runSelectionTranslationSmoke(
 	await page.close();
 }
 
+async function runBottomRightSelectionSmoke(
+	context,
+	extensionId,
+	config,
+	serverOrigin,
+) {
+	await saveOptions(context, extensionId, config, {
+		runConnectionTest: false,
+		selectionPanelPositionMode: "bottom-right",
+	});
+	const page = await context.newPage();
+
+	try {
+		await page.setViewportSize({ width: 1000, height: 700 });
+		await page.goto(`${serverOrigin}${FIXTURE_PATH}`, {
+			waitUntil: "domcontentloaded",
+		});
+		await page.locator("p").first().selectText();
+		const selectionText = await page.evaluate(() =>
+			String(window.getSelection()?.toString() || ""),
+		);
+
+		await callBackground(context, "translateSelection", {
+			pageUrl: page.url(),
+			selectionText,
+		});
+		const panel = page.locator('[data-ot-role="selection-panel"]');
+		const panelBody = panel.locator('[data-ot-role="selection-panel-body"]');
+
+		await waitFor(
+			async () => (await panelBody.getAttribute("data-state")) === "ready",
+			{
+				timeoutMs: REQUEST_TIMEOUT_MS,
+				timeoutMessage: "Bottom-right selection panel did not become ready.",
+			},
+		);
+		const position = await panel.evaluate((element) => {
+			const style = getComputedStyle(element);
+
+			return { bottom: style.bottom, right: style.right };
+		});
+
+		assert.deepEqual(
+			position,
+			{ bottom: "16px", right: "16px" },
+			"Expected the selection panel to use its bottom-right CSS position.",
+		);
+	} finally {
+		await page.close();
+		await saveOptions(context, extensionId, config, {
+			runConnectionTest: false,
+			selectionPanelPositionMode: "near-selection",
+		});
+	}
+}
+
 async function runIframeSelectionTranslationSmoke(
 	context,
 	serverOrigin,
@@ -1294,6 +1350,14 @@ async function main() {
 			mockApiServer,
 		);
 		console.log("Selection translation smoke passed.");
+
+		await runBottomRightSelectionSmoke(
+			runState.context,
+			runState.extensionId,
+			config,
+			server.origin,
+		);
+		console.log("Bottom-right selection translation smoke passed.");
 
 		await runIframeSelectionTranslationSmoke(
 			runState.context,

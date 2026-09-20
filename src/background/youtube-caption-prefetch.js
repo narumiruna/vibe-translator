@@ -1,4 +1,4 @@
-import TimedCaptions from "../content/youtube/timed-captions.js";
+import * as TimedCaptions from "../content/youtube/timed-captions.js";
 
 function isTrustedYoutubeCaptionUrl(value) {
 	try {
@@ -154,7 +154,4 @@ function createYoutubeCaptionPrefetch(options = {}) {
 	return { initialize, remove, update };
 }
 
-const api = { createYoutubeCaptionPrefetch, isTrustedYoutubeCaptionUrl };
-
 export { createYoutubeCaptionPrefetch, isTrustedYoutubeCaptionUrl };
-export default api;

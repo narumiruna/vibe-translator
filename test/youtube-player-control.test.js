@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import YoutubeDiagnostics from "../src/content/youtube/diagnostics.js";
+import * as YoutubeDiagnostics from "../src/content/youtube/diagnostics.js";
 
 import {
 	CONTROL_ATTR,
@@ -321,6 +321,14 @@ test("YouTube control is limited to watch and Shorts video routes", () => {
 			hostname: "www.youtube.com",
 			pathname: "/shorts/abc123",
 			search: "",
+		}),
+		true,
+	);
+	assert.equal(
+		isYoutubeWatchLocation({
+			hostname: "m.youtube.com",
+			pathname: "/watch",
+			search: "?v=abc123",
 		}),
 		true,
 	);

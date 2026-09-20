@@ -106,17 +106,6 @@ function selectWindowCandidates(items, options) {
 	return sortByTranslationWindowPriority(filtered, options);
 }
 
-const api = {
-	DEFAULT_PREFETCH_VIEWPORTS,
-	DEFAULT_TOP_MARGIN,
-	getTranslationWindowPriority,
-	isRectWithinTranslationWindow,
-	normalizeViewportOptions,
-	selectWindowCandidates,
-	sortByTranslationWindowPriority,
-	sortByViewportPosition,
-};
-
 export {
 	DEFAULT_PREFETCH_VIEWPORTS,
 	DEFAULT_TOP_MARGIN,
@@ -127,4 +116,3 @@ export {
 	sortByTranslationWindowPriority,
 	sortByViewportPosition,
 };
-export default api;

@@ -7,7 +7,6 @@ import {
 	bindSubtitleNote,
 	cacheSubtitleTranslations,
 	consumeCachedSubtitleTranslations,
-	findMatchingSubtitleSource,
 	findSubtitleSourceMatch,
 	getMeaningfulCharacterMinimum,
 	getSegmentKind,
@@ -26,7 +25,6 @@ import {
 	SUBTITLE_SOURCE_TEXT_ATTR,
 	shouldAllowAncestorTransforms,
 	shouldKeepSessionAlive,
-	shouldRenderPlaceholder,
 } from "../src/content/youtube/subtitles.js";
 
 const youtubeProfile = resolveSiteProfile("www.youtube.com");
@@ -263,7 +261,6 @@ test("YouTube uses the compact persistent subtitle behavior", () => {
 	assert.equal(getSegmentKind(youtubeProfile, "paragraph"), "subtitle");
 	assert.equal(shouldAllowAncestorTransforms(youtubeProfile), true);
 	assert.equal(shouldKeepSessionAlive(youtubeProfile), true);
-	assert.equal(shouldRenderPlaceholder(youtubeProfile), false);
 });
 
 test("ordinary pages preserve inline reading-card behavior", () => {
@@ -272,7 +269,6 @@ test("ordinary pages preserve inline reading-card behavior", () => {
 	assert.equal(getSegmentKind(defaultProfile, "heading"), "heading");
 	assert.equal(shouldAllowAncestorTransforms(defaultProfile), false);
 	assert.equal(shouldKeepSessionAlive(defaultProfile), false);
-	assert.equal(shouldRenderPlaceholder(defaultProfile), true);
 });
 
 test("changed subtitle cues drop stale identity and rendered text", () => {
@@ -731,30 +727,30 @@ test("detached subtitle results rebind only to an identical visible source", () 
 	const matchingSource = { text: "Current cue" };
 	const otherSource = { text: "Other cue" };
 
-	assert.equal(
-		findMatchingSubtitleSource(
+	assert.deepEqual(
+		findSubtitleSourceMatch(
 			youtubeProfile,
 			[oldSource, matchingSource, otherSource],
-			"Current cue",
+			{ sourceText: "Current cue" },
 			(source) => source.text,
 			new Set([oldSource]),
 		),
-		matchingSource,
+		{ cachePath: "exact", source: matchingSource },
 	);
 	assert.equal(
-		findMatchingSubtitleSource(
+		findSubtitleSourceMatch(
 			youtubeProfile,
 			[oldSource, otherSource],
-			"Current cue",
+			{ sourceText: "Current cue" },
 			(source) => source.text,
 		),
 		null,
 	);
 	assert.equal(
-		findMatchingSubtitleSource(
+		findSubtitleSourceMatch(
 			defaultProfile,
 			[matchingSource],
-			"Current cue",
+			{ sourceText: "Current cue" },
 			(source) => source.text,
 		),
 		null,

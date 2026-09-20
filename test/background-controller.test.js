@@ -1,25 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-	buildPageTranslationRequestChunks,
-	buildPageTranslationRequestConcurrency,
-	createBackgroundController,
-} from "../src/background/controller.js";
+import { createBackgroundController } from "../src/background/controller.js";
 import { createBackgroundPlatform } from "../src/background/platform.js";
-import Messages from "../src/shared/messages.js";
-import Settings from "../src/shared/settings.js";
-import Api from "../src/translation/api.js";
+import * as Messages from "../src/shared/messages.js";
+import * as Settings from "../src/shared/settings.js";
+import * as Api from "../src/translation/api.js";
+import {
+	buildProgressiveRequestChunks,
+	buildProgressiveRequestConcurrency,
+} from "../src/translation/progressive.js";
 
 function createController(options = {}) {
-	const chrome = {
-		runtime: {
-			getManifest() {
-				return { version: "0.1.3" };
+	const chrome =
+		options.chrome ||
+		Object.freeze({
+			runtime: {
+				getManifest() {
+					return { version: "0.1.3" };
+				},
+				id: "trusted-extension-id",
 			},
-			id: "trusted-extension-id",
-		},
-	};
+		});
 	const pageTranslationQueue =
 		options.pageTranslationQueue ||
 		Object.freeze({
@@ -43,6 +45,7 @@ function createController(options = {}) {
 			error() {},
 			info() {},
 		},
+		openPdfTranslator: options.openPdfTranslator,
 		TranslationSession: {
 			createPageTranslationQueue(configuration) {
 				options.captureQueueConfiguration?.(configuration);
@@ -98,11 +101,11 @@ test("background controller groups short subtitle batches without changing page 
 	for (let index = 0; index < subtitles.length; index += 8) {
 		const batch = subtitles.slice(index, index + 8);
 		const plan = Api.createRecursiveChunkPlan(batch);
-		const chunks = buildPageTranslationRequestChunks(Api, batch, plan);
+		const chunks = buildProgressiveRequestChunks(Api, batch, plan);
 
 		assert.equal(chunks.length, 1);
 		assert.ok(chunks[0].length <= 8);
-		assert.equal(buildPageTranslationRequestConcurrency(batch, chunks, 5), 1);
+		assert.equal(buildProgressiveRequestConcurrency(batch, chunks, 5), 1);
 		requestCount += chunks.length;
 	}
 	assert.equal(requestCount, 5);
@@ -114,11 +117,11 @@ test("background controller groups short subtitle batches without changing page 
 	const pagePlan = Api.createRecursiveChunkPlan(pageItems);
 
 	assert.equal(
-		buildPageTranslationRequestChunks(Api, pageItems, pagePlan),
+		buildProgressiveRequestChunks(Api, pageItems, pagePlan),
 		pagePlan.chunks,
 	);
 	assert.equal(
-		buildPageTranslationRequestConcurrency(pageItems, pagePlan.chunks, 5),
+		buildProgressiveRequestConcurrency(pageItems, pagePlan.chunks, 5),
 		2,
 	);
 });
@@ -424,6 +427,84 @@ test("startup and render payloads carry the normalized YouTube subtitle display 
 	);
 	assert.equal(startupMessage.payload.youtubeSubtitleDisplayMode, "bilingual");
 	assert.equal(renderMessage.payload.youtubeSubtitleDisplayMode, "bilingual");
+});
+
+test("automation target resolution authorizes extension pages and finds exact URLs", async () => {
+	const pageUrl = "https://example.com/document.pdf";
+	let openedTab;
+	let queryCount = 0;
+	const chrome = {
+		runtime: {
+			getManifest() {
+				return { version: "0.1.3" };
+			},
+			id: "trusted-extension-id",
+		},
+		tabs: {
+			async query() {
+				queryCount += 1;
+				return [{ id: 17, url: pageUrl }];
+			},
+		},
+	};
+	const controller = createController({
+		chrome,
+		async openPdfTranslator(tab) {
+			openedTab = tab;
+			return { readerTabId: 27 };
+		},
+	});
+	const message = Messages.automationOpenPdf({ pageUrl });
+
+	assert.deepEqual(
+		await controller.handleRuntimeMessage(message, {
+			id: chrome.runtime.id,
+			url: "https://example.com/not-extension-owned",
+		}),
+		{
+			ok: false,
+			error: "Automation commands require an extension page.",
+		},
+	);
+	assert.equal(queryCount, 0);
+	assert.deepEqual(
+		await controller.handleRuntimeMessage(message, {
+			id: chrome.runtime.id,
+			url: `chrome-extension://${chrome.runtime.id}/fixture.html`,
+		}),
+		{ ok: true, readerTabId: 27 },
+	);
+	assert.deepEqual(openedTab, { id: 17, url: pageUrl });
+});
+
+test("automation target resolution preserves missing-tab errors", async () => {
+	const chrome = {
+		runtime: {
+			getManifest() {
+				return { version: "0.1.3" };
+			},
+			id: "trusted-extension-id",
+		},
+		tabs: {
+			async query() {
+				return [];
+			},
+		},
+	};
+	const controller = createController({ chrome });
+
+	await assert.rejects(
+		controller.handleRuntimeMessage(
+			Messages.automationOpenPdf({
+				pageUrl: "https://example.com/missing.pdf",
+			}),
+			{
+				id: chrome.runtime.id,
+				url: `chrome-extension://${chrome.runtime.id}/fixture.html`,
+			},
+		),
+		/Could not resolve the PDF automation tab\./,
+	);
 });
 
 test("background controller reports no reinjection session without a sender tab", async () => {

@@ -94,14 +94,6 @@ function validateProtectedFragments(items, translations) {
 	}
 }
 
-const api = {
-	collectPreservedFragments,
-	extractTokensForText,
-	maskProtectedFragments,
-	unmaskProtectedFragments,
-	validateProtectedFragments,
-};
-
 export {
 	collectPreservedFragments,
 	extractTokensForText,
@@ -109,4 +101,3 @@ export {
 	unmaskProtectedFragments,
 	validateProtectedFragments,
 };
-export default api;
