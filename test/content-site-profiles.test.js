@@ -70,11 +70,15 @@ test("getActiveSiteProfile accepts location-like objects and host strings", () =
 	assert.equal(getActiveSiteProfile({ hostname: "www.x.com" }).id, "x");
 	assert.equal(getActiveSiteProfile("www.threads.net").id, "threads");
 	assert.equal(getActiveSiteProfile({}).id, "default");
+	assert.equal(getActiveSiteProfile(undefined).id, "default");
+	assert.equal(getActiveSiteProfile(null).id, "default");
 });
 
 test("buildProfileSelectors filters empty entries and returns a safe empty selector", () => {
 	assert.equal(buildProfileSelectors([" p ", ""], [null, "h1"]), "p, h1");
 	assert.equal(buildProfileSelectors([], []), SAFE_EMPTY_SELECTOR);
+	assert.equal(buildProfileSelectors(undefined, null), SAFE_EMPTY_SELECTOR);
+	assert.equal(buildProfileSelectors(" p ", "h1"), "p, h1");
 });
 
 test("default extraction selectors exclude site-only social selectors", () => {

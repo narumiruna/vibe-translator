@@ -15,7 +15,6 @@ import * as SubtitleApi from "./content/youtube/subtitles.js";
 import * as TimedCaptionApi from "./content/youtube/timed-captions.js";
 import * as AppearanceApi from "./shared/appearance.js";
 import * as Messages from "./shared/messages.js";
-import * as Api from "./translation/api.js";
 
 export function createContentRuntime(options = {}) {
 	const SOURCE_ATTR = "data-ot-source-id";
@@ -97,7 +96,6 @@ export function createContentRuntime(options = {}) {
 		recordExtractionDebugSelect,
 		recordExtractionDebugSkip,
 	} = createContentHelpers({
-		Api,
 		pageState,
 		siteProfileId: SITE_PROFILE_ID,
 	});

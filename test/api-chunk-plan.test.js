@@ -10,6 +10,125 @@ import {
 	splitTextRecursively,
 } from "../src/translation/chunk-plan.js";
 
+test("chunk plan preserves empty inputs and one empty request per blank item", () => {
+	for (const items of [undefined, []]) {
+		assert.deepEqual(createRecursiveChunkPlan(items), {
+			chunks: [],
+			expandedItems: [],
+			items: [],
+			mergePlan: new Map(),
+		});
+	}
+	for (const text of [undefined, "", " \n\t "]) {
+		const plan = createRecursiveChunkPlan([{ id: "blank", text }]);
+		const expected = {
+			id: "blank",
+			kind: "paragraph",
+			text: "",
+			sourceId: "blank",
+			partIndex: 0,
+			partCount: 1,
+			joiner: "",
+			protectedFragments: [],
+			isUI: false,
+			isMetadata: false,
+			containsMath: false,
+		};
+		assert.deepEqual(plan.expandedItems, [expected]);
+		assert.deepEqual(plan.chunks, [[expected]]);
+		assert.deepEqual(
+			[...plan.mergePlan],
+			[
+				[
+					"blank",
+					{
+						originalId: "blank",
+						partIds: ["blank"],
+						protectedFragments: [],
+					},
+				],
+			],
+		);
+	}
+});
+
+test("single and split parts retain IDs, timing, directives, joiners and token membership", () => {
+	const item = {
+		id: "cue",
+		kind: "subtitle",
+		cueId: "timed-1",
+		cueStartMs: "1200",
+		durationMs: 3400,
+		text: "Run `npm test`. Then open https://example.com/docs for details.",
+		isUI: true,
+		isMetadata: false,
+		containsMath: true,
+	};
+	const tokens = [
+		{ placeholder: "__OT_TOKEN_1__", value: "`npm test`" },
+		{ placeholder: "__OT_TOKEN_2__", value: "https://example.com/docs" },
+	];
+	for (const [limit, texts] of [
+		[5000, ["Run __OT_TOKEN_1__. Then open __OT_TOKEN_2__ for details."]],
+		[
+			24,
+			[
+				"Run __OT_TOKEN_1__.",
+				"Then",
+				"open",
+				"__OT_TOKEN_2__",
+				"for",
+				"details.",
+			],
+		],
+	]) {
+		const plan = createRecursiveChunkPlan([item], limit);
+		const expected = texts.map((text, index) => ({
+			id: texts.length === 1 ? "cue" : `cue__part_${index + 1}`,
+			cueId: "timed-1",
+			cueStartMs: 1200,
+			durationMs: 3400,
+			isUI: true,
+			isMetadata: false,
+			containsMath: true,
+			kind: "subtitle",
+			text,
+			sourceId: "cue",
+			partIndex: index,
+			partCount: texts.length,
+			joiner: index < texts.length - 1 ? " " : "",
+			protectedFragments: tokens.filter(({ placeholder }) =>
+				text.includes(placeholder),
+			),
+		}));
+		assert.deepEqual(plan.expandedItems, expected);
+		assert.deepEqual(
+			plan.chunks,
+			expected.map((part) => [part]),
+		);
+		assert.deepEqual(plan.items, [
+			{
+				...item,
+				maskedText: "Run __OT_TOKEN_1__. Then open __OT_TOKEN_2__ for details.",
+				protectedFragments: tokens,
+			},
+		]);
+		assert.deepEqual(
+			[...plan.mergePlan],
+			[
+				[
+					"cue",
+					{
+						originalId: "cue",
+						partIds: expected.map(({ id }) => id),
+						protectedFragments: tokens,
+					},
+				],
+			],
+		);
+	}
+});
+
 test("chunk plan chunks items by character limit", () => {
 	const chunks = chunkTranslationItems(
 		[

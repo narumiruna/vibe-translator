@@ -29,6 +29,54 @@ const MALFORMED_PDF_PATH = path.join(
 	"test/fixtures/pdf/malformed.pdf",
 );
 
+async function instrumentReaderCompletion(context) {
+	// Exercise the packaged reader at its port boundary without production test hooks.
+	await context.addInitScript(() => {
+		if (!location.pathname.endsWith("/sidebar/index.html")) return;
+		const trace = {
+			queuedIds: [],
+			translatedIds: [],
+			emptyId: "",
+			duplicateUpdates: 0,
+		};
+		window.pdfCompletionTrace = trace;
+		const connect = chrome.runtime.connect.bind(chrome.runtime);
+		chrome.runtime.connect = (...args) => {
+			const port = connect(...args);
+			if (port.name !== "vibe-pdf-translation-v1") return port;
+			const postMessage = port.postMessage.bind(port);
+			port.postMessage = (message) => {
+				if (["queue", "retry"].includes(message.type)) {
+					trace.queuedIds.push(...message.items.map(({ id }) => id));
+				}
+				postMessage(message);
+			};
+			const addListener = port.onMessage.addListener.bind(port.onMessage);
+			port.onMessage.addListener = (listener) =>
+				addListener((message) => {
+					if (message.type !== "translation-update") {
+						listener(message);
+						return;
+					}
+					trace.emptyId ||= message.translations[0]?.id || "";
+					const update = {
+						...message,
+						translations: message.translations.map((translation) => ({
+							...translation,
+							translation:
+								translation.id === trace.emptyId ? "" : translation.translation,
+						})),
+					};
+					trace.translatedIds.push(...update.translations.map(({ id }) => id));
+					listener(update);
+					listener(update);
+					trace.duplicateUpdates += 1;
+				});
+			return port;
+		};
+	});
+}
+
 async function main() {
 	const config = getConfig();
 	assert.equal(
@@ -47,6 +95,7 @@ async function main() {
 			requiredGlobals: true,
 		});
 
+		await instrumentReaderCompletion(runState.context);
 		const sourcePage = await runState.context.newPage();
 		const sourceUrl = `${server.origin}${PDF_PATH}`;
 		await sourcePage.goto(sourceUrl, { waitUntil: "domcontentloaded" });
@@ -159,6 +208,33 @@ async function main() {
 			},
 		);
 
+		const blockCount = await reader
+			.locator('.translation-block:not([data-state="original"])')
+			.count();
+		await waitFor(
+			async () =>
+				(await reader.locator("#document-status").textContent()) ===
+				`${blockCount} blocks translated`,
+			{
+				timeoutMs: REQUEST_TIMEOUT_MS,
+				timeoutMessage:
+					"Duplicate and empty updates did not complete exactly once per block.",
+			},
+		);
+		const completion = await reader.evaluate(() => window.pdfCompletionTrace);
+		assert.equal(new Set(completion.translatedIds).size, blockCount);
+		assert.ok(completion.duplicateUpdates > 0);
+		assert.equal(
+			await reader
+				.locator(`[data-block-id="${completion.emptyId}"]`)
+				.getAttribute("data-state"),
+			"idle",
+		);
+		assert.equal(
+			await reader.locator('.translation-block[data-state="ready"]').count(),
+			blockCount - 1,
+		);
+
 		await reader
 			.locator('.translation-block[data-state="ready"]')
 			.first()
@@ -184,7 +260,10 @@ async function main() {
 		await waitFor(async () => confirmationText, {
 			timeoutMessage: "Complete-document confirmation did not open.",
 		});
-		assert.match(confirmationText, /remaining blocks.*characters/i);
+		assert.match(
+			confirmationText,
+			/Translate 0 remaining blocks \(0 characters\)/i,
+		);
 		await reader.locator("#pause-translation").click();
 		assert.equal(
 			await reader.locator("#pause-translation").textContent(),
@@ -203,6 +282,14 @@ async function main() {
 					(await reader.locator("#page-status").textContent()) || "",
 				),
 			{ timeoutMessage: "PDF page navigation did not update." },
+		);
+		await reader.locator("#previous-page").click();
+		await waitFor(
+			async () =>
+				/Page 1 \/ 3/.test(
+					(await reader.locator("#page-status").textContent()) || "",
+				),
+			{ timeoutMessage: "PDF navigation back did not update." },
 		);
 		const translatedText = (
 			(await reader
@@ -256,6 +343,11 @@ async function main() {
 				Math.abs(narrowGeometry.pageHeight - narrowGeometry.textHeight) < 1,
 			`PDF visual layers diverged: ${JSON.stringify(narrowGeometry)}`,
 		);
+		assert.deepEqual(
+			await reader.evaluate(() => window.pdfCompletionTrace.queuedIds),
+			completion.queuedIds,
+			"Completed blocks, including empty translations, must not be queued again after navigation or resume.",
+		);
 		await reader.emulateMedia({ reducedMotion: "reduce" });
 		await reader.reload({ waitUntil: "domcontentloaded" });
 		await waitFor(
@@ -268,6 +360,31 @@ async function main() {
 				timeoutMs: REQUEST_TIMEOUT_MS,
 				timeoutMessage: "PDF reader did not recover after reload.",
 			},
+		);
+		await waitFor(
+			async () =>
+				(await reader
+					.locator('.translation-block[data-state="ready"]')
+					.count()) ===
+				blockCount - 1,
+			{
+				timeoutMessage: "Cached translations did not all return after reload.",
+			},
+		);
+		await waitFor(
+			async () =>
+				(await reader.evaluate(
+					() => window.pdfCompletionTrace.translatedIds.length,
+				)) > 0,
+			{
+				timeoutMessage:
+					"The uncached empty translation did not return after reload.",
+			},
+		);
+		assert.deepEqual(
+			await reader.evaluate(() => window.pdfCompletionTrace.queuedIds),
+			[completion.emptyId],
+			"Only the empty translation (not persisted in PDF cache) should be queued after reload.",
 		);
 		const accessibility = await new AxeBuilder({ page: reader }).analyze();
 		assert.deepEqual(

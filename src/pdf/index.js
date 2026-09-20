@@ -69,7 +69,6 @@ const state = {
 	activeRequests: new Set(),
 	blocksById: new Map(),
 	cacheContext: "",
-	completedIds: new Set(),
 	currentPage: 1,
 	document: null,
 	documentId: "",
@@ -408,7 +407,6 @@ async function loadPdfDocument(source) {
 	state.currentPage = 1;
 	state.cacheContext = `${state.documentId}:${state.settingsFingerprint}:${state.targetLanguage}`;
 	state.translations.clear();
-	state.completedIds.clear();
 	state.failedIds.clear();
 	state.pendingIds.clear();
 	state.activeRequests.clear();
@@ -578,7 +576,6 @@ async function applyCachedBlocks(blocks, snapshot) {
 	}
 	for (const translation of cached) {
 		state.translations.set(translation.id, translation.translation);
-		state.completedIds.add(translation.id);
 		updateBlockElement(translation.id);
 	}
 	updateControls();
@@ -601,7 +598,7 @@ async function queueBlocks(blocks, placement = "front") {
 	const pending = blocks.filter(
 		(block) =>
 			!block.originalOnly &&
-			!state.completedIds.has(block.id) &&
+			!state.translations.has(block.id) &&
 			!state.pendingIds.has(block.id),
 	);
 	const batches = createBoundedPdfBatches(pending, {
@@ -654,7 +651,7 @@ async function queuePageWindow(pageNumber) {
 
 async function queueEntireDocument() {
 	const blocks = Array.from(state.blocksById.values()).filter(
-		(block) => !block.originalOnly && !state.completedIds.has(block.id),
+		(block) => !block.originalOnly && !state.translations.has(block.id),
 	);
 	const characters = blocks.reduce((sum, block) => sum + block.text.length, 0);
 	if (
@@ -800,7 +797,6 @@ async function handleServerMessage(message) {
 				continue;
 			}
 			state.translations.set(translation.id, translation.translation);
-			state.completedIds.add(translation.id);
 			state.pendingIds.delete(translation.id);
 			state.failedIds.delete(translation.id);
 			updateBlockElement(translation.id);
@@ -810,7 +806,7 @@ async function handleServerMessage(message) {
 			state.blocksById,
 			message.translations || [],
 		);
-		setStatus(`${state.completedIds.size} blocks translated`);
+		setStatus(`${state.translations.size} blocks translated`);
 		updateControls();
 		return;
 	}
@@ -826,8 +822,8 @@ async function handleServerMessage(message) {
 		}
 		setStatus(
 			state.activeRequests.size > 0
-				? `${state.completedIds.size} translated; ${state.activeRequests.size} batches queued`
-				: `${state.completedIds.size} blocks translated`,
+				? `${state.translations.size} translated; ${state.activeRequests.size} batches queued`
+				: `${state.translations.size} blocks translated`,
 		);
 		updateControls();
 		return;

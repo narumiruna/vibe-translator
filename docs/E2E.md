@@ -1,7 +1,7 @@
 # Playwright E2E Tests
 
 This repository includes Playwright E2E scripts that copy and load the production `dist/chrome` artifact and exercise the real MV3 runtime.
-Run `npm run build` first; the harness never loads raw files from `src/`.
+Run `npm run build` first; the browser loads packaged extension entrypoints, not raw entrypoints from `src/`. Each run launches one persistent Chromium context and discovers the extension ID from that context's service worker, without a preliminary browser restart.
 
 ## Smoke Coverage
 
@@ -20,6 +20,8 @@ Run `npm run build` first; the harness never loads raw files from `src/`.
 
 The dedicated options regression loads the packaged React and Radix UI and exercises keyboard-correct tabs, API-key visibility, drafts, prompt resets, persistence, permission status, connection failure/retry, and duplicate-action guards. Native and application validation must reveal the relevant tab, expand a closed Appearance disclosure when needed, and focus the invalid field.
 
+All numeric Appearance controls must match `APPEARANCE_LIMITS` and retain their expected input steps. Simultaneous validation errors must retain field-focus priority and clear only the edited field's invalid state.
+
 Every tab is checked in light and dark modes at 320, 390, 720, and 1280 px. The suite verifies save actions remain inside the viewport and unobscured at the top, middle, and bottom of the page, and checks preview bounds, 200% zoom, reduced-motion animation styles, and forced colors. It runs axe in both themes, inspects the Chrome accessibility tree, enforces a 500 ms local render budget, and rejects remote UI resources or console errors.
 
 Screenshots in `e2e-artifacts/` include each tab in both themes, `radix-options-light.png`, `radix-options-appearance.png`, and `radix-options-dark-mobile.png`. Screen-reader announcement quality and Chrome's native permission prompt still require the manual options checklist in [TESTING.md](TESTING.md).
@@ -33,6 +35,16 @@ PLAYWRIGHT_HEADLESS=1 npm run e2e:options
 ![Independent reading and selection appearance controls](images/radix-options-appearance.png)
 
 ![Settings setup in dark mobile mode](images/radix-options-dark-mobile.png)
+
+## PDF Reader Regression Coverage
+
+```bash
+PLAYWRIGHT_HEADLESS=1 npm run e2e:pdf
+```
+
+The PDF suite uses local fixtures and a mock API to check progressive rendering, partial failure/retry, source highlighting, copy/search, navigation, pause/resume, reload caching, encrypted document replacement, malformed files, password cancellation, and session cancellation. It also checks narrow-viewport geometry and axe accessibility.
+
+A test-only reader port wrapper delivers each translation update twice and changes one block's translation to an empty string. Completion counts must remain unique; completed blocks, including the empty result, must not be requeued after navigation or resume. After reload, nonempty results must come from the PDF cache without queue messages; the empty result remains uncached. The wrapper changes no production code and records only fixture block IDs and counters.
 
 ## Antirez Comment Regression Coverage
 

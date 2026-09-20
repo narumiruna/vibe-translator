@@ -127,7 +127,7 @@ function OptionsApp() {
 	}
 
 	function showValidationErrors(validation) {
-		const ids = getInvalidFieldIds(validation.errors);
+		const ids = getInvalidFieldIds(validation.invalidFields);
 		setInvalidFields(new Set(ids));
 		setBanner({ message: validation.errors.join(" "), tone: "red" });
 		revealInvalidField(ids[0]);

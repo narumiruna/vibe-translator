@@ -1,31 +1,9 @@
-import * as SiteProfiles from "./site-profiles.js";
+import {
+	buildProfileSelectors,
+	getActiveSiteProfile,
+} from "./site-profiles.js";
 
-const buildProfileSelectors =
-	SiteProfiles?.buildProfileSelectors ||
-	((defaultSelectors, profileSelectors, fallback = ":not(*)") => {
-		const selectors = [
-			...(Array.isArray(defaultSelectors)
-				? defaultSelectors
-				: [defaultSelectors]),
-			...(Array.isArray(profileSelectors)
-				? profileSelectors
-				: [profileSelectors]),
-		]
-			.map((selector) => String(selector || "").trim())
-			.filter(Boolean);
-
-		return selectors.length > 0 ? selectors.join(", ") : fallback;
-	});
-const ACTIVE_SITE_PROFILE = SiteProfiles?.getActiveSiteProfile?.(
-	globalThis.location,
-) || {
-	id: "default",
-	textBlockSelectors: [],
-	rootSelectors: [],
-	splitContainerSelectors: [],
-	embeddedFramePatterns: [],
-	windowed: true,
-};
+const ACTIVE_SITE_PROFILE = getActiveSiteProfile(globalThis.location);
 const SITE_PROFILE_ID = ACTIVE_SITE_PROFILE.id || "default";
 
 const ARTICLE_CONTENT_SELECTOR = [

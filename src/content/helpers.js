@@ -1,17 +1,9 @@
+import { estimateTokenCount } from "../translation/responses.js";
+
 export function createContentHelpers(options = {}) {
-	const { Api, pageState, siteProfileId: SITE_PROFILE_ID } = options;
+	const { pageState, siteProfileId: SITE_PROFILE_ID } = options;
 	function isDebugInfoEnabled() {
 		return Boolean(pageState.debug.enabled);
-	}
-
-	function estimateTextTokens(text) {
-		if (Api && typeof Api.estimateTokenCount === "function") {
-			return Api.estimateTokenCount(text);
-		}
-
-		const normalized = String(text || "").trim();
-
-		return normalized ? Math.max(1, Math.ceil(normalized.length / 4)) : 0;
 	}
 
 	function getDebugNodeLabel(element) {
@@ -66,7 +58,7 @@ export function createContentHelpers(options = {}) {
 		debugState.selectedItems.push({
 			id: item.id,
 			kind: item.kind,
-			tokenCount: estimateTextTokens(item.text),
+			tokenCount: estimateTokenCount(item.text),
 			containsMath: Boolean(item.containsMath),
 		});
 	}

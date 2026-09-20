@@ -177,36 +177,18 @@ function createRecursiveChunkPlan(items, maxChars) {
 
 		normalizedItems.push(normalizedItem);
 
-		if (parts.length <= 1) {
-			expandedItems.push({
-				id: item.id,
-				...getTimedSubtitleMetadata(item),
-				...getTranslationDirectives(item),
-				kind: item.kind || "paragraph",
-				text: parts[0]
-					? parts[0].text
-					: normalizeChunkText(normalizedItem.maskedText),
-				sourceId: item.id,
-				partIndex: 0,
-				partCount: 1,
+		if (parts.length === 0) {
+			parts.push({
+				text: normalizeChunkText(normalizedItem.maskedText),
 				joiner: "",
-				protectedFragments: extractTokensForText(
-					normalizedItem.maskedText,
-					normalizedItem.protectedFragments,
-				),
 			});
-			mergePlan.set(item.id, {
-				originalId: item.id,
-				partIds: [item.id],
-				protectedFragments: normalizedItem.protectedFragments,
-			});
-			continue;
 		}
 
 		const partIds = [];
 
 		for (let index = 0; index < parts.length; index += 1) {
-			const partId = `${item.id}__part_${index + 1}`;
+			const partId =
+				parts.length === 1 ? item.id : `${item.id}__part_${index + 1}`;
 
 			expandedItems.push({
 				id: partId,
