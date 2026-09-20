@@ -276,10 +276,4 @@ function createPageTranslationQueue(options = {}) {
 	};
 }
 
-const api = {
-	createPageTranslationQueue,
-	shouldKeepPageTranslationSession,
-};
-
 export { createPageTranslationQueue, shouldKeepPageTranslationSession };
-export default api;

@@ -83,17 +83,9 @@ async function discoverEmbeddedFrames(options) {
 	}
 }
 
-const api = {
-	discoverEmbeddedFrames,
-	filterEmbeddedFrameResults,
-	getEmbeddedFramePatterns,
-	matchesFramePattern,
-};
-
 export {
 	discoverEmbeddedFrames,
 	filterEmbeddedFrameResults,
 	getEmbeddedFramePatterns,
 	matchesFramePattern,
 };
-export default api;

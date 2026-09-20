@@ -492,7 +492,7 @@ export function createContentRenderer(options = {}) {
 		return false;
 	}
 
-	function renderPageTranslations(payload) {
+	function renderPageTranslationUpdates(payload) {
 		ensureStyles(payload?.translationAppearance);
 		ensureObserver();
 		const youtubeSubtitleDisplayMode =
@@ -768,14 +768,6 @@ export function createContentRenderer(options = {}) {
 		return selectionPanelRenderer.renderPlaceholder(payload);
 	}
 
-	function clearSelectionTranslation() {
-		if (!selectionPanelRenderer) {
-			return { cleared: 0 };
-		}
-
-		return selectionPanelRenderer.close();
-	}
-
 	function clearPendingTranslations() {
 		const notes = Array.from(
 			document.querySelectorAll(`[${ROOT_ATTR}="note"][data-phase="pending"]`),
@@ -852,7 +844,6 @@ export function createContentRenderer(options = {}) {
 	return {
 		clearPagePlaceholders,
 		clearPendingTranslations,
-		clearSelectionTranslation,
 		cleanupRendering,
 		getDebugProfileLabel,
 		getNoteElementTagName,
@@ -860,7 +851,7 @@ export function createContentRenderer(options = {}) {
 		isSafeNoteInsertionTarget: _isSafeNoteInsertionTarget,
 		renderExtractionDebugPanel,
 		renderPagePlaceholders,
-		renderPageTranslations,
+		renderPageTranslationUpdates,
 		renderSelectionError,
 		renderSelectionPlaceholder,
 		renderSelectionTranslation,

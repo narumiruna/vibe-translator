@@ -1,6 +1,6 @@
 import { Cross2Icon, ReaderIcon } from "@radix-ui/react-icons";
 
-import Appearance from "../shared/appearance.js";
+import * as Appearance from "../shared/appearance.js";
 
 function ReadingAppearancePreview({
 	appearance: value,

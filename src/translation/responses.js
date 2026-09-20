@@ -1,4 +1,4 @@
-import ProtectedFragments from "./protected-fragments.js";
+import * as ProtectedFragments from "./protected-fragments.js";
 
 const TRANSLATION_RESPONSE_FORMAT = Object.freeze({
 	type: "json_schema",
@@ -33,6 +33,13 @@ const TRANSLATION_RESPONSE_FORMAT = Object.freeze({
 	strict: true,
 });
 const { validateProtectedFragments } = ProtectedFragments;
+
+class InvalidTranslationResponseError extends Error {
+	constructor(cause) {
+		super(cause?.message || String(cause), { cause });
+		this.name = "InvalidTranslationResponseError";
+	}
+}
 
 function renderPromptTemplate(template, variables) {
 	return String(template || "").replace(/\{\{(\w+)\}\}/g, (_match, key) => {
@@ -256,26 +263,17 @@ async function callResponsesApi(settings, items, fetchImpl) {
 		);
 	}
 
-	const translations = parseTranslationResponse(payload);
+	try {
+		const translations = parseTranslationResponse(payload);
 
-	validateTranslationCoverage(items, translations);
-	validateProtectedFragments(items, translations);
+		validateTranslationCoverage(items, translations);
+		validateProtectedFragments(items, translations);
 
-	return translations;
+		return translations;
+	} catch (error) {
+		throw new InvalidTranslationResponseError(error);
+	}
 }
-
-const api = {
-	TRANSLATION_RESPONSE_FORMAT,
-	buildResponsesRequest,
-	buildTranslationInput,
-	callResponsesApi,
-	estimateTokenCount,
-	extractOutputText,
-	parseTranslationResponse,
-	renderPromptTemplate,
-	stripCodeFences,
-	validateTranslationCoverage,
-};
 
 export {
 	buildResponsesRequest,
@@ -283,10 +281,10 @@ export {
 	callResponsesApi,
 	estimateTokenCount,
 	extractOutputText,
+	InvalidTranslationResponseError,
 	parseTranslationResponse,
 	renderPromptTemplate,
 	stripCodeFences,
 	TRANSLATION_RESPONSE_FORMAT,
 	validateTranslationCoverage,
 };
-export default api;

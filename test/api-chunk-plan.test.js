@@ -63,6 +63,36 @@ test("chunk plan splits oversized text and merges translations", () => {
 	assert.match(merged[0].translation, /Third sentence\.\]$/);
 });
 
+test("one-shot and progressive recursive merges assemble identical segments", () => {
+	const plan = createRecursiveChunkPlan(
+		[
+			{
+				id: "cue",
+				cueId: "cue-1",
+				cueStartMs: 1200,
+				durationMs: 3400,
+				kind: "subtitle",
+				text: "Run `npm test`. Then open https://example.com/docs for details.",
+			},
+		],
+		24,
+	);
+	const translations = plan.expandedItems.map((item) => ({
+		id: item.id,
+		translation: item.text,
+	}));
+	const state = createProgressiveMergeState(plan);
+	const progressive = [];
+
+	for (const translation of [...translations].reverse()) {
+		progressive.push(
+			...consumeProgressiveTranslations(plan, state, [translation]),
+		);
+	}
+
+	assert.deepEqual(progressive, mergeRecursiveTranslations(plan, translations));
+});
+
 test("chunk plan preserves translation directives on every split part", () => {
 	const plan = createRecursiveChunkPlan(
 		[

@@ -1,4 +1,4 @@
-import AppearanceApi from "./appearance.js";
+import * as AppearanceApi from "./appearance.js";
 
 const STORAGE_KEY = "settings";
 const LEGACY_DEFAULT_INSTRUCTIONS =
@@ -292,30 +292,6 @@ async function saveSettings(input) {
 	return result.settings;
 }
 
-const api = {
-	DEFAULT_SETTINGS,
-	DEFAULT_SYSTEM_PROMPT_TEMPLATE,
-	SELECTION_PANEL_POSITION_MODES,
-	DEFAULT_USER_PROMPT_TEMPLATE,
-	LEGACY_DEFAULT_INSTRUCTIONS,
-	STORAGE_KEY,
-	YOUTUBE_SUBTITLE_DISPLAY_MODES,
-	createDefaultSystemPromptTemplate,
-	getApiPermissionPattern,
-	getSettings,
-	hasCompleteSettings,
-	migrateLegacyPromptSettings,
-	normalizeBaseUrl,
-	normalizeDisabledDomains,
-	normalizeSelectionPanelPositionMode,
-	normalizeShowTranslationDebugInfo,
-	normalizeYoutubeSubtitleDisplayMode,
-	normalizeTranslationAppearance,
-	lintPromptTemplates,
-	saveSettings,
-	validateSettings,
-};
-
 export {
 	createDefaultSystemPromptTemplate,
 	DEFAULT_SETTINGS,
@@ -339,4 +315,3 @@ export {
 	validateSettings,
 	YOUTUBE_SUBTITLE_DISPLAY_MODES,
 };
-export default api;

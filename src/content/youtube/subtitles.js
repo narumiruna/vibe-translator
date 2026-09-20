@@ -1,4 +1,4 @@
-import Settings from "../../shared/settings.js";
+import * as Settings from "../../shared/settings.js";
 
 const SUBTITLE_PRESENTATION = "subtitle";
 const SUBTITLE_PRESENTATION_ATTR = "data-ot-presentation";
@@ -261,24 +261,6 @@ function findSubtitleSourceMatch(
 		: null;
 }
 
-function findMatchingSubtitleSource(
-	profile,
-	sources,
-	sourceText,
-	getSourceText,
-	excludedSources = new Set(),
-) {
-	return (
-		findSubtitleSourceMatch(
-			profile,
-			sources,
-			{ sourceText },
-			getSourceText,
-			excludedSources,
-		)?.source || null
-	);
-}
-
 function resolveProgressiveSubtitleRefresh(
 	profile,
 	sources,
@@ -357,10 +339,6 @@ function shouldAllowAncestorTransforms(profile) {
 
 function shouldKeepSessionAlive(profile) {
 	return Boolean(profile?.dynamic);
-}
-
-function shouldRenderPlaceholder(profile) {
-	return !isSubtitleProfile(profile);
 }
 
 function normalizeSubtitleSourceText(value) {
@@ -677,42 +655,6 @@ function prepareSubtitleNote(profile, note, source, getComputedStyle) {
 	return true;
 }
 
-const api = {
-	aliasClaimedSubtitleTranslation,
-	applySubtitleDisplayMode,
-	bindSubtitleNote,
-	cacheSubtitleTranslations,
-	consumeCachedSubtitleTranslations,
-	findCachedSubtitleTranslation,
-	findSubtitleSourceMatch,
-	findUniqueTimedCaptionTranslation,
-	hasCachedSubtitleTranslation,
-	SUBTITLE_DISPLAY_MODE_ATTR,
-	SUBTITLE_FONT_SIZE_PROPERTY,
-	SUBTITLE_PRESENTATION,
-	SUBTITLE_PRESENTATION_ATTR,
-	SUBTITLE_REPLACED_ATTR,
-	SUBTITLE_SOURCE_TEXT_ATTR,
-	YOUTUBE_CAPTION_SEGMENT_SELECTOR,
-	findMatchingSubtitleSource,
-	getMeaningfulCharacterMinimum,
-	getSegmentKind,
-	isSubtitleProfile,
-	normalizeCaptionFontSize,
-	prepareSubtitleNote,
-	rebindDetachedSubtitleSources,
-	reconcileSubtitleNotes,
-	removeDetachedSubtitleSources,
-	replaceSubtitleSource,
-	resetChangedSubtitleSource,
-	resolvePlayerControlError,
-	resolvePlayerControlState,
-	resolveProgressiveSubtitleRefresh,
-	shouldAllowAncestorTransforms,
-	shouldKeepSessionAlive,
-	shouldRenderPlaceholder,
-};
-
 export {
 	aliasClaimedSubtitleTranslation,
 	applySubtitleDisplayMode,
@@ -720,7 +662,6 @@ export {
 	cacheSubtitleTranslations,
 	consumeCachedSubtitleTranslations,
 	findCachedSubtitleTranslation,
-	findMatchingSubtitleSource,
 	findSubtitleSourceMatch,
 	findUniqueTimedCaptionTranslation,
 	getMeaningfulCharacterMinimum,
@@ -745,7 +686,5 @@ export {
 	SUBTITLE_SOURCE_TEXT_ATTR,
 	shouldAllowAncestorTransforms,
 	shouldKeepSessionAlive,
-	shouldRenderPlaceholder,
 	YOUTUBE_CAPTION_SEGMENT_SELECTOR,
 };
-export default api;

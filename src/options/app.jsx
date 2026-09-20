@@ -2,7 +2,7 @@ import { Theme } from "@radix-ui/themes";
 import { Tabs } from "radix-ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import Settings from "../shared/settings.js";
+import * as Settings from "../shared/settings.js";
 import { AdvancedSection } from "./advanced-section.jsx";
 import { AppearanceSection } from "./appearance-section.jsx";
 import {

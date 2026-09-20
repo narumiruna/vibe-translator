@@ -275,31 +275,6 @@ function pdfSessionCancelled(payload) {
 	return createPdfServerMessage(SERVER_MESSAGE_TYPES.CANCELLED, payload);
 }
 
-const api = {
-	CLIENT_MESSAGE_TYPES,
-	PDF_CACHE_VERSION,
-	PDF_LAUNCH_PREFIX,
-	PDF_LIMITS,
-	PDF_PORT_NAME,
-	PDF_READER_PATH,
-	SERVER_MESSAGE_TYPES,
-	getPdfSourcePermissionPattern,
-	getPdfTitleFromUrl,
-	hasPdfSignature,
-	isPdfCandidateUrl,
-	isSafePdfId,
-	parseHttpUrl,
-	pdfBatchComplete,
-	pdfBatchStarted,
-	pdfSessionCancelled,
-	pdfSessionError,
-	pdfSessionStarted,
-	pdfTranslationUpdate,
-	sanitizePdfTitle,
-	validatePdfClientMessage,
-	validatePdfItems,
-};
-
 export {
 	CLIENT_MESSAGE_TYPES,
 	getPdfSourcePermissionPattern,
@@ -324,4 +299,3 @@ export {
 	validatePdfClientMessage,
 	validatePdfItems,
 };
-export default api;

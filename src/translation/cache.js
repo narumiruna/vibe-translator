@@ -106,15 +106,8 @@ function createTranslationCache(options = {}) {
 	};
 }
 
-const api = {
-	DEFAULT_TRANSLATION_CACHE_LIMIT,
-	buildTranslationCacheKey,
-	createTranslationCache,
-};
-
 export {
 	buildTranslationCacheKey,
 	createTranslationCache,
 	DEFAULT_TRANSLATION_CACHE_LIMIT,
 };
-export default api;

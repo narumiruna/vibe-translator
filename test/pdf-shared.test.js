@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import Pdf from "../src/shared/pdf.js";
+import * as Pdf from "../src/shared/pdf.js";
 
 test("PDF URL helpers accept HTTP documents without exposing query data", () => {
 	assert.equal(

@@ -1,4 +1,4 @@
-import ProtectedFragments from "./protected-fragments.js";
+import * as ProtectedFragments from "./protected-fragments.js";
 
 const DEFAULT_MAX_BATCH_CHARS = 5000;
 const maskProtectedFragments = ProtectedFragments.maskProtectedFragments;
@@ -241,6 +241,37 @@ function createRecursiveChunkPlan(items, maxChars) {
 	};
 }
 
+function assembleSegment(sourceItem, group, expandedById, partTranslations) {
+	let translation = "";
+
+	for (const partId of group.partIds) {
+		const fragment = partTranslations.get(partId);
+		const meta = expandedById.get(partId);
+
+		if (typeof fragment !== "string" || !meta) {
+			continue;
+		}
+
+		translation += fragment;
+
+		if (meta.joiner) {
+			translation += meta.joiner;
+		}
+	}
+
+	return {
+		id: group.originalId,
+		...getTimedSubtitleMetadata(sourceItem),
+		kind: sourceItem ? sourceItem.kind || "paragraph" : "paragraph",
+		sourceText: sourceItem?.text || "",
+		translation: unmaskProtectedFragments(
+			translation.trim(),
+			group.protectedFragments,
+		),
+		protectedFragments: collectPreservedFragments(group.protectedFragments),
+	};
+}
+
 function createProgressiveMergeState(plan) {
 	return {
 		completedSegmentIds: new Set(),
@@ -284,36 +315,16 @@ function consumeProgressiveTranslations(plan, state, translations) {
 			continue;
 		}
 
-		let mergedText = "";
-
-		for (const partId of group.partIds) {
-			const fragment = state.partTranslations.get(partId);
-			const meta = state.expandedById.get(partId);
-
-			if (typeof fragment !== "string" || !meta) {
-				continue;
-			}
-
-			mergedText += fragment;
-
-			if (meta.joiner) {
-				mergedText += meta.joiner;
-			}
-		}
-
 		const sourceItem = (plan.items || []).find((item) => item.id === sourceId);
 
-		completed.push({
-			id: sourceId,
-			...getTimedSubtitleMetadata(sourceItem),
-			kind: sourceItem ? sourceItem.kind || "paragraph" : "paragraph",
-			sourceText: sourceItem?.text || "",
-			translation: unmaskProtectedFragments(
-				mergedText.trim(),
-				group.protectedFragments,
+		completed.push(
+			assembleSegment(
+				sourceItem,
+				group,
+				state.expandedById,
+				state.partTranslations,
 			),
-			protectedFragments: collectPreservedFragments(group.protectedFragments),
-		});
+		);
 		state.completedSegmentIds.add(sourceId);
 	}
 
@@ -342,50 +353,11 @@ function mergeRecursiveTranslations(plan, translations) {
 			continue;
 		}
 
-		let translation = "";
-
-		for (const partId of group.partIds) {
-			const fragment = byId.get(partId);
-			const meta = expandedById.get(partId);
-
-			if (typeof fragment !== "string" || !meta) {
-				continue;
-			}
-
-			translation += fragment;
-
-			if (meta.joiner) {
-				translation += meta.joiner;
-			}
-		}
-
-		merged.push({
-			id: item.id,
-			...getTimedSubtitleMetadata(item),
-			kind: item.kind || "paragraph",
-			sourceText: item.text || "",
-			translation: unmaskProtectedFragments(
-				translation.trim(),
-				group.protectedFragments,
-			),
-			protectedFragments: collectPreservedFragments(group.protectedFragments),
-		});
+		merged.push(assembleSegment(item, group, expandedById, byId));
 	}
 
 	return merged;
 }
-
-const api = {
-	DEFAULT_MAX_BATCH_CHARS,
-	chunkTranslationItems,
-	consumeProgressiveTranslations,
-	createProgressiveMergeState,
-	createRecursiveChunkPlan,
-	getIncompleteSegmentIds,
-	mergeRecursiveTranslations,
-	normalizeChunkText,
-	splitTextRecursively,
-};
 
 export {
 	chunkTranslationItems,
@@ -398,4 +370,3 @@ export {
 	normalizeChunkText,
 	splitTextRecursively,
 };
-export default api;

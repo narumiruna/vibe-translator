@@ -6,37 +6,6 @@ import {
 	sanitizePdfTitle,
 } from "../shared/pdf.js";
 
-async function readResponsePrefix(response, maximumBytes = 1024) {
-	if (!response.body?.getReader) {
-		const bytes = new Uint8Array(await response.arrayBuffer());
-		return bytes.subarray(0, maximumBytes);
-	}
-	const reader = response.body.getReader();
-	const chunks = [];
-	let length = 0;
-	try {
-		while (length < maximumBytes) {
-			const { done, value } = await reader.read();
-			if (done) {
-				break;
-			}
-			const remaining = maximumBytes - length;
-			const chunk = value.subarray(0, remaining);
-			chunks.push(chunk);
-			length += chunk.length;
-		}
-	} finally {
-		await reader.cancel().catch(() => {});
-	}
-	const prefix = new Uint8Array(length);
-	let offset = 0;
-	for (const chunk of chunks) {
-		prefix.set(chunk, offset);
-		offset += chunk.length;
-	}
-	return prefix;
-}
-
 async function readResponseBytes(
 	response,
 	maximumBytes = PDF_LIMITS.maximumSourceBytes,
@@ -147,9 +116,4 @@ async function readLocalPdf(file) {
 	};
 }
 
-export {
-	inspectRemotePdf,
-	readLocalPdf,
-	readResponseBytes,
-	readResponsePrefix,
-};
+export { inspectRemotePdf, readLocalPdf, readResponseBytes };

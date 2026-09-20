@@ -5,7 +5,6 @@ import {
 	inspectRemotePdf,
 	readLocalPdf,
 	readResponseBytes,
-	readResponsePrefix,
 } from "../src/pdf/source.js";
 
 function response(body, options = {}) {
@@ -123,30 +122,4 @@ test("bounded response reader rejects streams without size headers", async () =>
 		readResponseBytes(new Response(new Uint8Array([1, 2, 3, 4, 5])), 4),
 		/size limit/,
 	);
-});
-
-test("response prefix reader cancels after bounded data", async () => {
-	let cancelled = false;
-	const result = await readResponsePrefix(
-		{
-			body: {
-				getReader() {
-					let sent = false;
-					return {
-						async cancel() {
-							cancelled = true;
-						},
-						async read() {
-							if (sent) return { done: true };
-							sent = true;
-							return { done: false, value: new Uint8Array([1, 2, 3, 4]) };
-						},
-					};
-				},
-			},
-		},
-		2,
-	);
-	assert.deepEqual(Array.from(result), [1, 2]);
-	assert.equal(cancelled, true);
 });

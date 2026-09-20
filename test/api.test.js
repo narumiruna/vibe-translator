@@ -358,6 +358,126 @@ test("requestTranslations retries once when first response is invalid JSON", asy
 	assert.deepEqual(result, [{ id: "1", translation: "你好" }]);
 });
 
+test("requestTranslations retries once when a successful response is missing an id", async () => {
+	clearTranslationCache();
+	let calls = 0;
+	const fakeFetch = async () => {
+		calls += 1;
+		return {
+			ok: true,
+			text: async () =>
+				JSON.stringify({
+					output_parsed: {
+						translations:
+							calls === 1
+								? [{ id: "a", translation: "甲" }]
+								: [
+										{ id: "a", translation: "甲" },
+										{ id: "b", translation: "乙" },
+									],
+					},
+				}),
+		};
+	};
+
+	const result = await requestTranslations({
+		settings: buildSettings({ model: "missing-id-retry" }),
+		items: [
+			{ id: "a", text: "Alpha" },
+			{ id: "b", text: "Beta" },
+		],
+		fetchImpl: fakeFetch,
+	});
+
+	assert.equal(calls, 2);
+	assert.deepEqual(result, [
+		{ id: "a", translation: "甲" },
+		{ id: "b", translation: "乙" },
+	]);
+});
+
+test("requestTranslations retries once when a protected placeholder is missing", async () => {
+	clearTranslationCache();
+	let calls = 0;
+	const fakeFetch = async () => {
+		calls += 1;
+		return {
+			ok: true,
+			text: async () =>
+				JSON.stringify({
+					output_parsed: {
+						translations: [
+							{
+								id: "protected",
+								translation: calls === 1 ? "執行命令" : "執行 __OT_TOKEN_1__",
+							},
+						],
+					},
+				}),
+		};
+	};
+
+	const result = await requestTranslations({
+		settings: buildSettings({ model: "placeholder-retry" }),
+		items: [
+			{
+				id: "protected",
+				text: "Run __OT_TOKEN_1__",
+				protectedFragments: [
+					{ placeholder: "__OT_TOKEN_1__", value: "`npm test`" },
+				],
+			},
+		],
+		fetchImpl: fakeFetch,
+	});
+
+	assert.equal(calls, 2);
+	assert.deepEqual(result, [
+		{ id: "protected", translation: "執行 __OT_TOKEN_1__" },
+	]);
+});
+
+test("requestTranslations does not retry HTTP failures", async () => {
+	clearTranslationCache();
+	let calls = 0;
+
+	await assert.rejects(
+		requestTranslations({
+			settings: buildSettings({ model: "http-no-retry" }),
+			items: [{ id: "a", text: "Alpha" }],
+			async fetchImpl() {
+				calls += 1;
+				return {
+					ok: false,
+					status: 429,
+					text: async () =>
+						JSON.stringify({ error: { message: "Rate limited." } }),
+				};
+			},
+		}),
+		/Rate limited\./,
+	);
+	assert.equal(calls, 1);
+});
+
+test("requestTranslations does not retry network failures", async () => {
+	clearTranslationCache();
+	let calls = 0;
+
+	await assert.rejects(
+		requestTranslations({
+			settings: buildSettings({ model: "network-no-retry" }),
+			items: [{ id: "a", text: "Alpha" }],
+			async fetchImpl() {
+				calls += 1;
+				throw new TypeError("Network unavailable.");
+			},
+		}),
+		/Network unavailable\./,
+	);
+	assert.equal(calls, 1);
+});
+
 test("requestTranslations reuses cached translations for identical text and settings", async () => {
 	clearTranslationCache();
 

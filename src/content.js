@@ -1,21 +1,21 @@
-import ExtractionApi from "./content/extraction/rules.js";
+import * as ExtractionApi from "./content/extraction/rules.js";
 import { createSourceAnalyzer } from "./content/extraction/source-analyzer.js";
 import { createContentHelpers } from "./content/helpers.js";
 import { createContentLifecycle } from "./content/lifecycle.js";
 import { createPageObserver } from "./content/page/observer.js";
 import { createPageProfile } from "./content/page/profile.js";
-import ViewportApi from "./content/page/viewport.js";
+import * as ViewportApi from "./content/page/viewport.js";
 import { createContentRenderer } from "./content/rendering/runtime.js";
-import SelectionPanelApi from "./content/selection/panel.js";
+import * as SelectionPanelApi from "./content/selection/panel.js";
 import { applyContentStyles } from "./content/styles.js";
-import YoutubeDiagnosticsApi from "./content/youtube/diagnostics.js";
-import YoutubePlayerControlApi from "./content/youtube/player-control.js";
+import * as YoutubeDiagnosticsApi from "./content/youtube/diagnostics.js";
+import * as YoutubePlayerControlApi from "./content/youtube/player-control.js";
 import { createYoutubeRuntime } from "./content/youtube/runtime.js";
-import SubtitleApi from "./content/youtube/subtitles.js";
-import TimedCaptionApi from "./content/youtube/timed-captions.js";
-import AppearanceApi from "./shared/appearance.js";
-import Messages from "./shared/messages.js";
-import Api from "./translation/api.js";
+import * as SubtitleApi from "./content/youtube/subtitles.js";
+import * as TimedCaptionApi from "./content/youtube/timed-captions.js";
+import * as AppearanceApi from "./shared/appearance.js";
+import * as Messages from "./shared/messages.js";
+import * as Api from "./translation/api.js";
 
 export function createContentRuntime(options = {}) {
 	const SOURCE_ATTR = "data-ot-source-id";
@@ -93,7 +93,6 @@ export function createContentRuntime(options = {}) {
 	const {
 		createExtractionDebugState,
 		finalizeExtractionDebug,
-		getSelectionAnchorRect,
 		isDebugInfoEnabled,
 		recordExtractionDebugSelect,
 		recordExtractionDebugSkip,
@@ -101,7 +100,6 @@ export function createContentRuntime(options = {}) {
 		Api,
 		pageState,
 		siteProfileId: SITE_PROFILE_ID,
-		window,
 	});
 
 	function ensureStyles(appearance) {
@@ -616,7 +614,7 @@ export function createContentRuntime(options = {}) {
 			const matched = matchYoutubeCaptionItems(pendingItems);
 
 			if (matched.cached.length > 0) {
-				renderPageTranslations({
+				renderPageTranslationUpdates({
 					targetLanguage: pageState.pageTranslation.targetLanguage,
 					translations: matched.cached,
 					youtubeSubtitleDisplayMode:
@@ -730,7 +728,6 @@ export function createContentRuntime(options = {}) {
 	const {
 		clearPagePlaceholders,
 		clearPendingTranslations,
-		clearSelectionTranslation,
 		cleanupRendering,
 		getDebugProfileLabel,
 		getNoteElementTagName,
@@ -738,7 +735,7 @@ export function createContentRuntime(options = {}) {
 		isSafeNoteInsertionTarget: _isSafeNoteInsertionTarget,
 		renderExtractionDebugPanel,
 		renderPagePlaceholders,
-		renderPageTranslations,
+		renderPageTranslationUpdates,
 		renderSelectionError,
 		renderSelectionPlaceholder,
 		renderSelectionTranslation,
@@ -807,22 +804,6 @@ export function createContentRuntime(options = {}) {
 			return;
 		}
 
-		if (message.type === MessageTypes.EXTRACT_PAGE_CONTENT) {
-			sendResponse({
-				ok: true,
-				...collectPageItems(),
-			});
-			return;
-		}
-
-		if (message.type === MessageTypes.GET_SELECTION_ANCHOR) {
-			sendResponse({
-				ok: true,
-				anchorRect: getSelectionAnchorRect(),
-			});
-			return;
-		}
-
 		if (message.type === MessageTypes.START_PAGE_TRANSLATION_SESSION) {
 			sendResponse({
 				ok: true,
@@ -831,18 +812,10 @@ export function createContentRuntime(options = {}) {
 			return;
 		}
 
-		if (message.type === MessageTypes.RENDER_PAGE_TRANSLATIONS) {
-			sendResponse({
-				ok: true,
-				...renderPageTranslations(message.payload || {}),
-			});
-			return;
-		}
-
 		if (message.type === MessageTypes.RENDER_PAGE_TRANSLATION_UPDATES) {
 			sendResponse({
 				ok: true,
-				...renderPageTranslations(message.payload || {}),
+				...renderPageTranslationUpdates(message.payload || {}),
 			});
 			return;
 		}
@@ -894,14 +867,6 @@ export function createContentRuntime(options = {}) {
 			sendResponse({
 				ok: true,
 				...clearPendingTranslations(),
-			});
-			return;
-		}
-
-		if (message.type === MessageTypes.CLEAR_SELECTION_TRANSLATION) {
-			sendResponse({
-				ok: true,
-				...clearSelectionTranslation(),
 			});
 			return;
 		}

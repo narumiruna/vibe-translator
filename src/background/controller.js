@@ -1,19 +1,10 @@
-import {
-	buildProgressiveRequestChunks,
-	buildProgressiveRequestConcurrency,
-	translateItemsProgressively,
-} from "../translation/progressive.js";
+import { translateItemsProgressively } from "../translation/progressive.js";
 import { getSelectionAnchor } from "./selection-anchor.js";
 import { createYoutubeCaptionPrefetch } from "./youtube-caption-prefetch.js";
 import {
 	captureNativeYoutubeCaptionRequestUrl,
-	TRACKER_KEY,
+	enableYoutubeCaptions,
 } from "./youtube-caption-runtime.js";
-import { resolveYoutubeCaptionTracks } from "./youtube-caption-tracks.js";
-
-export const buildPageTranslationRequestChunks = buildProgressiveRequestChunks;
-export const buildPageTranslationRequestConcurrency =
-	buildProgressiveRequestConcurrency;
 
 const PAGE_TRANSLATION_CONCURRENCY = 5;
 const PAGE_TRANSLATION_BATCH_SIZE = 8;
@@ -511,173 +502,6 @@ export function createBackgroundController(options = {}) {
 		}
 	}
 
-	async function enableYoutubeCaptions(tabId) {
-		const [result] = await chrome.scripting.executeScript({
-			target: { tabId },
-			world: "MAIN",
-			args: [TRACKER_KEY],
-			func: (trackerKey) => {
-				const rememberRequest = (entryName) => {
-					try {
-						const url = new URL(String(entryName || ""));
-						const hostname = url.hostname.toLowerCase();
-
-						if (
-							url.protocol !== "https:" ||
-							(hostname !== "youtube.com" &&
-								!hostname.endsWith(".youtube.com")) ||
-							url.pathname !== "/api/timedtext"
-						) {
-							return;
-						}
-
-						const tracker = globalThis[trackerKey];
-						const serialized = url.toString();
-
-						tracker.urls = tracker.urls.filter((value) => value !== serialized);
-						tracker.urls.push(serialized);
-						tracker.urls.splice(0, Math.max(0, tracker.urls.length - 8));
-					} catch (_error) {
-						// Ignore unrelated resource URLs.
-					}
-				};
-
-				if (!globalThis[trackerKey]) {
-					globalThis[trackerKey] = { urls: [] };
-					for (const entry of performance.getEntriesByType("resource")) {
-						rememberRequest(entry.name);
-					}
-					try {
-						const observer = new PerformanceObserver((list) => {
-							for (const entry of list.getEntries()) {
-								rememberRequest(entry.name);
-							}
-						});
-
-						observer.observe({ type: "resource" });
-						globalThis[trackerKey].observer = observer;
-					} catch (_error) {
-						// Polling resource timing remains available as a fallback.
-					}
-				}
-
-				const player = document.querySelector("#movie_player");
-				const captionButton = player?.querySelector(".ytp-subtitles-button");
-
-				if (!player || !captionButton) {
-					return { enabled: false, hasTrack: false };
-				}
-
-				if (captionButton.getAttribute("aria-pressed") !== "true") {
-					captionButton.click();
-				}
-
-				const initialResponse = globalThis.ytInitialPlayerResponse;
-				let playerResponse = null;
-
-				try {
-					playerResponse = player.getPlayerResponse?.() || null;
-				} catch (_error) {
-					playerResponse = null;
-				}
-
-				const responseTracks =
-					initialResponse?.captions?.playerCaptionsTracklistRenderer
-						?.captionTracks;
-				const currentResponseTracks =
-					playerResponse?.captions?.playerCaptionsTracklistRenderer
-						?.captionTracks;
-				const playerTracks = player.getOption?.("captions", "tracklist");
-				const tracks = Array.isArray(currentResponseTracks)
-					? currentResponseTracks
-					: Array.isArray(responseTracks)
-						? responseTracks
-						: Array.isArray(playerTracks)
-							? playerTracks
-							: [];
-
-				if (
-					captionButton.getAttribute("aria-pressed") !== "true" &&
-					tracks.length > 0
-				) {
-					const track = tracks[0];
-					player.setOption?.("captions", "track", {
-						languageCode: track.languageCode,
-						kind: track.kind || "",
-						name: track.name?.simpleText || track.name || "",
-					});
-				}
-				const selectedTrack = player.getOption?.("captions", "track");
-				const video =
-					player.querySelector?.("video") || document.querySelector("video");
-
-				const playbackRate = Number(video?.playbackRate);
-				const currentVideoId = String(
-					player.getVideoData?.()?.video_id ||
-						new URLSearchParams(globalThis.location?.search || "").get("v") ||
-						"",
-				);
-				const copyTracks = (value) =>
-					(Array.isArray(value) ? value : []).map((track) => ({
-						baseUrl: String(track?.baseUrl || ""),
-						kind: String(track?.kind || ""),
-						languageCode: String(track?.languageCode || ""),
-					}));
-
-				return {
-					currentTimeMs: Math.max(0, Number(video?.currentTime) || 0) * 1000,
-					enabled: captionButton.getAttribute("aria-pressed") === "true",
-					playbackRate:
-						Number.isFinite(playbackRate) && playbackRate > 0
-							? playbackRate
-							: 1,
-					hasTrack: tracks.length > 0,
-					trackCandidates: {
-						currentVideoId,
-						initialResponse: {
-							tracks: copyTracks(responseTracks),
-							videoId: String(initialResponse?.videoDetails?.videoId || ""),
-						},
-						playerOption: { tracks: copyTracks(playerTracks) },
-						playerResponse: {
-							tracks: copyTracks(currentResponseTracks),
-							videoId: String(playerResponse?.videoDetails?.videoId || ""),
-						},
-						selectedTrack: selectedTrack
-							? {
-									kind: String(selectedTrack.kind || ""),
-									languageCode: String(selectedTrack.languageCode || ""),
-								}
-							: null,
-					},
-				};
-			},
-		});
-		const captionState = result?.result;
-
-		if (!captionState) {
-			return {
-				enabled: false,
-				hasTrack: false,
-				trackBaseUrl: "",
-				trackCount: 0,
-				trackSource: "none",
-				timedTrackAvailable: false,
-			};
-		}
-
-		const resolvedTracks = resolveYoutubeCaptionTracks(
-			captionState.trackCandidates,
-		);
-
-		return {
-			currentTimeMs: captionState.currentTimeMs,
-			enabled: captionState.enabled,
-			playbackRate: captionState.playbackRate,
-			...resolvedTracks,
-		};
-	}
-
 	async function startYoutubeSubtitleTranslation(sender) {
 		if (!sender?.tab?.id || (sender.frameId ?? 0) !== 0) {
 			throw new Error(
@@ -695,7 +519,7 @@ export function createBackgroundController(options = {}) {
 			throw new Error("This control is only available on YouTube videos.");
 		}
 
-		const captions = await enableYoutubeCaptions(tab.id).catch(() => ({
+		const captions = await enableYoutubeCaptions(chrome, tab.id).catch(() => ({
 			enabled: false,
 			hasTrack: false,
 		}));
@@ -743,6 +567,26 @@ export function createBackgroundController(options = {}) {
 		}
 	}
 
+	async function resolveAutomationTarget(sender, message, missingTabError) {
+		if (!sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`)) {
+			return {
+				error: {
+					ok: false,
+					error: "Automation commands require an extension page.",
+				},
+			};
+		}
+
+		const tabs = await chrome.tabs.query({});
+		const tab = tabs.find((item) => item.url === message.payload?.pageUrl);
+
+		if (!tab?.id) {
+			throw new Error(missingTabError);
+		}
+
+		return { tab };
+	}
+
 	async function handleRuntimeMessage(message, sender) {
 		if (!message || typeof message !== "object") {
 			return { ok: false };
@@ -786,50 +630,49 @@ export function createBackgroundController(options = {}) {
 		}
 
 		if (message.type === Messages.MESSAGE_TYPES.AUTOMATION_OPEN_PDF) {
-			if (!sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`)) {
-				return {
-					ok: false,
-					error: "Automation commands require an extension page.",
-				};
+			const target = await resolveAutomationTarget(
+				sender,
+				message,
+				"Could not resolve the PDF automation tab.",
+			);
+
+			if (target.error) {
+				return target.error;
 			}
-			const tabs = await chrome.tabs.query({});
-			const tab = tabs.find((item) => item.url === message.payload?.pageUrl);
-			if (!tab?.id)
-				throw new Error("Could not resolve the PDF automation tab.");
 			if (typeof openPdfTranslator !== "function") {
 				throw new Error("PDF translation is unavailable.");
 			}
-			return { ok: true, ...(await openPdfTranslator(tab)) };
+			return { ok: true, ...(await openPdfTranslator(target.tab)) };
 		}
 
 		if (message.type === Messages.MESSAGE_TYPES.AUTOMATION_TRANSLATE_PAGE) {
-			if (!sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`)) {
-				return {
-					ok: false,
-					error: "Automation commands require an extension page.",
-				};
+			const target = await resolveAutomationTarget(
+				sender,
+				message,
+				"Could not resolve the automation tab.",
+			);
+
+			if (target.error) {
+				return target.error;
 			}
-			const tabs = await chrome.tabs.query({});
-			const tab = tabs.find((item) => item.url === message.payload?.pageUrl);
-			if (!tab?.id) throw new Error("Could not resolve the automation tab.");
-			await translatePage(tab);
-			return { ok: true, tabId: tab.id };
+			await translatePage(target.tab);
+			return { ok: true, tabId: target.tab.id };
 		}
 
 		if (
 			message.type === Messages.MESSAGE_TYPES.AUTOMATION_TRANSLATE_SELECTION
 		) {
-			if (!sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`)) {
-				return {
-					ok: false,
-					error: "Automation commands require an extension page.",
-				};
+			const target = await resolveAutomationTarget(
+				sender,
+				message,
+				"Could not resolve the automation tab.",
+			);
+
+			if (target.error) {
+				return target.error;
 			}
-			const tabs = await chrome.tabs.query({});
-			const tab = tabs.find((item) => item.url === message.payload?.pageUrl);
-			if (!tab?.id) throw new Error("Could not resolve the automation tab.");
 			return translateSelection(
-				tab.id,
+				target.tab.id,
 				message.payload?.selectionText,
 				message.payload?.frameId,
 			);

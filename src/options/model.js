@@ -1,6 +1,6 @@
-import Appearance from "../shared/appearance.js";
-import Settings from "../shared/settings.js";
-import Api from "../translation/api.js";
+import * as Appearance from "../shared/appearance.js";
+import * as Settings from "../shared/settings.js";
+import * as Api from "../translation/api.js";
 
 const CONNECTION_ERROR_FALLBACK =
 	"Connection test failed. Check the endpoint and model.";
@@ -153,19 +153,6 @@ function buildPromptPreview(draft) {
 	};
 }
 
-const api = {
-	applyAppearancePreset,
-	buildPromptPreview,
-	clearEditedFieldError,
-	createOptionsDraft,
-	getConnectionErrorMessage,
-	getInvalidFieldIds,
-	isOptionsDraftDirty,
-	normalizeOptionsDraft,
-	resetAppearanceDraft,
-	updateDraftField,
-};
-
 export {
 	applyAppearancePreset,
 	buildPromptPreview,
@@ -178,4 +165,3 @@ export {
 	resetAppearanceDraft,
 	updateDraftField,
 };
-export default api;

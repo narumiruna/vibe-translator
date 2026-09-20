@@ -4,7 +4,7 @@ import {
 	PasswordResponses,
 	TextLayer,
 } from "pdfjs-dist/build/pdf.mjs";
-import Pdf from "../shared/pdf.js";
+import * as Pdf from "../shared/pdf.js";
 import {
 	cacheTranslations,
 	clearPdfCache,

@@ -1,7 +1,4 @@
-import {
-	buildProgressiveRequestConcurrency,
-	translateItemsProgressively,
-} from "../translation/progressive.js";
+import { translateItemsProgressively } from "../translation/progressive.js";
 
 const LAUNCH_TTL_MS = 24 * 60 * 60 * 1000;
 const SESSION_ERROR_MAX_LENGTH = 300;
@@ -581,9 +578,4 @@ function createPdfController(options = {}) {
 	};
 }
 
-export {
-	buildProgressiveRequestConcurrency,
-	createPdfController,
-	createSettingsFingerprint,
-	sanitizeError,
-};
+export { createPdfController, createSettingsFingerprint, sanitizeError };

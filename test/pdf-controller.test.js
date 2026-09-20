@@ -5,8 +5,8 @@ import {
 	createPdfController,
 	sanitizeError,
 } from "../src/background/pdf-controller.js";
-import Pdf from "../src/shared/pdf.js";
-import Api from "../src/translation/api.js";
+import * as Pdf from "../src/shared/pdf.js";
+import * as Api from "../src/translation/api.js";
 
 function createEvent() {
 	const listeners = [];

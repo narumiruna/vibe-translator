@@ -111,18 +111,6 @@ function shouldReportCaptionProgress(
 	return Math.abs(current - previous) >= interval;
 }
 
-const api = {
-	DEFAULT_CAPTION_WINDOW_MS,
-	MAX_CAPTION_WINDOW_MS,
-	buildJson3TrackUrl,
-	buildTimedCaptionItems,
-	getCaptionWindowMs,
-	normalizePlaybackRate,
-	parseJson3Captions,
-	selectCaptionWindow,
-	shouldReportCaptionProgress,
-};
-
 export {
 	buildJson3TrackUrl,
 	buildTimedCaptionItems,
@@ -134,4 +122,3 @@ export {
 	selectCaptionWindow,
 	shouldReportCaptionProgress,
 };
-export default api;
