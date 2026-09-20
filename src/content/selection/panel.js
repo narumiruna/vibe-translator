@@ -1,9 +1,15 @@
+import {
+	APPEARANCE_LIMITS,
+	DEFAULT_TRANSLATION_APPEARANCE,
+} from "../../shared/appearance.js";
 import { normalizeSelectionPanelPositionMode } from "../../shared/settings.js";
 
 const SELECTION_PANEL_MARGIN = 12;
 const SELECTION_PANEL_GAP = 12;
-const SELECTION_PANEL_COMPACT_WIDTH = 280;
-const SELECTION_PANEL_MAX_WIDTH = 480;
+const SELECTION_PANEL_COMPACT_WIDTH =
+	DEFAULT_TRANSLATION_APPEARANCE.selection.widthPx;
+const [SELECTION_PANEL_MIN_WIDTH, SELECTION_PANEL_MAX_WIDTH] =
+	APPEARANCE_LIMITS.selection.widthPx;
 const SELECTION_PANEL_MOBILE_BREAKPOINT = 640;
 
 function normalizeSelectionRequestId(value) {
@@ -43,7 +49,11 @@ function getSelectionPanelWidth(
 ) {
 	const numericWidth = Number(compactWidth);
 	const preferredWidth = Number.isFinite(numericWidth)
-		? clampSelectionPanelValue(numericWidth, 240, SELECTION_PANEL_MAX_WIDTH)
+		? clampSelectionPanelValue(
+				numericWidth,
+				SELECTION_PANEL_MIN_WIDTH,
+				SELECTION_PANEL_MAX_WIDTH,
+			)
 		: SELECTION_PANEL_COMPACT_WIDTH;
 
 	return Math.min(
@@ -414,7 +424,11 @@ function createSelectionPanelRenderer(options = {}) {
 			payload.translationAppearance?.selection?.widthPx,
 		);
 		state.compactWidth = Number.isFinite(requestedWidth)
-			? clampSelectionPanelValue(requestedWidth, 240, SELECTION_PANEL_MAX_WIDTH)
+			? clampSelectionPanelValue(
+					requestedWidth,
+					SELECTION_PANEL_MIN_WIDTH,
+					SELECTION_PANEL_MAX_WIDTH,
+				)
 			: SELECTION_PANEL_COMPACT_WIDTH;
 		state.positionMode = normalizeSelectionPanelPositionMode(
 			payload.selectionPanelPositionMode,

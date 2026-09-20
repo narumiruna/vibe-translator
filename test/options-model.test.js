@@ -113,7 +113,7 @@ test("validation errors map to the controls that need correction", () => {
 		userPromptTemplate: "Translate without source data.",
 	});
 
-	assert.deepEqual(getInvalidFieldIds(validation.errors), [
+	assert.deepEqual(getInvalidFieldIds(validation.invalidFields), [
 		"api-key",
 		"base-url",
 		"model",
@@ -121,6 +121,30 @@ test("validation errors map to the controls that need correction", () => {
 		"user-prompt-template",
 	]);
 	assert.deepEqual(getInvalidFieldIds([]), []);
+});
+
+test("invalid field focus order depends on keys rather than message wording or order", () => {
+	assert.deepEqual(
+		getInvalidFieldIds([
+			"userPromptTemplate",
+			"systemPromptTemplate",
+			"targetLanguage",
+			"model",
+			"baseUrl",
+			"baseUrl",
+			"apiKey",
+			"unknownField",
+		]),
+		[
+			"api-key",
+			"base-url",
+			"model",
+			"target-language",
+			"system-prompt-template",
+			"user-prompt-template",
+		],
+	);
+	assert.deepEqual(getInvalidFieldIds(), []);
 });
 
 test("editing one invalid field retains errors for untouched fields", () => {
@@ -132,6 +156,11 @@ test("editing one invalid field retains errors for untouched fields", () => {
 	assert.equal(
 		clearEditedFieldError(updated, "translationAppearance"),
 		updated,
+	);
+	assert.equal(clearEditedFieldError(updated, "baseUrl"), updated);
+	assert.deepEqual(
+		[...clearEditedFieldError(updated, ["userPromptTemplate"])],
+		[],
 	);
 });
 

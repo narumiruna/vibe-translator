@@ -249,6 +249,21 @@ test("getSelectionPanelWidth keeps one stable width within viewport margins", ()
 	assert.equal(getSelectionPanelWidth(300), 276);
 	assert.equal(getSelectionPanelWidth(1024, 360), 360);
 	assert.equal(getSelectionPanelWidth(1024, 480), 480);
+	for (const [requested, expected] of [
+		[239, 240],
+		[240, 240],
+		[481, 480],
+		[undefined, 280],
+		[Number.NaN, 280],
+		[Infinity, 280],
+		["360", 360],
+		[null, 240],
+		[300.5, 300.5],
+	]) {
+		assert.equal(getSelectionPanelWidth(1024, requested), expected);
+	}
+	assert.equal(getSelectionPanelWidth(200, 480), 176);
+	assert.equal(getSelectionPanelWidth(20), 0);
 });
 
 test("normalizeSelectionRequestId trims valid ids and rejects empty ids", () => {

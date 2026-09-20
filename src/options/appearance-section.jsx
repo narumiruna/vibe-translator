@@ -8,6 +8,7 @@ import {
 } from "@radix-ui/react-icons";
 import { Button, Card, Heading, Text } from "@radix-ui/themes";
 import { Accordion, ToggleGroup } from "radix-ui";
+import { APPEARANCE_LIMITS } from "../shared/appearance.js";
 import {
 	ReadingAppearancePreview,
 	SelectionAppearancePreview,
@@ -25,51 +26,97 @@ const TYPOGRAPHY_FIELDS = [
 		id: "inline-font-size",
 		key: "fontSizePx",
 		label: "Font Size (px)",
-		max: 24,
-		min: 14,
+		max: APPEARANCE_LIMITS.inline.fontSizePx[1],
+		min: APPEARANCE_LIMITS.inline.fontSizePx[0],
 		step: 1,
 	},
 	{
 		id: "inline-line-height",
 		key: "lineHeight",
 		label: "Line Height",
-		max: 2.2,
-		min: 1.3,
+		max: APPEARANCE_LIMITS.inline.lineHeight[1],
+		min: APPEARANCE_LIMITS.inline.lineHeight[0],
 		step: 0.01,
 	},
 ];
 const LAYOUT_FIELDS = [
-	["inline-max-width", "maxWidthPx", "Maximum Width (px)", 480, 1000],
-	["inline-margin-top", "marginTopPx", "Top Spacing (px)", 0, 48],
-	["inline-margin-bottom", "marginBottomPx", "Bottom Spacing (px)", 0, 48],
+	[
+		"inline-max-width",
+		"maxWidthPx",
+		"Maximum Width (px)",
+		...APPEARANCE_LIMITS.inline.maxWidthPx,
+	],
+	[
+		"inline-margin-top",
+		"marginTopPx",
+		"Top Spacing (px)",
+		...APPEARANCE_LIMITS.inline.marginTopPx,
+	],
+	[
+		"inline-margin-bottom",
+		"marginBottomPx",
+		"Bottom Spacing (px)",
+		...APPEARANCE_LIMITS.inline.marginBottomPx,
+	],
 	[
 		"inline-padding-vertical",
 		"paddingVerticalPx",
 		"Vertical Padding (px)",
-		0,
-		32,
+		...APPEARANCE_LIMITS.inline.paddingVerticalPx,
 	],
 	[
 		"inline-padding-horizontal",
 		"paddingHorizontalPx",
 		"Horizontal Padding (px)",
-		0,
-		32,
+		...APPEARANCE_LIMITS.inline.paddingHorizontalPx,
 	],
-	["inline-border-radius", "borderRadiusPx", "Corner Radius (px)", 0, 24],
-	["inline-accent-width", "accentWidthPx", "Accent Width (px)", 0, 8],
+	[
+		"inline-border-radius",
+		"borderRadiusPx",
+		"Corner Radius (px)",
+		...APPEARANCE_LIMITS.inline.borderRadiusPx,
+	],
+	[
+		"inline-accent-width",
+		"accentWidthPx",
+		"Accent Width (px)",
+		...APPEARANCE_LIMITS.inline.accentWidthPx,
+	],
 ];
 const SELECTION_FIELDS = [
-	["selection-width", "widthPx", "Width (px)", 240, 480, 1],
-	["selection-font-size", "fontSizePx", "Font Size (px)", 12, 20, 1],
-	["selection-line-height", "lineHeight", "Line Height", 1.3, 1.8, 0.01],
-	["selection-border-radius", "borderRadiusPx", "Corner Radius (px)", 0, 24, 1],
+	[
+		"selection-width",
+		"widthPx",
+		"Width (px)",
+		...APPEARANCE_LIMITS.selection.widthPx,
+		1,
+	],
+	[
+		"selection-font-size",
+		"fontSizePx",
+		"Font Size (px)",
+		...APPEARANCE_LIMITS.selection.fontSizePx,
+		1,
+	],
+	[
+		"selection-line-height",
+		"lineHeight",
+		"Line Height",
+		...APPEARANCE_LIMITS.selection.lineHeight,
+		0.01,
+	],
+	[
+		"selection-border-radius",
+		"borderRadiusPx",
+		"Corner Radius (px)",
+		...APPEARANCE_LIMITS.selection.borderRadiusPx,
+		1,
+	],
 	[
 		"selection-surface-opacity",
 		"surfaceOpacityPercent",
 		"Surface Opacity (%)",
-		85,
-		100,
+		...APPEARANCE_LIMITS.selection.surfaceOpacityPercent,
 		1,
 	],
 ];

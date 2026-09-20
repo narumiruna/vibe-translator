@@ -8,8 +8,8 @@ const INVALID_DRAFT_FIELD_IDS = Object.freeze({
 	apiKey: "api-key",
 	baseUrl: "base-url",
 	model: "model",
-	systemPromptTemplate: "system-prompt-template",
 	targetLanguage: "target-language",
+	systemPromptTemplate: "system-prompt-template",
 	userPromptTemplate: "user-prompt-template",
 });
 
@@ -50,20 +50,10 @@ function isOptionsDraftDirty(draft, savedSettings) {
 	);
 }
 
-function getInvalidFieldIds(errors) {
-	const fields = [
-		[/API Key/u, INVALID_DRAFT_FIELD_IDS.apiKey],
-		[/Base URL/u, INVALID_DRAFT_FIELD_IDS.baseUrl],
-		[/Model/u, INVALID_DRAFT_FIELD_IDS.model],
-		[/Target language/u, INVALID_DRAFT_FIELD_IDS.targetLanguage],
-		[/System prompt template/u, INVALID_DRAFT_FIELD_IDS.systemPromptTemplate],
-		[/User prompt template/u, INVALID_DRAFT_FIELD_IDS.userPromptTemplate],
-	];
-
-	return fields
-		.filter(([pattern]) =>
-			(errors || []).some((message) => pattern.test(String(message))),
-		)
+function getInvalidFieldIds(invalidFields = []) {
+	// Focus priority belongs to the UI, not the validator's message order.
+	return Object.entries(INVALID_DRAFT_FIELD_IDS)
+		.filter(([field]) => invalidFields.includes(field))
 		.map(([, id]) => id);
 }
 

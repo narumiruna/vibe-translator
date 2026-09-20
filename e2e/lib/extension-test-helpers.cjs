@@ -351,15 +351,6 @@ async function launchExtensionContext(config, originPatterns = []) {
 	);
 	await clearChromiumProfileLocks(userDataDir);
 
-	const discoveryContext = await chromium.launchPersistentContext(
-		userDataDir,
-		createLaunchOptions(config, undefined, extensionDir),
-	);
-	const discoveryWorker = await getServiceWorker(discoveryContext);
-	const extensionId = new URL(discoveryWorker.url()).hostname;
-	await discoveryContext.close();
-	await clearChromiumProfileLocks(userDataDir);
-
 	const context = await chromium.launchPersistentContext(
 		userDataDir,
 		createLaunchOptions(config, undefined, extensionDir),
@@ -376,13 +367,19 @@ async function launchExtensionContext(config, originPatterns = []) {
 		});
 	}
 
-	return {
+	const runState = {
 		context,
 		extensionDir,
-		extensionId,
 		userDataDir,
 		isTemporaryUserDataDir: !config.userDataDir,
 	};
+	try {
+		const worker = await getServiceWorker(context);
+		return { ...runState, extensionId: new URL(worker.url()).hostname };
+	} catch (error) {
+		await closeExtensionContext(runState);
+		throw error;
+	}
 }
 
 async function saveOptions(context, extensionId, config, options = {}) {

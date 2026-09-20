@@ -34,7 +34,43 @@ test("validateSettings rejects incomplete settings", () => {
 	});
 
 	assert.equal(result.isValid, false);
-	assert.ok(result.errors.length >= 3);
+	assert.deepEqual(result.errors, [
+		"API Key is required.",
+		"Model is required.",
+		"Target language is required.",
+		"Base URL must be a valid URL.",
+	]);
+	assert.deepEqual(result.invalidFields, [
+		"apiKey",
+		"model",
+		"targetLanguage",
+		"baseUrl",
+	]);
+});
+
+test("validateSettings preserves simultaneous error messages and order", () => {
+	const result = validateSettings({
+		apiKey: "",
+		baseUrl: "ftp://example.com/other",
+		model: "",
+		targetLanguage: "",
+		userPromptTemplate: "No source placeholder.",
+	});
+	assert.deepEqual(result.errors, [
+		"API Key is required.",
+		"Model is required.",
+		"Target language is required.",
+		"User prompt template must include {{sourcePayload}}.",
+		"Base URL must use HTTP or HTTPS.",
+		"Base URL must include /v1.",
+	]);
+	assert.deepEqual(result.invalidFields, [
+		"apiKey",
+		"model",
+		"targetLanguage",
+		"userPromptTemplate",
+		"baseUrl",
+	]);
 });
 
 test("validateSettings merges prompt template defaults", () => {
@@ -46,6 +82,9 @@ test("validateSettings merges prompt template defaults", () => {
 	});
 
 	assert.equal(result.isValid, true);
+	assert.deepEqual(result.errors, []);
+	assert.deepEqual(result.invalidFields, []);
+	assert.equal("invalidFields" in result.settings, false);
 	assert.equal(
 		result.settings.systemPromptTemplate,
 		DEFAULT_SYSTEM_PROMPT_TEMPLATE,

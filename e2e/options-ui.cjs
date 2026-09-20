@@ -32,6 +32,54 @@ async function expectNoSeriousAccessibilityFindings(page) {
 	);
 }
 
+async function expectAppearanceLimits(page) {
+	const { APPEARANCE_LIMITS } = await import("../src/shared/appearance.js");
+	const controls = {
+		inline: {
+			fontSizePx: "inline-font-size",
+			lineHeight: "inline-line-height",
+			maxWidthPx: "inline-max-width",
+			marginTopPx: "inline-margin-top",
+			marginBottomPx: "inline-margin-bottom",
+			paddingVerticalPx: "inline-padding-vertical",
+			paddingHorizontalPx: "inline-padding-horizontal",
+			borderRadiusPx: "inline-border-radius",
+			accentWidthPx: "inline-accent-width",
+		},
+		selection: {
+			widthPx: "selection-width",
+			fontSizePx: "selection-font-size",
+			lineHeight: "selection-line-height",
+			borderRadiusPx: "selection-border-radius",
+			surfaceOpacityPercent: "selection-surface-opacity",
+		},
+	};
+	let controlCount = 0;
+	for (const [section, fields] of Object.entries(controls)) {
+		assert.deepEqual(
+			Object.keys(fields).sort(),
+			Object.keys(APPEARANCE_LIMITS[section]).sort(),
+		);
+		for (const [key, id] of Object.entries(fields)) {
+			const input = page.locator(`#${id}`);
+			assert.deepEqual(
+				[await input.getAttribute("min"), await input.getAttribute("max")],
+				APPEARANCE_LIMITS[section][key].map(String),
+				`${id} must use the shared bounds.`,
+			);
+			assert.equal(
+				await input.getAttribute("step"),
+				key === "lineHeight" ? "0.01" : "1",
+			);
+			controlCount += 1;
+		}
+	}
+	assert.equal(
+		await page.locator('.appearance-section input[type="number"]').count(),
+		controlCount,
+	);
+}
+
 async function expectSaveActionsInViewport(page) {
 	const actions = await page
 		.locator(".save-bar-actions button")
@@ -290,6 +338,7 @@ async function main() {
 			.fill(" EXAMPLE.COM, chat.openai.com ");
 
 		await appearanceTab.click();
+		await expectAppearanceLimits(page);
 		await page
 			.locator("#selection-panel-position-mode")
 			.selectOption("bottom-right");

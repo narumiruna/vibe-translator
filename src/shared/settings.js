@@ -209,46 +209,55 @@ function validateSettings(input) {
 		disabledDomains: normalizeDisabledDomains(merged.disabledDomains),
 	};
 	const errors = [];
+	const invalidFields = new Set();
+	function addError(field, message) {
+		invalidFields.add(field);
+		errors.push(message);
+	}
 
 	if (!settings.apiKey) {
-		errors.push("API Key is required.");
+		addError("apiKey", "API Key is required.");
 	}
 
 	if (!settings.model) {
-		errors.push("Model is required.");
+		addError("model", "Model is required.");
 	}
 
 	if (!settings.targetLanguage) {
-		errors.push("Target language is required.");
+		addError("targetLanguage", "Target language is required.");
 	}
 
 	if (!settings.systemPromptTemplate) {
-		errors.push("System prompt template is required.");
+		addError("systemPromptTemplate", "System prompt template is required.");
 	}
 
 	if (!settings.userPromptTemplate) {
-		errors.push("User prompt template is required.");
+		addError("userPromptTemplate", "User prompt template is required.");
 	} else if (!settings.userPromptTemplate.includes("{{sourcePayload}}")) {
-		errors.push("User prompt template must include {{sourcePayload}}.");
+		addError(
+			"userPromptTemplate",
+			"User prompt template must include {{sourcePayload}}.",
+		);
 	}
 
 	try {
 		const parsed = new URL(settings.baseUrl);
 
 		if (!/^https?:$/.test(parsed.protocol)) {
-			errors.push("Base URL must use HTTP or HTTPS.");
+			addError("baseUrl", "Base URL must use HTTP or HTTPS.");
 		}
 
 		if (!/\/v1(?:\/|$)/.test(parsed.pathname)) {
-			errors.push("Base URL must include /v1.");
+			addError("baseUrl", "Base URL must include /v1.");
 		}
 	} catch (_error) {
-		errors.push("Base URL must be a valid URL.");
+		addError("baseUrl", "Base URL must be a valid URL.");
 	}
 
 	return {
 		settings,
 		errors,
+		invalidFields: [...invalidFields],
 		isValid: errors.length === 0,
 	};
 }
