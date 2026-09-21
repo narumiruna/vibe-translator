@@ -7,6 +7,7 @@ const CARMINA_ARTICLE_ROOT_SELECTOR = "main #module-special-category-header";
 const CARMINA_ARTICLE_TEXT_SELECTOR = `${CARMINA_ARTICLE_ROOT_SELECTOR} .html-output`;
 const DISQUS_COMMENT_TEXT_SELECTOR = '[data-role="message"] p';
 const FINDY_ARTICLE_ROOT_SELECTOR = ".p-single__wrap";
+const REDDIT_ROOT_SELECTOR = "main";
 const SCHIIT_ARTICLE_ROOT_SELECTOR =
 	"body:where(.faq, .guides) #content-box .product > .pad";
 const SCHIIT_ARTICLE_TEXT_SELECTOR = `${SCHIIT_ARTICLE_ROOT_SELECTOR} > .body > div`;
@@ -55,6 +56,11 @@ const SITE_PROFILES = Object.freeze([
 		id: "findy-article",
 		hosts: Object.freeze(["findy.co.jp", "www.findy.co.jp"]),
 		rootSelectors: Object.freeze([FINDY_ARTICLE_ROOT_SELECTOR]),
+	}),
+	Object.freeze({
+		id: "reddit",
+		hosts: Object.freeze(["reddit.com", "www.reddit.com"]),
+		rootSelectors: Object.freeze([REDDIT_ROOT_SELECTOR]),
 	}),
 	Object.freeze({
 		id: "schiit-article",
@@ -161,6 +167,7 @@ export {
 	getActiveSiteProfile,
 	normalizeHostname,
 	normalizeSelectorList,
+	REDDIT_ROOT_SELECTOR,
 	resolveSiteProfile,
 	SAFE_EMPTY_SELECTOR,
 	SCHIIT_ARTICLE_ROOT_SELECTOR,

@@ -12,6 +12,7 @@ help:
     @echo "  just e2e-options - Run options UI accessibility and interaction regression test"
     @echo "  just e2e-pdf - Run PDF reader translation regression test"
     @echo "  just e2e-antirez - Run Antirez article and Disqus comment regression test"
+    @echo "  just e2e-reddit - Run Reddit full-page translation regression test"
     @echo "  just e2e-syosetu - Run Syosetu directory regression test"
     @echo "  just e2e-youtube - Run YouTube subtitle translation regression test"
     @echo "  just format - Run Biome formatter with writes enabled"
@@ -49,6 +50,9 @@ e2e-pdf:
 
 e2e-antirez:
     @npm run e2e:antirez
+
+e2e-reddit:
+    @PLAYWRIGHT_HEADLESS=1 npm run e2e:reddit
 
 e2e-syosetu:
     @npm run e2e:syosetu

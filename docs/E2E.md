@@ -54,6 +54,14 @@ The Antirez regression opens `https://antirez.com/news/169`, translates the arti
 PLAYWRIGHT_MOCK_API=1 npm run e2e:antirez
 ```
 
+## Reddit Full-Page Regression Coverage
+
+The Reddit regression keeps the target post at `https://www.reddit.com/r/RMWilliams/comments/1wi2fee/help_with_new_boots/` while routing its document request to `test/reddit-comment-page.html`. This deterministic fixture preserves the current `<details role="article">` comment structure without connecting to a personal Chrome profile or depending on Reddit’s anti-bot challenge. It verifies that the Reddit site profile stays rooted at `<main>`, translates the post and sibling or nested comments across viewport windows, skips metadata and controls, and creates no pending or duplicate notes.
+
+```bash
+PLAYWRIGHT_HEADLESS=1 npm run e2e:reddit
+```
+
 ## YouTube Subtitle Regression Coverage
 
 The YouTube regression opens `https://www.youtube.com/watch?v=g7AxxkywiFI`, uses the production manifest's YouTube host permission, installs deterministic auto-generated caption metadata and native `.ytp-caption-segment` DOM fixtures inside the real YouTube player, and clicks the in-player Vibe Translator icon. It verifies the safe diagnostic panel, bounded control placement, active state, continuous replacement of native captions, compact player rendering, and rejection of late results from replaced cues:
@@ -169,11 +177,16 @@ npm run e2e:syosetu
 npm run e2e:antirez
 ```
 
+```bash
+PLAYWRIGHT_HEADLESS=1 npm run e2e:reddit
+```
+
 Or, using the project command wrapper:
 
 ```bash
 just e2e
 just e2e-mock
+just e2e-reddit
 just e2e-syosetu
 ```
 
@@ -181,7 +194,8 @@ just e2e-syosetu
 
 1. The smoke suite is intentionally minimal and uses `test/fixture-page.html`.
 2. `npm run e2e:syosetu` is a live-site regression test and depends on the current Syosetu page structure.
-3. The harness modifies only its temporary artifact copy; `dist/chrome/manifest.json` remains unchanged.
-4. Production paths are derived from the generated manifest and service-worker discovery.
-5. For lifecycle validation, run twice with independent temporary profiles: `PLAYWRIGHT_HEADLESS=1 npm run e2e:mock && PLAYWRIGHT_HEADLESS=1 npm run e2e:mock`.
-6. Options UI screenshots are review artifacts and are not loaded by the extension.
+3. `npm run e2e:reddit` routes a fixture at the Reddit origin because clean automated profiles receive Reddit’s “Prove your humanity” page.
+4. The harness modifies only its temporary artifact copy; `dist/chrome/manifest.json` remains unchanged.
+5. Production paths are derived from the generated manifest and service-worker discovery.
+6. For lifecycle validation, run twice with independent temporary profiles: `PLAYWRIGHT_HEADLESS=1 npm run e2e:mock && PLAYWRIGHT_HEADLESS=1 npm run e2e:mock`.
+7. Options UI screenshots are review artifacts and are not loaded by the extension.
