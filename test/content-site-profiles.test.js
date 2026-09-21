@@ -11,6 +11,7 @@ import {
 	FINDY_ARTICLE_ROOT_SELECTOR,
 	getActiveSiteProfile,
 	normalizeHostname,
+	REDDIT_ROOT_SELECTOR,
 	resolveSiteProfile,
 	SAFE_EMPTY_SELECTOR,
 	SCHIIT_ARTICLE_ROOT_SELECTOR,
@@ -48,6 +49,8 @@ test("resolveSiteProfile matches exact built-in hosts", () => {
 		["www.carminashoemaker.com", "carmina-article"],
 		["findy.co.jp", "findy-article"],
 		["www.findy.co.jp", "findy-article"],
+		["reddit.com", "reddit"],
+		["www.reddit.com", "reddit"],
 		["schiit.com", "schiit-article"],
 		["www.schiit.com", "schiit-article"],
 		["www.threads.net", "threads"],
@@ -55,9 +58,11 @@ test("resolveSiteProfile matches exact built-in hosts", () => {
 		["www.youtube.com", "youtube"],
 		["m.youtube.com", "youtube"],
 		["music.youtube.com", "default"],
+		["old.reddit.com", "default"],
 		["example.com", "default"],
 		["notx.com", "default"],
 		["x.com.evil.example", "default"],
+		["reddit.com.evil.example", "default"],
 		["threads.net.evil.example", "default"],
 	];
 
@@ -118,6 +123,10 @@ test("site profiles compile into generic content capabilities", () => {
 		{
 			host: "findy.co.jp",
 			root: FINDY_ARTICLE_ROOT_SELECTOR,
+		},
+		{
+			host: "reddit.com",
+			root: REDDIT_ROOT_SELECTOR,
 		},
 		{
 			host: "schiit.com",
@@ -279,6 +288,15 @@ test("Findy article extraction stays inside the news article", () => {
 
 	assert.deepEqual(profile.rootSelectors, [FINDY_ARTICLE_ROOT_SELECTOR]);
 	assert.equal(selectors.SITE_ROOT_SELECTOR, FINDY_ARTICLE_ROOT_SELECTOR);
+});
+
+test("Reddit extraction stays rooted at the main post and comments region", () => {
+	const profile = resolveSiteProfile("www.reddit.com");
+	const selectors = createExtractionSelectorsForProfile(profile);
+
+	assert.deepEqual(profile.rootSelectors, [REDDIT_ROOT_SELECTOR]);
+	assert.equal(selectors.SITE_ROOT_SELECTOR, REDDIT_ROOT_SELECTOR);
+	assert.equal(selectors.EXPLICIT_TEXT_BLOCK_SELECTOR, SAFE_EMPTY_SELECTOR);
 });
 
 test("Schiit article extraction includes FAQ and guide div text blocks", () => {
