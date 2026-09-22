@@ -174,9 +174,19 @@ function parseTranslationResponse(payload) {
 		parsed = JSON.parse(fallbackText);
 	}
 
-	const translations = Array.isArray(parsed) ? parsed : parsed?.translations;
+	const candidate = Array.isArray(parsed)
+		? parsed
+		: (parsed?.translations ?? parsed);
+	const translations = Array.isArray(candidate)
+		? candidate
+		: candidate &&
+				typeof candidate.id === "string" &&
+				(typeof candidate.translatedText === "string" ||
+					typeof candidate.translation === "string")
+			? [candidate]
+			: null;
 
-	if (!Array.isArray(translations)) {
+	if (!translations) {
 		throw new Error("Response JSON is missing translations array.");
 	}
 

@@ -43,6 +43,7 @@
 - Symptom: Carmina leather pages translate only the hero heading and place its note over the banner. Cause: the primary description is a `div.html-output`, while the semantic heading prevents fallback extraction. Fix: root the Carmina profile at `#module-special-category-header` and target its `.html-output` directly.
 
 - Symptom: reduced-motion preview animations still run. Cause: `.has-fade` and Radix `[data-state="open"]` selectors outrank the media-query reset. Fix: match their specificity in reduced-motion rules and assert computed `animationName`, not only the emulated preference.
+- Symptom: provider responses fail with `Response JSON is missing translations array.` Cause: the provider-neutral `completeSimple` path sends prompts without the old Responses API JSON schema, while the prompt only referred to a “provided schema.” Fix: spell out the required `translations` JSON shape in the default prompt and tolerate a valid unwrapped single translation item.
 
 ## TASTE
 - Selection translation UI should default to a compact tooltip-sized card; long content can expand, but the default should prefer density over empty space.

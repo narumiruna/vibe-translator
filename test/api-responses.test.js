@@ -62,3 +62,12 @@ test("responses adapter extracts and parses output text", () => {
 		{ id: "a", translation: "你好" },
 	]);
 });
+
+test("responses adapter accepts a single unwrapped translation item", () => {
+	assert.deepEqual(
+		parseTranslationResponse({
+			output_text: '{"id":"a","translatedText":"你好"}',
+		}),
+		[{ id: "a", translation: "你好" }],
+	);
+});
