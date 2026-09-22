@@ -233,6 +233,16 @@ async function completeTranslationsWithProviderRuntime(
 function createTranslationApi(providerRuntime) {
 	const completeImpl = (settings, items) =>
 		completeTranslationsWithProviderRuntime(providerRuntime, settings, items);
+	async function withModelCacheIdentity(options) {
+		const modelCacheIdentity = await providerRuntime.getModelCacheIdentity(
+			options.settings,
+		);
+		return {
+			...options,
+			completeImpl,
+			settings: { ...options.settings, modelCacheIdentity },
+		};
+	}
 
 	return {
 		buildResponsesRequest,
@@ -248,12 +258,14 @@ function createTranslationApi(providerRuntime) {
 		maskProtectedFragments,
 		mergeRecursiveTranslations,
 		parseTranslationResponse,
-		requestTranslations: (options) =>
-			requestTranslations({ ...options, completeImpl }),
-		requestTranslationsBatched: (options) =>
-			requestTranslationsBatched({ ...options, completeImpl }),
-		requestTranslationsBatchedProgressive: (options) =>
-			requestTranslationsBatchedProgressive({ ...options, completeImpl }),
+		requestTranslations: async (options) =>
+			requestTranslations(await withModelCacheIdentity(options)),
+		requestTranslationsBatched: async (options) =>
+			requestTranslationsBatched(await withModelCacheIdentity(options)),
+		requestTranslationsBatchedProgressive: async (options) =>
+			requestTranslationsBatchedProgressive(
+				await withModelCacheIdentity(options),
+			),
 		splitTextRecursively,
 		stripCodeFences,
 		unmaskProtectedFragments,

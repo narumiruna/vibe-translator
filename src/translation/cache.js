@@ -7,6 +7,7 @@ function buildTranslationCacheKey(settings, item) {
 		provider: String(settings?.provider || "").trim(),
 		model: String(settings?.model || "").trim(),
 		customBaseUrl: String(settings?.customBaseUrl || "").trim(),
+		modelCacheIdentity: String(settings?.modelCacheIdentity || "").trim(),
 		systemPromptTemplate: String(settings?.systemPromptTemplate || "").trim(),
 		userPromptTemplate: String(settings?.userPromptTemplate || "").trim(),
 		targetLanguage: String(settings?.targetLanguage || "").trim(),

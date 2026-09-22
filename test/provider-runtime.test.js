@@ -8,7 +8,10 @@ import { BROWSER_APIS } from "../src/auth/browser-apis.js";
 import { CREDENTIALS_KEY } from "../src/auth/credential-store.js";
 import { LEGACY_MIGRATION_KEY, ProviderRuntime } from "../src/auth/runtime.js";
 import * as Settings from "../src/shared/settings.js";
-import { createTranslationApi } from "../src/translation/api.js";
+import {
+	clearTranslationCache,
+	createTranslationApi,
+} from "../src/translation/api.js";
 
 const require = createRequire(import.meta.url);
 const { createMockApiServer } = require("../e2e/lib/mock-api-server.cjs");
@@ -171,6 +174,38 @@ test("model cache identity tracks credential-scoped endpoint configuration", asy
 		[firstIdentity, secondDeploymentIdentity, secondEndpointIdentity].join(""),
 		/azure-secret|openai\.azure/u,
 	);
+});
+
+test("provider translation cache follows the runtime model identity", async () => {
+	clearTranslationCache();
+	let calls = 0;
+	let modelCacheIdentity = "backend-one";
+	const seenIdentities = [];
+	const api = createTranslationApi({
+		async complete(settings) {
+			calls += 1;
+			seenIdentities.push(settings.modelCacheIdentity);
+			return {
+				text: JSON.stringify({
+					translations: [{ id: "a", translation: `result-${calls}` }],
+				}),
+			};
+		},
+		async getModelCacheIdentity() {
+			return modelCacheIdentity;
+		},
+	});
+	const settings = Settings.DEFAULT_SETTINGS;
+	const items = [{ id: "a", kind: "paragraph", text: "Alpha" }];
+
+	const first = await api.requestTranslations({ settings, items });
+	modelCacheIdentity = "backend-two";
+	const second = await api.requestTranslations({ settings, items });
+
+	assert.equal(calls, 2);
+	assert.deepEqual(seenIdentities, ["backend-one", "backend-two"]);
+	assert.deepEqual(first, [{ id: "a", translation: "result-1" }]);
+	assert.deepEqual(second, [{ id: "a", translation: "result-2" }]);
 });
 
 test("production translation adapter sends custom provider requests through pi-ai", async () => {
