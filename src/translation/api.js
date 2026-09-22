@@ -71,6 +71,7 @@ async function requestTranslations(options) {
 	const settings = options.settings;
 	const items = options.items || [];
 	const fetchImpl = options.fetchImpl || globalThis.fetch;
+	const completeImpl = options.completeImpl || callResponsesApi;
 
 	if (items.length === 0) {
 		return [];
@@ -90,18 +91,10 @@ async function requestTranslations(options) {
 	let freshTranslations;
 
 	try {
-		freshTranslations = await callResponsesApi(
-			settings,
-			missingItems,
-			fetchImpl,
-		);
+		freshTranslations = await completeImpl(settings, missingItems, fetchImpl);
 	} catch (error) {
 		if (error instanceof InvalidTranslationResponseError) {
-			freshTranslations = await callResponsesApi(
-				settings,
-				missingItems,
-				fetchImpl,
-			);
+			freshTranslations = await completeImpl(settings, missingItems, fetchImpl);
 		} else {
 			throw error;
 		}
@@ -129,6 +122,7 @@ async function requestTranslationsBatched(options) {
 				settings,
 				items: chunks[chunkIndex],
 				fetchImpl,
+				completeImpl: options.completeImpl,
 			});
 		},
 	});
@@ -167,6 +161,7 @@ async function requestTranslationsBatchedProgressive(options) {
 					settings,
 					items: chunkItems,
 					fetchImpl,
+					completeImpl: options.completeImpl,
 				});
 
 				successes[chunkIndex] = result;
@@ -200,14 +195,75 @@ async function requestTranslationsBatchedProgressive(options) {
 	};
 }
 
+async function completeTranslationsWithProviderRuntime(
+	providerRuntime,
+	settings,
+	items,
+) {
+	const input = buildTranslationInput({
+		systemPromptTemplate: settings.systemPromptTemplate,
+		userPromptTemplate: settings.userPromptTemplate,
+		items,
+		targetLanguage: settings.targetLanguage,
+	});
+	const response = await providerRuntime.complete(settings, {
+		systemPrompt: input[0]?.content || "",
+		userPrompt: input[1]?.content || "",
+	});
+
+	try {
+		const translations = parseTranslationResponse({
+			output_text: response.text,
+		});
+		ResponsesApi.validateTranslationCoverage(items, translations);
+		validateProtectedFragments(items, translations);
+		return translations;
+	} catch (error) {
+		throw new InvalidTranslationResponseError(error);
+	}
+}
+
+function createTranslationApi(providerRuntime) {
+	const completeImpl = (settings, items) =>
+		completeTranslationsWithProviderRuntime(providerRuntime, settings, items);
+
+	return {
+		buildResponsesRequest,
+		buildTranslationInput,
+		chunkTranslationItems,
+		clearTranslationCache,
+		consumeProgressiveTranslations,
+		createProgressiveMergeState,
+		createRecursiveChunkPlan,
+		estimateTokenCount,
+		extractOutputText,
+		getIncompleteSegmentIds,
+		maskProtectedFragments,
+		mergeRecursiveTranslations,
+		parseTranslationResponse,
+		requestTranslations: (options) =>
+			requestTranslations({ ...options, completeImpl }),
+		requestTranslationsBatched: (options) =>
+			requestTranslationsBatched({ ...options, completeImpl }),
+		requestTranslationsBatchedProgressive: (options) =>
+			requestTranslationsBatchedProgressive({ ...options, completeImpl }),
+		splitTextRecursively,
+		stripCodeFences,
+		unmaskProtectedFragments,
+		validateProtectedFragments,
+	};
+}
+
 export {
 	buildResponsesRequest,
 	buildTranslationInput,
 	chunkTranslationItems,
 	clearTranslationCache,
+	completeTranslationsWithProviderRuntime,
 	consumeProgressiveTranslations,
 	createProgressiveMergeState,
 	createRecursiveChunkPlan,
+	createTranslationApi,
 	DEFAULT_MAX_BATCH_CHARS,
 	DEFAULT_MAX_CONCURRENCY,
 	estimateTokenCount,

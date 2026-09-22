@@ -16,7 +16,7 @@
 		],
 		"run_at": "document_idle"
 	},
-	"description": "Translate web pages with an OpenAI-compatible API while keeping the original text visible.",
+	"description": "Translate web pages with pi-ai providers while keeping the original text visible.",
 	"host_permissions": [
 		"https://youtube.com/*",
 		"https://www.youtube.com/*",

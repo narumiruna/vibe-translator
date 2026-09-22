@@ -1,3 +1,5 @@
+import { AUTH_ORIGINS, OPENAI_PROVIDER_ID } from "../auth/codex-oauth.js";
+import { ProviderRuntime } from "../auth/runtime.js";
 import * as SiteProfiles from "../content/extraction/site-profiles.js";
 import * as Appearance from "../shared/appearance.js";
 import * as EmbeddedFrames from "../shared/embedded-frames.js";
@@ -7,30 +9,39 @@ import * as Pdf from "../shared/pdf.js";
 import * as Settings from "../shared/settings.js";
 import * as TranslationSession from "../shared/translation-session.js";
 import * as Api from "../translation/api.js";
+import { createAuthPortHandler } from "./auth-port.js";
 import { createBackgroundController } from "./controller.js";
 import { createPdfController } from "./pdf-controller.js";
 import { createBackgroundPlatform } from "./platform.js";
 
 const logger = createLogger("background");
+const providerRuntime = new ProviderRuntime({ chrome, settingsApi: Settings });
+const translationApi = Api.createTranslationApi(providerRuntime);
+const handleAuthPort = createAuthPortHandler({
+	runtime: providerRuntime,
+	runtimeId: chrome.runtime.id,
+});
 const platform = createBackgroundPlatform({
 	chrome,
 	Appearance,
 	EmbeddedFrames,
 	Messages,
+	ProviderRuntime: providerRuntime,
 	Settings,
 	SiteProfiles,
 });
 const pdfController = createPdfController({
 	chrome,
-	Api,
+	Api: translationApi,
 	Pdf,
 	logger,
 	platform,
 });
 const controller = createBackgroundController({
 	chrome,
-	Api,
+	Api: translationApi,
 	Messages,
+	ProviderRuntime: providerRuntime,
 	Settings,
 	SiteProfiles,
 	TranslationSession,
@@ -123,7 +134,21 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 chrome.runtime.onConnect.addListener((port) => {
+	if (port.name === "vibe-translator-auth") {
+		handleAuthPort(port);
+		return;
+	}
 	pdfController.handleConnect(port);
+});
+
+chrome.permissions.onRemoved.addListener((permissions) => {
+	if (permissions.origins?.some((origin) => AUTH_ORIGINS.includes(origin))) {
+		providerRuntime.invalidateCredential(OPENAI_PROVIDER_ID).catch((error) =>
+			logger.error("codex-credential-invalidation-failed", {
+				error: error.message,
+			}),
+		);
+	}
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

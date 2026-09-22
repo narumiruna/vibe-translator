@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+	CUSTOM_PROVIDER,
 	createDefaultSystemPromptTemplate,
 	DEFAULT_SETTINGS,
 	DEFAULT_SYSTEM_PROMPT_TEMPLATE,
@@ -9,6 +10,7 @@ import {
 	getApiPermissionPattern,
 	getSettings,
 	lintPromptTemplates,
+	migrateLegacyConnectionSettings,
 	migrateLegacyPromptSettings,
 	normalizeBaseUrl,
 	normalizeDisabledDomains,
@@ -36,16 +38,14 @@ test("validateSettings rejects incomplete settings", () => {
 
 	assert.equal(result.isValid, false);
 	assert.deepEqual(result.errors, [
-		"API Key is required.",
 		"Model is required.",
 		"Target language is required.",
 		"Base URL must be a valid URL.",
 	]);
 	assert.deepEqual(result.invalidFields, [
-		"apiKey",
 		"model",
 		"targetLanguage",
-		"baseUrl",
+		"customBaseUrl",
 	]);
 });
 
@@ -58,7 +58,6 @@ test("validateSettings preserves simultaneous error messages and order", () => {
 		userPromptTemplate: "No source placeholder.",
 	});
 	assert.deepEqual(result.errors, [
-		"API Key is required.",
 		"Model is required.",
 		"Target language is required.",
 		"User prompt template must include {{sourcePayload}}.",
@@ -66,11 +65,10 @@ test("validateSettings preserves simultaneous error messages and order", () => {
 		"Base URL must include /v1.",
 	]);
 	assert.deepEqual(result.invalidFields, [
-		"apiKey",
 		"model",
 		"targetLanguage",
 		"userPromptTemplate",
-		"baseUrl",
+		"customBaseUrl",
 	]);
 });
 
@@ -212,6 +210,27 @@ test("validateSettings requires /v1 in base url", () => {
 
 	assert.equal(result.isValid, false);
 	assert.match(result.errors.join(" "), /\/v1/);
+});
+
+test("migrateLegacyConnectionSettings maps OpenAI and custom endpoints", () => {
+	assert.deepEqual(
+		migrateLegacyConnectionSettings({
+			baseUrl: "https://api.openai.com/v1/",
+			model: "gpt-4.1-mini",
+		}),
+		{
+			baseUrl: "https://api.openai.com/v1/",
+			customBaseUrl: "https://api.openai.com/v1",
+			model: "gpt-4.1-mini",
+			provider: "openai",
+		},
+	);
+	assert.equal(
+		migrateLegacyConnectionSettings({
+			baseUrl: "https://example.com/v1",
+		}).provider,
+		CUSTOM_PROVIDER,
+	);
 });
 
 test("migrateLegacyPromptSettings folds instructions into the refined system template", () => {
@@ -377,9 +396,10 @@ test("getSettings returns migrated and normalized stored settings", async () => 
 	try {
 		const settings = await getSettings();
 
-		assert.equal(settings.apiKey, "sk-demo");
-		assert.equal(settings.baseUrl, "https://example.com/v1");
+		assert.equal(settings.provider, CUSTOM_PROVIDER);
+		assert.equal(settings.customBaseUrl, "https://example.com/v1");
 		assert.equal(settings.model, "demo-model");
+		assert.equal("apiKey" in settings, false);
 		assert.equal(settings.targetLanguage, "日本語");
 		assert.match(settings.systemPromptTemplate, /^Translate carefully\./);
 		assert.equal(settings.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);

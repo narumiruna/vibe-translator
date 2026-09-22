@@ -7,81 +7,293 @@ import {
 import { Text } from "@radix-ui/themes";
 
 import {
+	Button,
 	FormSection,
-	PasswordInput,
+	NativeSelect,
 	StatusCard,
 	TextInput,
 } from "./components.jsx";
 
+function AuthenticationDialog({ flow, onCancel, onOpenUrl, onSubmit }) {
+	if (!flow.open) {
+		return null;
+	}
+
+	const prompt = flow.prompt;
+	const deviceCode = flow.event?.type === "device_code" ? flow.event : null;
+	const info = ["info", "progress"].includes(flow.event?.type)
+		? flow.event
+		: null;
+
+	return (
+		<div className="auth-dialog-backdrop" role="presentation">
+			<section
+				aria-labelledby="auth-dialog-title"
+				aria-modal="true"
+				className="auth-dialog"
+				role="dialog"
+			>
+				<h2 id="auth-dialog-title">Configure {flow.providerName}</h2>
+				{prompt ? (
+					<form onSubmit={onSubmit}>
+						<label className="field" htmlFor="auth-prompt-value">
+							<span className="field-label">{prompt.message}</span>
+							{prompt.type === "select" ? (
+								<select
+									className="native-select"
+									id="auth-prompt-value"
+									onChange={(event) => flow.setValue(event.target.value)}
+									value={flow.value}
+								>
+									{prompt.options.map((option) => (
+										<option key={option.id} value={option.id}>
+											{option.label}
+											{option.description ? ` — ${option.description}` : ""}
+										</option>
+									))}
+								</select>
+							) : (
+								<input
+									autoComplete="off"
+									className="auth-prompt-input"
+									id="auth-prompt-value"
+									onChange={(event) => flow.setValue(event.target.value)}
+									placeholder={prompt.placeholder || ""}
+									type={prompt.type === "secret" ? "password" : "text"}
+									value={flow.value}
+								/>
+							)}
+						</label>
+						<div className="auth-dialog-actions">
+							<Button
+								color="gray"
+								onClick={onCancel}
+								type="button"
+								variant="soft"
+							>
+								Cancel
+							</Button>
+							<Button type="submit">Continue</Button>
+						</div>
+					</form>
+				) : null}
+				{deviceCode ? (
+					<div className="device-code-flow">
+						<Text as="p" size="2">
+							Open OpenAI and enter this one-time code:
+						</Text>
+						<output className="device-code">{deviceCode.userCode}</output>
+						<div className="auth-dialog-actions">
+							<Button
+								color="gray"
+								onClick={onCancel}
+								type="button"
+								variant="soft"
+							>
+								Cancel
+							</Button>
+							<Button
+								onClick={() => onOpenUrl(deviceCode.verificationUri)}
+								type="button"
+							>
+								Open sign-in page
+							</Button>
+						</div>
+					</div>
+				) : null}
+				{!prompt && !deviceCode ? (
+					<div>
+						<Text as="p" aria-live="polite" size="2">
+							{info?.message || "Starting authentication…"}
+						</Text>
+						{info?.links?.map((link) => (
+							<Button
+								key={link.url}
+								onClick={() => onOpenUrl(link.url)}
+								type="button"
+								variant="soft"
+							>
+								{link.label || "Open documentation"}
+							</Button>
+						))}
+						<div className="auth-dialog-actions">
+							<Button
+								color="gray"
+								onClick={onCancel}
+								type="button"
+								variant="soft"
+							>
+								Cancel
+							</Button>
+						</div>
+					</div>
+				) : null}
+			</section>
+		</div>
+	);
+}
+
 function SetupSection({
+	auth,
+	catalog,
 	draft,
 	invalidFields,
-	onBlurBaseUrl,
+	onAuthenticate,
+	onBlurProvider,
 	onField,
+	onLogout,
+	onProvider,
+	onRefreshCredential,
 	permission,
 	testState,
 }) {
+	const provider = catalog.find((item) => item.id === draft.provider);
+	const models = provider?.models || [];
+	const selectedModel = models.find((item) => item.id === draft.model);
+	const customProvider = draft.provider === "openai-compatible";
+
 	return (
 		<div className="setup-grid">
 			<FormSection
 				id="api-section-title"
 				icon={LightningBoltIcon}
-				title="API Connection"
-				description="Bring your own model. Connect once, read anywhere."
+				title="Model Provider"
+				description="Choose any browser-compatible provider and model from pi-ai."
 			>
 				<div className="field-stack">
-					<PasswordInput
-						autoComplete="off"
-						id="api-key"
-						invalid={invalidFields.has("api-key")}
-						label="API Key"
-						name="apiKey"
-						note="Use a key from your API provider."
-						onChange={(event) => onField("apiKey", event.target.value)}
-						placeholder="Enter your API key"
+					<NativeSelect
+						id="provider"
+						label="Provider"
+						name="provider"
+						note={`${catalog.length} providers are available in this browser build.`}
+						onChange={(event) => onProvider(event.target.value)}
 						required
-						spellCheck={false}
-						value={draft.apiKey}
-					/>
-					<TextInput
-						autoCapitalize="none"
-						id="base-url"
-						inputMode="url"
-						invalid={invalidFields.has("base-url")}
-						label="Base URL"
-						name="baseUrl"
-						note={
-							<>
-								Your OpenAI-compatible endpoint, including <code>/v1</code>.
-							</>
-						}
-						onBlur={onBlurBaseUrl}
-						onChange={(event) => onField("baseUrl", event.target.value)}
-						placeholder="https://api.openai.com/v1"
-						required
-						spellCheck={false}
-						type="url"
-						value={draft.baseUrl}
-					/>
-					<TextInput
-						autoCapitalize="none"
-						id="model"
-						invalid={invalidFields.has("model")}
-						label="Model"
-						name="model"
-						note="Use the exact model name from your provider."
-						onChange={(event) => onField("model", event.target.value)}
-						placeholder="gpt-4.1-mini"
-						required
-						spellCheck={false}
-						value={draft.model}
-					/>
+						value={draft.provider}
+					>
+						{catalog.map((item) => (
+							<option key={item.id} value={item.id}>
+								{item.name} ({item.models.length})
+							</option>
+						))}
+					</NativeSelect>
+					{customProvider ? (
+						<>
+							<TextInput
+								autoCapitalize="none"
+								id="custom-base-url"
+								inputMode="url"
+								invalid={invalidFields.has("custom-base-url")}
+								label="Base URL"
+								name="customBaseUrl"
+								note={
+									<>
+										Your OpenAI-compatible Responses endpoint, including{" "}
+										<code>/v1</code>.
+									</>
+								}
+								onBlur={onBlurProvider}
+								onChange={(event) =>
+									onField("customBaseUrl", event.target.value)
+								}
+								placeholder="https://api.example.com/v1"
+								required
+								spellCheck={false}
+								type="url"
+								value={draft.customBaseUrl}
+							/>
+							<TextInput
+								autoCapitalize="none"
+								id="model"
+								invalid={invalidFields.has("model")}
+								label="Model"
+								name="model"
+								note="Use the exact model name exposed by the endpoint."
+								onChange={(event) => onField("model", event.target.value)}
+								placeholder="model-name"
+								required
+								spellCheck={false}
+								value={draft.model}
+							/>
+						</>
+					) : (
+						<NativeSelect
+							id="model"
+							label="Model"
+							name="model"
+							note={
+								selectedModel
+									? `${selectedModel.api} · ${selectedModel.contextWindow.toLocaleString()} token context${selectedModel.reasoning ? " · reasoning" : ""}`
+									: "Select a model from this provider."
+							}
+							onBlur={onBlurProvider}
+							onChange={(event) => onField("model", event.target.value)}
+							required
+							value={draft.model}
+						>
+							{models.map((item) => (
+								<option key={item.id} value={item.id}>
+									{item.name} — {item.id}
+								</option>
+							))}
+						</NativeSelect>
+					)}
 				</div>
+
+				<div className="credential-panel">
+					<div>
+						<Text as="p" size="2" weight="medium">
+							Authentication
+						</Text>
+						<Text as="p" className="field-note" id="auth-status" size="1">
+							{auth.status.message}
+						</Text>
+					</div>
+					<div className="credential-actions">
+						{provider?.authMethods.map((method) => (
+							<Button
+								disabled={auth.busy}
+								highContrast
+								key={method.type}
+								onClick={() => onAuthenticate(method.type)}
+								type="button"
+								variant="soft"
+							>
+								{method.type === "oauth"
+									? "Sign in with account"
+									: "Add API key"}
+							</Button>
+						))}
+						{auth.status.loggedIn && auth.status.type === "oauth" ? (
+							<Button
+								disabled={auth.busy}
+								highContrast
+								onClick={onRefreshCredential}
+								type="button"
+								variant="soft"
+							>
+								Refresh credential
+							</Button>
+						) : null}
+						{auth.status.loggedIn ? (
+							<Button
+								color="red"
+								disabled={auth.busy}
+								highContrast
+								onClick={onLogout}
+								type="button"
+								variant="soft"
+							>
+								Remove credential
+							</Button>
+						) : null}
+					</div>
+				</div>
+
 				<div className="privacy-note">
 					<LockClosedIcon aria-hidden="true" />
 					<Text as="p" size="1">
-						API access is limited to your configured origin. Save or test to
-						grant permission.
+						Credentials stay in local trusted extension storage. Provider access
+						is limited to the selected model endpoint.
 					</Text>
 				</div>
 			</FormSection>
@@ -160,7 +372,7 @@ function SetupSection({
 			</div>
 
 			<section className="status-grid" aria-label="Connection status">
-				<StatusCard title="API Origin Permission">
+				<StatusCard title="Provider Origin Permission">
 					<Text
 						as="p"
 						aria-live="polite"
@@ -196,5 +408,5 @@ function SetupSection({
 	);
 }
 
-export { SetupSection };
+export { AuthenticationDialog, SetupSection };
 export default SetupSection;

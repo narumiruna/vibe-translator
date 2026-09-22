@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { access, readdir, readFile, stat } from "node:fs/promises";
+import { builtinModules } from "node:module";
 import path from "node:path";
 import process from "node:process";
+
+import { init, parse } from "es-module-lexer";
 
 const rootDir = path.resolve(import.meta.dirname, "..");
 const buildDir = path.join(rootDir, "dist", "chrome");
@@ -11,9 +14,13 @@ const baselinePath = path.join(
 	"fixtures",
 	"manifest-baseline.json",
 );
+const maximumBackgroundBytes = 1_450_000;
 const maximumOptionsBytes = 950_000;
 const maximumPdfBytes = 1_700_000;
-const maximumUnpackedBytes = 2_900_000;
+const maximumUnpackedBytes = 4_100_000;
+const nodeBuiltinModules = new Set(
+	builtinModules.map((moduleName) => moduleName.replace(/^node:/u, "")),
+);
 const forbiddenPathPatterns = [
 	/(^|\/)node_modules\//u,
 	/(^|\/)test(s)?\//u,
@@ -78,7 +85,13 @@ function getReferencedPaths(manifest) {
 	].filter(Boolean);
 }
 
+function isNodeBuiltinSpecifier(specifier) {
+	const normalized = specifier.replace(/^node:/u, "");
+	return specifier.startsWith("node:") || nodeBuiltinModules.has(normalized);
+}
+
 async function verifyBuild() {
+	await init;
 	const manifestPath = path.join(buildDir, "manifest.json");
 	const [manifest, baseline, files] = await Promise.all([
 		readJson(manifestPath),
@@ -146,6 +159,15 @@ async function verifyBuild() {
 			/webpackHotUpdate|__webpack_hmr__|sockjs-node/iu,
 			`${file} contains a development reload runtime.`,
 		);
+		const [imports] = parse(source);
+		const nodeImport = imports.find(
+			(imported) => imported.n && isNodeBuiltinSpecifier(imported.n),
+		);
+		assert.equal(
+			nodeImport,
+			undefined,
+			`${file} imports Node-only module ${nodeImport?.n}.`,
+		);
 	}
 
 	const fileSizes = new Map(
@@ -158,16 +180,25 @@ async function verifyBuild() {
 				]),
 		),
 	);
+	const backgroundBytes =
+		fileSizes.get(manifest.background.service_worker) || 0;
 	const optionsBytes = Array.from(fileSizes)
 		.filter(([file]) => file.startsWith("options/"))
 		.reduce((sum, [, size]) => sum + size, 0);
-	const pdfWorkerFiles = files.filter(
+	const rootJavaScriptFiles = files.filter(
 		(file) => !file.includes("/") && file.endsWith(".js"),
 	);
+	const pdfWorkerFiles = [];
+	for (const file of rootJavaScriptFiles) {
+		const source = await readFile(path.join(buildDir, file), "utf8");
+		if (!source.includes("rspackChunk")) {
+			pdfWorkerFiles.push(file);
+		}
+	}
 	assert.equal(
 		pdfWorkerFiles.length,
 		1,
-		`Expected one bundled PDF worker, found: ${pdfWorkerFiles.join(", ")}`,
+		`Expected one standalone bundled PDF worker, found: ${pdfWorkerFiles.join(", ")}`,
 	);
 	const pdfBytes = Array.from(fileSizes)
 		.filter(
@@ -179,6 +210,10 @@ async function verifyBuild() {
 		0,
 	);
 
+	assert.ok(
+		backgroundBytes <= maximumBackgroundBytes,
+		`Background artifact is ${backgroundBytes} bytes; budget is ${maximumBackgroundBytes}.`,
+	);
 	assert.ok(
 		optionsBytes <= maximumOptionsBytes,
 		`Options artifact is ${optionsBytes} bytes; budget is ${maximumOptionsBytes}.`,

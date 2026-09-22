@@ -1,6 +1,9 @@
 import * as AppearanceApi from "./appearance.js";
 
 const STORAGE_KEY = "settings";
+const DEFAULT_PROVIDER = "openai";
+const CUSTOM_PROVIDER = "openai-compatible";
+const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const LEGACY_DEFAULT_INSTRUCTIONS =
 	"Preserve meaning, tone, and technical accuracy in translation.";
 const PREVIOUS_DEFAULT_SYSTEM_PROMPT_TEMPLATE = [
@@ -142,9 +145,9 @@ function lintPromptTemplates(input) {
 }
 
 const DEFAULT_SETTINGS = Object.freeze({
-	apiKey: "",
-	baseUrl: "https://api.openai.com/v1",
-	model: "",
+	provider: DEFAULT_PROVIDER,
+	model: "gpt-4.1-mini",
+	customBaseUrl: DEFAULT_OPENAI_BASE_URL,
 	systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_TEMPLATE,
 	userPromptTemplate: DEFAULT_USER_PROMPT_TEMPLATE,
 	translationAppearance: AppearanceApi.DEFAULT_TRANSLATION_APPEARANCE,
@@ -154,6 +157,25 @@ const DEFAULT_SETTINGS = Object.freeze({
 	targetLanguage: "Traditional Chinese (Taiwan)",
 	disabledDomains: "",
 });
+
+function migrateLegacyConnectionSettings(input) {
+	const source = input || {};
+	const provider = String(source.provider || "").trim();
+
+	if (provider) {
+		return source;
+	}
+
+	const legacyBaseUrl = normalizeBaseUrl(source.baseUrl);
+	return {
+		...source,
+		provider:
+			legacyBaseUrl === DEFAULT_OPENAI_BASE_URL
+				? DEFAULT_PROVIDER
+				: CUSTOM_PROVIDER,
+		customBaseUrl: legacyBaseUrl,
+	};
+}
 
 function migrateLegacyPromptSettings(input) {
 	const source = input || {};
@@ -189,21 +211,22 @@ function normalizeBaseUrl(value) {
 	const trimmed = String(value || "").trim();
 
 	if (!trimmed) {
-		return DEFAULT_SETTINGS.baseUrl;
+		return DEFAULT_OPENAI_BASE_URL;
 	}
 
 	return trimmed.replace(/\/+$/, "");
 }
 
 function validateSettings(input) {
+	const migratedConnection = migrateLegacyConnectionSettings(input || {});
 	const merged = {
 		...DEFAULT_SETTINGS,
-		...migrateLegacyPromptSettings(input || {}),
+		...migrateLegacyPromptSettings(migratedConnection),
 	};
 	const settings = {
-		apiKey: String(merged.apiKey || "").trim(),
-		baseUrl: normalizeBaseUrl(merged.baseUrl),
+		provider: String(merged.provider || "").trim(),
 		model: String(merged.model || "").trim(),
+		customBaseUrl: normalizeBaseUrl(merged.customBaseUrl),
 		systemPromptTemplate:
 			String(merged.systemPromptTemplate || "").trim() ||
 			DEFAULT_SETTINGS.systemPromptTemplate,
@@ -232,8 +255,8 @@ function validateSettings(input) {
 		errors.push(message);
 	}
 
-	if (!settings.apiKey) {
-		addError("apiKey", "API Key is required.");
+	if (!settings.provider) {
+		addError("provider", "Provider is required.");
 	}
 
 	if (!settings.model) {
@@ -257,18 +280,20 @@ function validateSettings(input) {
 		);
 	}
 
-	try {
-		const parsed = new URL(settings.baseUrl);
+	if (settings.provider === CUSTOM_PROVIDER) {
+		try {
+			const parsed = new URL(settings.customBaseUrl);
 
-		if (!/^https?:$/.test(parsed.protocol)) {
-			addError("baseUrl", "Base URL must use HTTP or HTTPS.");
-		}
+			if (!/^https?:$/.test(parsed.protocol)) {
+				addError("customBaseUrl", "Base URL must use HTTP or HTTPS.");
+			}
 
-		if (!/\/v1(?:\/|$)/.test(parsed.pathname)) {
-			addError("baseUrl", "Base URL must include /v1.");
+			if (!/\/v1(?:\/|$)/.test(parsed.pathname)) {
+				addError("customBaseUrl", "Base URL must include /v1.");
+			}
+		} catch (_error) {
+			addError("customBaseUrl", "Base URL must be a valid URL.");
 		}
-	} catch (_error) {
-		addError("baseUrl", "Base URL must be a valid URL.");
 	}
 
 	return {
@@ -319,7 +344,10 @@ async function saveSettings(input) {
 }
 
 export {
+	CUSTOM_PROVIDER,
 	createDefaultSystemPromptTemplate,
+	DEFAULT_OPENAI_BASE_URL,
+	DEFAULT_PROVIDER,
 	DEFAULT_SETTINGS,
 	DEFAULT_SYSTEM_PROMPT_TEMPLATE,
 	DEFAULT_USER_PROMPT_TEMPLATE,
@@ -328,6 +356,7 @@ export {
 	hasCompleteSettings,
 	LEGACY_DEFAULT_INSTRUCTIONS,
 	lintPromptTemplates,
+	migrateLegacyConnectionSettings,
 	migrateLegacyPromptSettings,
 	normalizeBaseUrl,
 	normalizeDisabledDomains,

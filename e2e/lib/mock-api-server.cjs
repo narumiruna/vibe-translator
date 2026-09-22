@@ -178,13 +178,65 @@ async function createMockApiServer(options = {}) {
 					return;
 				}
 
+				const outputText = JSON.stringify({ translations });
+				if (requestPayload.stream) {
+					const responseId = `resp_mock_${state.responseRequestCount}`;
+					const item = {
+						id: `msg_mock_${state.responseRequestCount}`,
+						type: "message",
+						role: "assistant",
+						status: "completed",
+						content: [
+							{ type: "output_text", text: outputText, annotations: [] },
+						],
+					};
+					const events = [
+						{
+							type: "response.created",
+							response: { id: responseId, status: "in_progress", output: [] },
+						},
+						{ type: "response.output_item.added", output_index: 0, item },
+						{
+							type: "response.output_text.delta",
+							output_index: 0,
+							content_index: 0,
+							delta: outputText,
+						},
+						{ type: "response.output_item.done", output_index: 0, item },
+						{
+							type: "response.completed",
+							response: {
+								id: responseId,
+								status: "completed",
+								output: [item],
+								usage: {
+									input_tokens: 1,
+									output_tokens: 1,
+									total_tokens: 2,
+									input_tokens_details: { cached_tokens: 0 },
+								},
+							},
+						},
+					];
+					response.writeHead(200, {
+						"Content-Type": "text/event-stream; charset=utf-8",
+						"Cache-Control": "no-cache",
+					});
+					response.end(
+						events
+							.map((event) => `data: ${JSON.stringify(event)}\n\n`)
+							.join(""),
+					);
+					return;
+				}
+
 				response.writeHead(200, {
 					"Content-Type": "application/json; charset=utf-8",
 				});
 				response.end(
 					JSON.stringify({
 						output_parsed: { translations },
-						output_text: JSON.stringify({ translations }),
+						output_text: outputText,
 					}),
 				);
 				return;

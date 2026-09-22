@@ -4,8 +4,9 @@ const TRANSLATION_SCHEMA_VERSION = 1;
 function buildTranslationCacheKey(settings, item) {
 	return JSON.stringify({
 		schemaVersion: TRANSLATION_SCHEMA_VERSION,
-		baseUrl: String(settings?.baseUrl || "").trim(),
+		provider: String(settings?.provider || "").trim(),
 		model: String(settings?.model || "").trim(),
+		customBaseUrl: String(settings?.customBaseUrl || "").trim(),
 		systemPromptTemplate: String(settings?.systemPromptTemplate || "").trim(),
 		userPromptTemplate: String(settings?.userPromptTemplate || "").trim(),
 		targetLanguage: String(settings?.targetLanguage || "").trim(),

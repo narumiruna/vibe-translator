@@ -146,7 +146,8 @@ async function runAppearanceOptionsSmoke(
 		async () =>
 			(await page.locator("#translation-appearance-preset").inputValue()) ===
 				"calm-reading" &&
-			(await page.locator("#api-key").inputValue()) === config.apiKey,
+			(await page.locator("#provider").inputValue()) === "openai-compatible" &&
+			(await page.locator("#custom-base-url").inputValue()) === config.baseUrl,
 		{
 			timeoutMessage: "Default appearance did not load.",
 		},
@@ -166,8 +167,8 @@ async function runAppearanceOptionsSmoke(
 	const unrelatedSettingsBeforeReset = await page.evaluate(() =>
 		Object.fromEntries(
 			[
-				"api-key",
-				"base-url",
+				"provider",
+				"custom-base-url",
 				"model",
 				"target-language",
 				"system-prompt-template",
@@ -276,8 +277,8 @@ async function runAppearanceOptionsSmoke(
 		await page.evaluate(() =>
 			Object.fromEntries(
 				[
-					"api-key",
-					"base-url",
+					"provider",
+					"custom-base-url",
 					"model",
 					"target-language",
 					"system-prompt-template",

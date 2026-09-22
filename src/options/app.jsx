@@ -23,20 +23,38 @@ import {
 	SettingsNavigation,
 } from "./options-shell.jsx";
 import { PromptsSection } from "./prompts-section.jsx";
-import { SetupSection } from "./setup-section.jsx";
+import { AuthenticationDialog, SetupSection } from "./setup-section.jsx";
 import { useSystemTheme } from "./use-system-theme.js";
 
 const optionsApi = createOptionsApi();
 const INITIAL_PERMISSION = Object.freeze({
 	granted: false,
 	message: "Checking permission…",
-	originPattern: "",
+	origins: [],
 	status: "checking",
 });
 const INITIAL_TEST_STATE = Object.freeze({
-	details: "Checks both translation and the /models endpoint.",
+	details: "Sends one sample translation through the selected pi-ai model.",
 	status: "Ready to test your connection.",
 });
+const INITIAL_AUTH_FLOW = Object.freeze({
+	event: null,
+	open: false,
+	prompt: null,
+	providerName: "provider",
+	value: "",
+});
+
+function formatAuthStatus(status, providerId, providers) {
+	const provider = providers.find((item) => item.id === providerId);
+	const providerName = provider?.name || providerId || "Provider";
+	return {
+		...status,
+		message: status?.loggedIn
+			? `${providerName} configured with ${status.type === "oauth" ? "an account" : "an API key"}.`
+			: `${providerName} is not configured.`,
+	};
+}
 
 function OptionsApp() {
 	const theme = useSystemTheme();
@@ -47,6 +65,13 @@ function OptionsApp() {
 		createOptionsDraft(Settings.DEFAULT_SETTINGS),
 	);
 	const [activeTab, setActiveTab] = useState("setup");
+	const [catalog, setCatalog] = useState([]);
+	const [authStatus, setAuthStatus] = useState({
+		loggedIn: false,
+		message: "Checking authentication…",
+	});
+	const [authBusy, setAuthBusy] = useState(false);
+	const [authFlow, setAuthFlow] = useState(INITIAL_AUTH_FLOW);
 	const [focusTarget, setFocusTarget] = useState("");
 	const [loaded, setLoaded] = useState(false);
 	const [loadError, setLoadError] = useState("");
@@ -60,6 +85,7 @@ function OptionsApp() {
 	const draftRef = useRef(draft);
 	const operations = useRef({ save: false, test: false });
 	const permissionRequest = useRef(0);
+	const promptResolution = useRef(null);
 
 	draftRef.current = draft;
 
@@ -75,16 +101,24 @@ function OptionsApp() {
 			try {
 				const settings = await Settings.getSettings();
 				const nextDraft = createOptionsDraft(settings);
-				const permissionStatus = await optionsApi.getPermissionStatus(
-					nextDraft.baseUrl,
+				const [providers, providerStatus, permissionStatus] = await Promise.all(
+					[
+						optionsApi.getCatalog(nextDraft),
+						optionsApi.getAuthStatus(nextDraft.provider),
+						optionsApi.getPermissionStatus(nextDraft),
+					],
 				);
 
 				if (!active) {
 					return;
 				}
 
+				setCatalog(providers);
 				setDraft(nextDraft);
 				setSavedSettings(nextDraft);
+				setAuthStatus(
+					formatAuthStatus(providerStatus, nextDraft.provider, providers),
+				);
 				setPermission(permissionStatus);
 				setLoaded(true);
 			} catch (_error) {
@@ -157,11 +191,11 @@ function OptionsApp() {
 	);
 	const promptPreview = useMemo(() => buildPromptPreview(draft), [draft]);
 
-	async function refreshPermission(baseUrl) {
+	async function refreshPermission(settings) {
 		const requestId = permissionRequest.current + 1;
 		permissionRequest.current = requestId;
 		setPermission(INITIAL_PERMISSION);
-		const next = await optionsApi.getPermissionStatus(baseUrl);
+		const next = await optionsApi.getPermissionStatus(settings);
 
 		if (permissionRequest.current === requestId) {
 			setPermission(next);
@@ -173,6 +207,172 @@ function OptionsApp() {
 	function onField(path, value) {
 		setInvalidFields((current) => clearEditedFieldError(current, path));
 		setDraft((current) => updateDraftField(current, path, value));
+	}
+
+	async function refreshAuthStatus(providerId, providers = catalog) {
+		const status = await optionsApi.getAuthStatus(providerId);
+		setAuthStatus(formatAuthStatus(status, providerId, providers));
+		return status;
+	}
+
+	function onProvider(providerId) {
+		const provider = catalog.find((item) => item.id === providerId);
+		setInvalidFields((current) => clearEditedFieldError(current, "provider"));
+		setDraft((current) => {
+			const next = updateDraftField(current, "provider", providerId);
+			if (providerId !== Settings.CUSTOM_PROVIDER) {
+				next.model = provider?.models[0]?.id || "";
+			}
+			draftRef.current = next;
+			return next;
+		});
+		setAuthStatus({
+			loggedIn: false,
+			message: `Checking ${provider?.name || providerId} authentication…`,
+		});
+		void refreshAuthStatus(providerId).catch(() => {
+			setAuthStatus({
+				loggedIn: false,
+				message: "Authentication status is unavailable.",
+			});
+		});
+		queueMicrotask(() => void refreshPermission(draftRef.current));
+	}
+
+	function promptForCredential(prompt) {
+		return new Promise((resolve, reject) => {
+			promptResolution.current = { reject, resolve };
+			setAuthFlow((current) => ({
+				...current,
+				event: null,
+				open: true,
+				prompt,
+				value: prompt.type === "select" ? prompt.options[0]?.id || "" : "",
+			}));
+		});
+	}
+
+	function handleAuthEvent(event) {
+		setAuthFlow((current) => ({
+			...current,
+			event,
+			open: true,
+			prompt: null,
+			value: "",
+		}));
+	}
+
+	function submitAuthPrompt(event) {
+		event.preventDefault();
+		const pending = promptResolution.current;
+		if (!pending) {
+			return;
+		}
+		promptResolution.current = null;
+		pending.resolve(authFlow.value);
+		setAuthFlow((current) => ({
+			...current,
+			event: { type: "progress", message: "Continuing authentication…" },
+			prompt: null,
+			value: "",
+		}));
+	}
+
+	function cancelAuthentication() {
+		promptResolution.current?.reject(
+			new DOMException("Authentication cancelled.", "AbortError"),
+		);
+		promptResolution.current = null;
+		optionsApi.auth.cancel();
+		setAuthFlow(INITIAL_AUTH_FLOW);
+	}
+
+	async function handleAuthenticate(authType) {
+		if (authBusy) {
+			return;
+		}
+		const provider = catalog.find((item) => item.id === draft.provider);
+		setAuthBusy(true);
+		setBanner(null);
+		setAuthFlow({
+			...INITIAL_AUTH_FLOW,
+			open: true,
+			providerName: provider?.name || draft.provider,
+		});
+		try {
+			const granted = await optionsApi.requestOrigins(
+				provider?.setupOrigins || [],
+			);
+			if (!granted) {
+				throw new Error("Provider authentication permission was denied.");
+			}
+			await optionsApi.auth.login(draft.provider, authType, {
+				onEvent: handleAuthEvent,
+				onPrompt: promptForCredential,
+			});
+			const providers = await optionsApi.getCatalog(draftRef.current);
+			const refreshedProvider = providers.find(
+				(item) => item.id === draft.provider,
+			);
+			setCatalog(providers);
+			setDraft((current) => {
+				if (
+					current.provider !== draft.provider ||
+					refreshedProvider?.models.some((model) => model.id === current.model)
+				) {
+					return current;
+				}
+				const next = {
+					...current,
+					model: refreshedProvider?.models[0]?.id || "",
+				};
+				draftRef.current = next;
+				return next;
+			});
+			await refreshAuthStatus(draft.provider, providers);
+			await refreshPermission(draftRef.current);
+			setBanner({
+				message: `${provider?.name || "Provider"} authentication saved.`,
+				tone: "green",
+			});
+		} catch (error) {
+			setBanner({
+				message: error.message || "Authentication failed.",
+				tone: "red",
+			});
+		} finally {
+			promptResolution.current = null;
+			setAuthFlow(INITIAL_AUTH_FLOW);
+			setAuthBusy(false);
+		}
+	}
+
+	async function handleRefreshCredential() {
+		setAuthBusy(true);
+		setBanner(null);
+		try {
+			await optionsApi.auth.refresh(draft.provider);
+			await refreshAuthStatus(draft.provider);
+			setBanner({ message: "Credential refreshed.", tone: "green" });
+		} catch (error) {
+			setBanner({ message: error.message, tone: "red" });
+		} finally {
+			setAuthBusy(false);
+		}
+	}
+
+	async function handleLogout() {
+		setAuthBusy(true);
+		setBanner(null);
+		try {
+			await optionsApi.auth.logout(draft.provider);
+			await refreshAuthStatus(draft.provider);
+			setBanner({ message: "Credential removed.", tone: "green" });
+		} catch (error) {
+			setBanner({ message: error.message, tone: "red" });
+		} finally {
+			setAuthBusy(false);
+		}
 	}
 
 	function onAppearanceField(path, value) {
@@ -216,23 +416,19 @@ function OptionsApp() {
 
 			if (!validation.isValid) {
 				showValidationErrors(validation);
-				await refreshPermission(draft.baseUrl);
+				await refreshPermission(draft);
 				return;
 			}
 
-			const permissionGranted = await optionsApi.requestPermission(
-				validation.settings.baseUrl,
-			);
 			const saved = await Settings.saveSettings(validation.settings);
 
 			setInvalidFields(new Set());
 			setSavedSettings(createOptionsDraft(saved));
-			await refreshPermission(draftRef.current.baseUrl);
+			await refreshPermission(draftRef.current);
 			setBanner({
-				message: permissionGranted
-					? "Settings saved and API origin permission granted."
-					: "Settings saved, but the API origin permission is still not granted.",
-				tone: permissionGranted ? "green" : "red",
+				message:
+					"Settings saved. Provider access will be requested when needed.",
+				tone: "green",
 			});
 		} catch (_error) {
 			setBanner({
@@ -255,7 +451,7 @@ function OptionsApp() {
 		setTesting(true);
 		setBanner(null);
 		setTestState({
-			details: "Checking translation request and /models availability…",
+			details: "Sending a sample translation through pi-ai…",
 			status: "Testing connection…",
 		});
 
@@ -273,9 +469,9 @@ function OptionsApp() {
 
 			setInvalidFields(new Set());
 			const permissionGranted = await optionsApi.requestPermission(
-				validation.settings.baseUrl,
+				validation.settings,
 			);
-			await refreshPermission(validation.settings.baseUrl);
+			await refreshPermission(validation.settings);
 
 			if (!permissionGranted) {
 				setTestState({
@@ -297,10 +493,7 @@ function OptionsApp() {
 					status: "Connection test failed.",
 				});
 				setBanner({
-					message: getConnectionErrorMessage(
-						response?.error,
-						validation.settings.apiKey,
-					),
+					message: getConnectionErrorMessage(response?.error),
 					tone: "red",
 				});
 				return;
@@ -310,11 +503,7 @@ function OptionsApp() {
 				draftRef.current,
 				validation.settings,
 			);
-			const resultDetails = `Translation latency: ${response.latencyMs || 0} ms · /models: ${
-				response.modelsAvailable
-					? `${response.modelCount || 0} models in ${response.modelsLatencyMs || 0} ms`
-					: response.modelsError || "unavailable"
-			}.`;
+			const resultDetails = `Translation latency: ${response.latencyMs || 0} ms · ${response.provider || validation.settings.provider}/${response.model || validation.settings.model}.`;
 
 			setTestState({
 				details: draftChanged
@@ -377,10 +566,16 @@ function OptionsApp() {
 								value="setup"
 							>
 								<SetupSection
+									auth={{ busy: authBusy, status: authStatus }}
+									catalog={catalog}
 									draft={draft}
 									invalidFields={invalidFields}
-									onBlurBaseUrl={() => refreshPermission(draft.baseUrl)}
+									onAuthenticate={handleAuthenticate}
+									onBlurProvider={() => refreshPermission(draftRef.current)}
 									onField={onField}
+									onLogout={handleLogout}
+									onProvider={onProvider}
+									onRefreshCredential={handleRefreshCredential}
 									permission={permission}
 									testState={testState}
 								/>
@@ -441,6 +636,16 @@ function OptionsApp() {
 						testing={testing}
 					/>
 				</form>
+				<AuthenticationDialog
+					flow={{
+						...authFlow,
+						setValue: (value) =>
+							setAuthFlow((current) => ({ ...current, value })),
+					}}
+					onCancel={cancelAuthentication}
+					onOpenUrl={(url) => optionsApi.openUrl(url)}
+					onSubmit={submitAuthPrompt}
+				/>
 			</main>
 		</Theme>
 	);

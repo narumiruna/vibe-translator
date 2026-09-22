@@ -18,6 +18,7 @@ export function createBackgroundController(options = {}) {
 		chrome,
 		Api,
 		Messages,
+		ProviderRuntime,
 		Settings,
 		SiteProfiles,
 		TranslationSession,
@@ -34,7 +35,6 @@ export function createBackgroundController(options = {}) {
 		discoverEmbeddedPageFrames,
 		ensureApiPermission,
 		ensureContentScript,
-		fetchModelsDiagnostics,
 		getFrameMessageOptions,
 		isDomainDisabled,
 		isSupportedPage,
@@ -604,6 +604,36 @@ export function createBackgroundController(options = {}) {
 			};
 		}
 
+		if (message.type === Messages.MESSAGE_TYPES.GET_PROVIDER_CATALOG) {
+			return {
+				ok: true,
+				providers: await ProviderRuntime.getCatalog(message.payload),
+			};
+		}
+
+		if (message.type === Messages.MESSAGE_TYPES.GET_PROVIDER_AUTH_STATUS) {
+			return {
+				ok: true,
+				status: await ProviderRuntime.getAuthStatus(
+					message.payload?.providerId,
+				),
+			};
+		}
+
+		if (message.type === Messages.MESSAGE_TYPES.GET_MODEL_ENDPOINTS) {
+			const validation = Settings.validateSettings(message.payload);
+			const endpointFields = new Set(["provider", "model", "customBaseUrl"]);
+			if (validation.invalidFields.some((field) => endpointFields.has(field))) {
+				return { ok: false, error: validation.errors.join(" ") };
+			}
+			return {
+				ok: true,
+				origins: await ProviderRuntime.getModelEndpointPatterns(
+					validation.settings,
+				),
+			};
+		}
+
 		if (message.type === Messages.MESSAGE_TYPES.GET_PAGE_TRANSLATION_SESSION) {
 			const tabId = sender?.tab?.id;
 			const frameId = Number.isInteger(sender?.frameId) ? sender.frameId : 0;
@@ -730,18 +760,12 @@ export function createBackgroundController(options = {}) {
 				settings: validation.settings,
 				items: [{ id: "sample", kind: "paragraph", text: "Hello world." }],
 			});
-			const modelDiagnostics = await fetchModelsDiagnostics(
-				validation.settings,
-			);
-
 			return {
 				ok: true,
 				translation: translations[0] ? translations[0].translation : "",
 				latencyMs: Date.now() - translationStartedAt,
-				modelsAvailable: modelDiagnostics.ok,
-				modelCount: modelDiagnostics.count || 0,
-				modelsLatencyMs: modelDiagnostics.latencyMs || 0,
-				modelsError: modelDiagnostics.error || "",
+				provider: validation.settings.provider,
+				model: validation.settings.model,
 			};
 		}
 

@@ -38,7 +38,8 @@ function createController(options = {}) {
 		chrome,
 		Api: {},
 		Messages,
-		Settings: {},
+		ProviderRuntime: options.ProviderRuntime,
+		Settings: options.Settings || {},
 		SiteProfiles: {},
 		logger: {
 			debug() {},
@@ -215,6 +216,35 @@ test("background controller accepts health checks from this extension", async ()
 		}),
 		{ ok: true, component: "background", version: "0.1.3" },
 	);
+});
+
+test("model endpoint lookup ignores unrelated prompt validation errors", async () => {
+	let receivedSettings;
+	const controller = createController({
+		ProviderRuntime: {
+			async getModelEndpointPatterns(settings) {
+				receivedSettings = settings;
+				return ["https://api.example.com/*"];
+			},
+		},
+		Settings,
+	});
+	const message = Messages.getModelEndpoints({
+		...Settings.DEFAULT_SETTINGS,
+		provider: Settings.CUSTOM_PROVIDER,
+		model: "mock-model",
+		customBaseUrl: "https://api.example.com/v1",
+		userPromptTemplate: "Missing the source placeholder",
+	});
+
+	assert.deepEqual(
+		await controller.handleRuntimeMessage(message, {
+			id: "trusted-extension-id",
+		}),
+		{ ok: true, origins: ["https://api.example.com/*"] },
+	);
+	assert.equal(receivedSettings.provider, Settings.CUSTOM_PROVIDER);
+	assert.equal(receivedSettings.model, "mock-model");
 });
 
 test("background controller returns an active frame session for content reinjection", async () => {

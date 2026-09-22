@@ -22,6 +22,14 @@ function createChromeFake(options = {}) {
 			runtime: {
 				async sendMessage(message) {
 					calls.push(["sendMessage", message]);
+					if (message.type === Messages.MESSAGE_TYPES.GET_MODEL_ENDPOINTS) {
+						return (
+							options.endpointResponse || {
+								ok: true,
+								origins: ["https://api.example.com/*"],
+							}
+						);
+					}
 					return options.response || { ok: true };
 				},
 			},
@@ -38,11 +46,14 @@ test("options API reports valid, missing, and invalid origin permissions", async
 	});
 
 	assert.deepEqual(
-		await grantedApi.getPermissionStatus("https://api.example.com/v1"),
+		await grantedApi.getPermissionStatus({
+			provider: "example",
+			model: "model",
+		}),
 		{
 			granted: true,
 			message: "Granted for https://api.example.com/*",
-			originPattern: "https://api.example.com/*",
+			origins: ["https://api.example.com/*"],
 			status: "granted",
 		},
 	);
@@ -54,15 +65,33 @@ test("options API reports valid, missing, and invalid origin permissions", async
 		settingsApi: Settings,
 	});
 	assert.equal(
-		(await missingApi.getPermissionStatus("https://api.example.com/v1")).status,
+		(
+			await missingApi.getPermissionStatus({
+				provider: "example",
+				model: "model",
+			})
+		).status,
 		"missing",
 	);
-	assert.deepEqual(await missingApi.getPermissionStatus("not a URL"), {
-		granted: false,
-		message: "Base URL is invalid.",
-		originPattern: "",
-		status: "invalid",
+	const invalidFake = createChromeFake({
+		endpointResponse: { ok: false, error: "Selected model is unavailable." },
 	});
+	const invalidApi = createOptionsApi({
+		chrome: invalidFake.chrome,
+		messagesApi: Messages,
+	});
+	assert.deepEqual(
+		await invalidApi.getPermissionStatus({
+			provider: "missing",
+			model: "none",
+		}),
+		{
+			granted: false,
+			message: "Selected model is unavailable.",
+			origins: [],
+			status: "invalid",
+		},
+	);
 });
 
 test("options API requests permission only when it is missing", async () => {
@@ -74,7 +103,10 @@ test("options API requests permission only when it is missing", async () => {
 	});
 
 	assert.equal(
-		await existingApi.requestPermission("https://api.example.com/v1"),
+		await existingApi.requestPermission({
+			provider: "example",
+			model: "model",
+		}),
 		true,
 	);
 	assert.equal(
@@ -89,7 +121,10 @@ test("options API requests permission only when it is missing", async () => {
 		settingsApi: Settings,
 	});
 	assert.equal(
-		await requestApi.requestPermission("https://api.example.com/v1"),
+		await requestApi.requestPermission({
+			provider: "example",
+			model: "model",
+		}),
 		false,
 	);
 	assert.equal(
