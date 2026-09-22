@@ -759,6 +759,7 @@ export function createBackgroundController(options = {}) {
 			const translations = await Api.requestTranslations({
 				settings: validation.settings,
 				items: [{ id: "sample", kind: "paragraph", text: "Hello world." }],
+				bypassCache: true,
 			});
 			return {
 				ok: true,

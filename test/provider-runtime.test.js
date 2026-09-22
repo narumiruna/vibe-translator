@@ -8,7 +8,10 @@ import { BROWSER_APIS } from "../src/auth/browser-apis.js";
 import { CREDENTIALS_KEY } from "../src/auth/credential-store.js";
 import { LEGACY_MIGRATION_KEY, ProviderRuntime } from "../src/auth/runtime.js";
 import * as Settings from "../src/shared/settings.js";
-import { createTranslationApi } from "../src/translation/api.js";
+import {
+	clearTranslationCache,
+	createTranslationApi,
+} from "../src/translation/api.js";
 
 const require = createRequire(import.meta.url);
 const { createMockApiServer } = require("../e2e/lib/mock-api-server.cjs");
@@ -130,6 +133,79 @@ test("provider runtime resolves configured endpoint origins without credential d
 
 	assert.deepEqual(origins, ["https://api.cloudflare.com/*"]);
 	assert.doesNotMatch(JSON.stringify(origins), /secret|account-id/u);
+});
+
+test("model cache identity tracks credential-scoped endpoint configuration", async () => {
+	const runtime = new ProviderRuntime({ chrome: createChrome() });
+	const providerId = "azure-openai-responses";
+	const model = runtime.models.getModels(providerId)[0];
+	const settings = { provider: providerId, model: model.id };
+	const saveCredential = (env) =>
+		runtime.credentials.modify(providerId, async () => ({
+			type: "api_key",
+			key: "azure-secret",
+			env,
+		}));
+
+	await saveCredential({
+		AZURE_OPENAI_API_VERSION: "2025-04-01-preview",
+		AZURE_OPENAI_BASE_URL: "https://first.openai.azure.com",
+		AZURE_OPENAI_DEPLOYMENT_NAME_MAP: `${model.id}=first-deployment`,
+	});
+	const firstIdentity = await runtime.getModelCacheIdentity(settings);
+	await saveCredential({
+		AZURE_OPENAI_API_VERSION: "2025-04-01-preview",
+		AZURE_OPENAI_BASE_URL: "https://first.openai.azure.com",
+		AZURE_OPENAI_DEPLOYMENT_NAME_MAP: `${model.id}=second-deployment`,
+	});
+	const secondDeploymentIdentity =
+		await runtime.getModelCacheIdentity(settings);
+	await saveCredential({
+		AZURE_OPENAI_API_VERSION: "2025-04-01-preview",
+		AZURE_OPENAI_BASE_URL: "https://second.openai.azure.com",
+		AZURE_OPENAI_DEPLOYMENT_NAME_MAP: `${model.id}=second-deployment`,
+	});
+	const secondEndpointIdentity = await runtime.getModelCacheIdentity(settings);
+
+	assert.match(firstIdentity, /^[a-f0-9]{64}$/u);
+	assert.notEqual(firstIdentity, secondDeploymentIdentity);
+	assert.notEqual(secondDeploymentIdentity, secondEndpointIdentity);
+	assert.doesNotMatch(
+		[firstIdentity, secondDeploymentIdentity, secondEndpointIdentity].join(""),
+		/azure-secret|openai\.azure/u,
+	);
+});
+
+test("provider translation cache follows the runtime model identity", async () => {
+	clearTranslationCache();
+	let calls = 0;
+	let modelCacheIdentity = "backend-one";
+	const seenIdentities = [];
+	const api = createTranslationApi({
+		async complete(settings) {
+			calls += 1;
+			seenIdentities.push(settings.modelCacheIdentity);
+			return {
+				text: JSON.stringify({
+					translations: [{ id: "a", translation: `result-${calls}` }],
+				}),
+			};
+		},
+		async getModelCacheIdentity() {
+			return modelCacheIdentity;
+		},
+	});
+	const settings = Settings.DEFAULT_SETTINGS;
+	const items = [{ id: "a", kind: "paragraph", text: "Alpha" }];
+
+	const first = await api.requestTranslations({ settings, items });
+	modelCacheIdentity = "backend-two";
+	const second = await api.requestTranslations({ settings, items });
+
+	assert.equal(calls, 2);
+	assert.deepEqual(seenIdentities, ["backend-one", "backend-two"]);
+	assert.deepEqual(first, [{ id: "a", translation: "result-1" }]);
+	assert.deepEqual(second, [{ id: "a", translation: "result-2" }]);
 });
 
 test("production translation adapter sends custom provider requests through pi-ai", async () => {

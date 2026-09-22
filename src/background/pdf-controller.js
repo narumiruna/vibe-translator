@@ -7,11 +7,12 @@ function createRandomId(prefix) {
 	return `${prefix}-${crypto.randomUUID()}`;
 }
 
-async function createSettingsFingerprint(settings) {
+async function createSettingsFingerprint(settings, modelCacheIdentity = "") {
 	const source = JSON.stringify({
 		provider: settings.provider,
 		model: settings.model,
 		customBaseUrl: settings.customBaseUrl,
+		modelCacheIdentity,
 		systemPromptTemplate: settings.systemPromptTemplate,
 		targetLanguage: settings.targetLanguage,
 		userPromptTemplate: settings.userPromptTemplate,
@@ -453,7 +454,11 @@ function createPdfController(options = {}) {
 		if (previousSession) {
 			cancelSession(previousSession, false);
 		}
-		const settingsFingerprint = await createSettingsFingerprint(settings);
+		const modelCacheIdentity = await platform.getModelCacheIdentity(settings);
+		const settingsFingerprint = await createSettingsFingerprint(
+			settings,
+			modelCacheIdentity,
+		);
 		const session = {
 			cancelled: false,
 			characterCount: 0,

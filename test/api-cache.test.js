@@ -30,6 +30,18 @@ test("translation cache splits cached and missing items", () => {
 	});
 });
 
+test("translation cache separates provider backend identities", () => {
+	const cache = createTranslationCache();
+	const item = { id: "a", kind: "paragraph", text: "Alpha" };
+	const firstBackend = buildSettings({ modelCacheIdentity: "backend-one" });
+	const secondBackend = buildSettings({ modelCacheIdentity: "backend-two" });
+
+	cache.set(firstBackend, item, "阿爾法");
+
+	assert.equal(cache.get(firstBackend, item), "阿爾法");
+	assert.equal(cache.get(secondBackend, item), null);
+});
+
 test("translation cache evicts least recently used entries", () => {
 	const cache = createTranslationCache({ limit: 2 });
 	const settings = buildSettings();

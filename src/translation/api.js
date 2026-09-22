@@ -77,8 +77,9 @@ async function requestTranslations(options) {
 		return [];
 	}
 
-	const { cachedTranslations, missingItems } =
-		translationCache.splitItemsByCache(settings, items);
+	const { cachedTranslations, missingItems } = options.bypassCache
+		? { cachedTranslations: [], missingItems: items }
+		: translationCache.splitItemsByCache(settings, items);
 
 	if (missingItems.length === 0) {
 		return mergeTranslationsInItemOrder(items, cachedTranslations);
@@ -100,7 +101,13 @@ async function requestTranslations(options) {
 		}
 	}
 
-	translationCache.cacheTranslations(settings, missingItems, freshTranslations);
+	if (!options.bypassCache) {
+		translationCache.cacheTranslations(
+			settings,
+			missingItems,
+			freshTranslations,
+		);
+	}
 
 	return mergeTranslationsInItemOrder(
 		items,
@@ -226,6 +233,16 @@ async function completeTranslationsWithProviderRuntime(
 function createTranslationApi(providerRuntime) {
 	const completeImpl = (settings, items) =>
 		completeTranslationsWithProviderRuntime(providerRuntime, settings, items);
+	async function withModelCacheIdentity(options) {
+		const modelCacheIdentity = await providerRuntime.getModelCacheIdentity(
+			options.settings,
+		);
+		return {
+			...options,
+			completeImpl,
+			settings: { ...options.settings, modelCacheIdentity },
+		};
+	}
 
 	return {
 		buildResponsesRequest,
@@ -241,12 +258,14 @@ function createTranslationApi(providerRuntime) {
 		maskProtectedFragments,
 		mergeRecursiveTranslations,
 		parseTranslationResponse,
-		requestTranslations: (options) =>
-			requestTranslations({ ...options, completeImpl }),
-		requestTranslationsBatched: (options) =>
-			requestTranslationsBatched({ ...options, completeImpl }),
-		requestTranslationsBatchedProgressive: (options) =>
-			requestTranslationsBatchedProgressive({ ...options, completeImpl }),
+		requestTranslations: async (options) =>
+			requestTranslations(await withModelCacheIdentity(options)),
+		requestTranslationsBatched: async (options) =>
+			requestTranslationsBatched(await withModelCacheIdentity(options)),
+		requestTranslationsBatchedProgressive: async (options) =>
+			requestTranslationsBatchedProgressive(
+				await withModelCacheIdentity(options),
+			),
 		splitTextRecursively,
 		stripCodeFences,
 		unmaskProtectedFragments,
