@@ -36,7 +36,7 @@ function createController(options = {}) {
 
 	return createBackgroundController({
 		chrome,
-		Api: {},
+		Api: options.Api || {},
 		Messages,
 		ProviderRuntime: options.ProviderRuntime,
 		Settings: options.Settings || {},
@@ -245,6 +245,30 @@ test("model endpoint lookup ignores unrelated prompt validation errors", async (
 	);
 	assert.equal(receivedSettings.provider, Settings.CUSTOM_PROVIDER);
 	assert.equal(receivedSettings.model, "mock-model");
+});
+
+test("connection tests bypass the translation cache", async () => {
+	let request;
+	const controller = createController({
+		Api: {
+			async requestTranslations(options) {
+				request = options;
+				return [{ id: "sample", translation: "你好" }];
+			},
+		},
+		Settings,
+	});
+
+	const response = await controller.handleRuntimeMessage(
+		Messages.createMessage(Messages.MESSAGE_TYPES.TEST_CONNECTION, {
+			...Settings.DEFAULT_SETTINGS,
+		}),
+		{ id: "trusted-extension-id" },
+	);
+
+	assert.equal(request.bypassCache, true);
+	assert.equal(response.ok, true);
+	assert.equal(response.translation, "你好");
 });
 
 test("background controller returns an active frame session for content reinjection", async () => {

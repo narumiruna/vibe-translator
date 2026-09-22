@@ -71,6 +71,31 @@ function extractAssistantText(message) {
 		.trim();
 }
 
+function normalizeProviderConfiguration(credential) {
+	if (credential?.type !== "api_key" || !credential.env) {
+		return {};
+	}
+
+	return Object.fromEntries(
+		Object.entries(credential.env)
+			.filter(([, value]) =>
+				["boolean", "number", "string"].includes(typeof value),
+			)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([key, value]) => [key, String(value)]),
+	);
+}
+
+async function hashModelCacheIdentity(value) {
+	const bytes = await crypto.subtle.digest(
+		"SHA-256",
+		new TextEncoder().encode(JSON.stringify(value)),
+	);
+	return Array.from(new Uint8Array(bytes), (byte) =>
+		byte.toString(16).padStart(2, "0"),
+	).join("");
+}
+
 class ProviderRuntime {
 	constructor(options = {}) {
 		this.chrome = options.chrome || globalThis.chrome;
@@ -265,6 +290,25 @@ class ProviderRuntime {
 			);
 		}
 		return [...new Set(urls.map(toPermissionPattern))];
+	}
+
+	async getModelCacheIdentity(settings) {
+		const model = await this.getModel(settings);
+		const provider = this.models.getProvider(model.provider);
+		if (!provider) {
+			throw new Error(`Provider is unavailable: ${model.provider}.`);
+		}
+		const credential = await this.credentials.read(provider.id);
+		const endpoints = [
+			...new Set(modelEndpointUrls(provider, model, credential)),
+		].sort();
+
+		return hashModelCacheIdentity({
+			configuration: normalizeProviderConfiguration(credential),
+			endpoints,
+			model: model.id,
+			provider: provider.id,
+		});
 	}
 
 	async complete(settings, input, options = {}) {

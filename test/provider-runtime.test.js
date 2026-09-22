@@ -132,6 +132,47 @@ test("provider runtime resolves configured endpoint origins without credential d
 	assert.doesNotMatch(JSON.stringify(origins), /secret|account-id/u);
 });
 
+test("model cache identity tracks credential-scoped endpoint configuration", async () => {
+	const runtime = new ProviderRuntime({ chrome: createChrome() });
+	const providerId = "azure-openai-responses";
+	const model = runtime.models.getModels(providerId)[0];
+	const settings = { provider: providerId, model: model.id };
+	const saveCredential = (env) =>
+		runtime.credentials.modify(providerId, async () => ({
+			type: "api_key",
+			key: "azure-secret",
+			env,
+		}));
+
+	await saveCredential({
+		AZURE_OPENAI_API_VERSION: "2025-04-01-preview",
+		AZURE_OPENAI_BASE_URL: "https://first.openai.azure.com",
+		AZURE_OPENAI_DEPLOYMENT_NAME_MAP: `${model.id}=first-deployment`,
+	});
+	const firstIdentity = await runtime.getModelCacheIdentity(settings);
+	await saveCredential({
+		AZURE_OPENAI_API_VERSION: "2025-04-01-preview",
+		AZURE_OPENAI_BASE_URL: "https://first.openai.azure.com",
+		AZURE_OPENAI_DEPLOYMENT_NAME_MAP: `${model.id}=second-deployment`,
+	});
+	const secondDeploymentIdentity =
+		await runtime.getModelCacheIdentity(settings);
+	await saveCredential({
+		AZURE_OPENAI_API_VERSION: "2025-04-01-preview",
+		AZURE_OPENAI_BASE_URL: "https://second.openai.azure.com",
+		AZURE_OPENAI_DEPLOYMENT_NAME_MAP: `${model.id}=second-deployment`,
+	});
+	const secondEndpointIdentity = await runtime.getModelCacheIdentity(settings);
+
+	assert.match(firstIdentity, /^[a-f0-9]{64}$/u);
+	assert.notEqual(firstIdentity, secondDeploymentIdentity);
+	assert.notEqual(secondDeploymentIdentity, secondEndpointIdentity);
+	assert.doesNotMatch(
+		[firstIdentity, secondDeploymentIdentity, secondEndpointIdentity].join(""),
+		/azure-secret|openai\.azure/u,
+	);
+});
+
 test("production translation adapter sends custom provider requests through pi-ai", async () => {
 	const server = await createMockApiServer();
 	const runtime = new ProviderRuntime({ chrome: createChrome() });

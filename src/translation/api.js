@@ -77,8 +77,9 @@ async function requestTranslations(options) {
 		return [];
 	}
 
-	const { cachedTranslations, missingItems } =
-		translationCache.splitItemsByCache(settings, items);
+	const { cachedTranslations, missingItems } = options.bypassCache
+		? { cachedTranslations: [], missingItems: items }
+		: translationCache.splitItemsByCache(settings, items);
 
 	if (missingItems.length === 0) {
 		return mergeTranslationsInItemOrder(items, cachedTranslations);
@@ -100,7 +101,13 @@ async function requestTranslations(options) {
 		}
 	}
 
-	translationCache.cacheTranslations(settings, missingItems, freshTranslations);
+	if (!options.bypassCache) {
+		translationCache.cacheTranslations(
+			settings,
+			missingItems,
+			freshTranslations,
+		);
+	}
 
 	return mergeTranslationsInItemOrder(
 		items,

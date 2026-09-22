@@ -247,6 +247,12 @@ export function createBackgroundPlatform(options = {}) {
 		});
 	}
 
+	async function getModelCacheIdentity(settings) {
+		return ProviderRuntime
+			? ProviderRuntime.getModelCacheIdentity(settings)
+			: "";
+	}
+
 	async function ensureApiPermission(settings) {
 		const origins = ProviderRuntime
 			? await ProviderRuntime.getModelEndpointPatterns(settings)
@@ -371,6 +377,7 @@ export function createBackgroundPlatform(options = {}) {
 		ensureContentScript,
 		getContentScriptFiles,
 		getFrameMessageOptions,
+		getModelCacheIdentity,
 		isDomainDisabled,
 		isSupportedPage,
 		isTabMessageDisconnectError,

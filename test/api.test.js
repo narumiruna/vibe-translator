@@ -513,6 +513,40 @@ test("requestTranslations reuses cached translations for identical text and sett
 	assert.deepEqual(second, [{ id: "2", translation: "你好" }]);
 });
 
+test("requestTranslations bypasses cached results without replacing them", async () => {
+	clearTranslationCache();
+	let calls = 0;
+	const settings = buildSettings({ model: "cache-bypass" });
+	const completeImpl = async (_settings, items) => {
+		calls += 1;
+		return items.map((item) => ({
+			id: item.id,
+			translation: `translation-${calls}`,
+		}));
+	};
+
+	await requestTranslations({
+		settings,
+		items: [{ id: "first", kind: "paragraph", text: "Hello" }],
+		completeImpl,
+	});
+	const bypassed = await requestTranslations({
+		settings,
+		items: [{ id: "second", kind: "paragraph", text: "Hello" }],
+		completeImpl,
+		bypassCache: true,
+	});
+	const cached = await requestTranslations({
+		settings,
+		items: [{ id: "third", kind: "paragraph", text: "Hello" }],
+		completeImpl,
+	});
+
+	assert.equal(calls, 2);
+	assert.deepEqual(bypassed, [{ id: "second", translation: "translation-2" }]);
+	assert.deepEqual(cached, [{ id: "third", translation: "translation-1" }]);
+});
+
 test("validateProtectedFragments rejects missing placeholders", () => {
 	assert.throws(() => {
 		validateProtectedFragments(

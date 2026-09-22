@@ -88,6 +88,9 @@ function createHarness(options = {}) {
 		async ensureApiPermission() {
 			return options.apiPermissionDenied !== true;
 		},
+		async getModelCacheIdentity() {
+			return options.modelCacheIdentity || "test-model-cache-identity";
+		},
 		isDomainDisabled() {
 			return false;
 		},
@@ -196,8 +199,18 @@ test("PDF settings fingerprint separates provider and custom endpoint caches", a
 		customBaseUrl: "https://second.example/v1",
 	});
 
+	const firstCredentialEndpoint = await createSettingsFingerprint(
+		settings,
+		"first-model-cache-identity",
+	);
+	const secondCredentialEndpoint = await createSettingsFingerprint(
+		settings,
+		"second-model-cache-identity",
+	);
+
 	assert.notEqual(original, otherProvider);
 	assert.notEqual(firstCustomEndpoint, secondCustomEndpoint);
+	assert.notEqual(firstCredentialEndpoint, secondCredentialEndpoint);
 });
 
 test("PDF controller opens a tokenized reader with exact-origin permission", async () => {
