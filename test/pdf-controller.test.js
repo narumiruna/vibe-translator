@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
 	createPdfController,
+	createSettingsFingerprint,
 	sanitizeError,
 } from "../src/background/pdf-controller.js";
 import * as Pdf from "../src/shared/pdf.js";
@@ -94,8 +95,8 @@ function createHarness(options = {}) {
 			if (options.incompleteSettings)
 				throw new Error("Settings are incomplete.");
 			return {
-				apiKey: "secret",
-				baseUrl: "https://api.example/v1",
+				provider: "openai-compatible",
+				customBaseUrl: "https://api.example/v1",
 				model: "model",
 				systemPromptTemplate: "system",
 				targetLanguage: "台灣正體中文",
@@ -169,6 +170,35 @@ async function openAndStart(harness, port = createPort()) {
 	await new Promise((resolve) => setTimeout(resolve, 0));
 	return { opened, port, started };
 }
+
+test("PDF settings fingerprint separates provider and custom endpoint caches", async () => {
+	const settings = {
+		provider: "openai",
+		customBaseUrl: "https://api.openai.com/v1",
+		model: "shared-model",
+		systemPromptTemplate: "system",
+		targetLanguage: "台灣正體中文",
+		userPromptTemplate: "{{sourcePayload}}",
+	};
+	const original = await createSettingsFingerprint(settings);
+	const otherProvider = await createSettingsFingerprint({
+		...settings,
+		provider: "anthropic",
+	});
+	const firstCustomEndpoint = await createSettingsFingerprint({
+		...settings,
+		provider: "openai-compatible",
+		customBaseUrl: "https://first.example/v1",
+	});
+	const secondCustomEndpoint = await createSettingsFingerprint({
+		...settings,
+		provider: "openai-compatible",
+		customBaseUrl: "https://second.example/v1",
+	});
+
+	assert.notEqual(original, otherProvider);
+	assert.notEqual(firstCustomEndpoint, secondCustomEndpoint);
+});
 
 test("PDF controller opens a tokenized reader with exact-origin permission", async () => {
 	const harness = createHarness();

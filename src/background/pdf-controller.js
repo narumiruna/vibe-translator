@@ -9,8 +9,9 @@ function createRandomId(prefix) {
 
 async function createSettingsFingerprint(settings) {
 	const source = JSON.stringify({
-		baseUrl: settings.baseUrl,
+		provider: settings.provider,
 		model: settings.model,
+		customBaseUrl: settings.customBaseUrl,
 		systemPromptTemplate: settings.systemPromptTemplate,
 		targetLanguage: settings.targetLanguage,
 		userPromptTemplate: settings.userPromptTemplate,
