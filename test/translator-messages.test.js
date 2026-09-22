@@ -40,6 +40,30 @@ test("message builders use shared message types", () => {
 	assert.deepEqual(TranslatorMessages.getPageTranslationSession(), {
 		type: TranslatorMessages.MESSAGE_TYPES.GET_PAGE_TRANSLATION_SESSION,
 	});
+	assert.deepEqual(
+		TranslatorMessages.getProviderCatalog({ provider: "openai" }),
+		{
+			type: TranslatorMessages.MESSAGE_TYPES.GET_PROVIDER_CATALOG,
+			payload: { provider: "openai" },
+		},
+	);
+	assert.deepEqual(
+		TranslatorMessages.getProviderAuthStatus({ providerId: "anthropic" }),
+		{
+			type: TranslatorMessages.MESSAGE_TYPES.GET_PROVIDER_AUTH_STATUS,
+			payload: { providerId: "anthropic" },
+		},
+	);
+	assert.deepEqual(
+		TranslatorMessages.getModelEndpoints({
+			provider: "openai",
+			model: "gpt-4.1-mini",
+		}),
+		{
+			type: TranslatorMessages.MESSAGE_TYPES.GET_MODEL_ENDPOINTS,
+			payload: { provider: "openai", model: "gpt-4.1-mini" },
+		},
+	);
 	assert.equal(
 		TranslatorMessages.MESSAGE_TYPES.RENDER_YOUTUBE_DIAGNOSTIC_EVENT,
 		"render-youtube-diagnostic-event",

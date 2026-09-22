@@ -4,6 +4,9 @@ const MESSAGE_TYPES = Object.freeze({
 	AUTOMATION_TRANSLATE_SELECTION: "automation-translate-selection",
 	GET_RUNTIME_HEALTH: "get-runtime-health",
 	GET_PAGE_TRANSLATION_SESSION: "get-page-translation-session",
+	GET_PROVIDER_CATALOG: "get-provider-catalog",
+	GET_PROVIDER_AUTH_STATUS: "get-provider-auth-status",
+	GET_MODEL_ENDPOINTS: "get-model-endpoints",
 	CLEAR_PAGE_PLACEHOLDERS: "clear-page-placeholders",
 	CLEAR_PENDING_TRANSLATIONS: "clear-pending-translations",
 	OPEN_OPTIONS: "open-options",
@@ -59,6 +62,18 @@ function getRuntimeHealth() {
 
 function getPageTranslationSession() {
 	return createMessage(MESSAGE_TYPES.GET_PAGE_TRANSLATION_SESSION);
+}
+
+function getProviderCatalog(payload) {
+	return createMessage(MESSAGE_TYPES.GET_PROVIDER_CATALOG, payload);
+}
+
+function getProviderAuthStatus(payload) {
+	return createMessage(MESSAGE_TYPES.GET_PROVIDER_AUTH_STATUS, payload);
+}
+
+function getModelEndpoints(payload) {
+	return createMessage(MESSAGE_TYPES.GET_MODEL_ENDPOINTS, payload);
 }
 
 function openOptions() {
@@ -124,7 +139,10 @@ export {
 	clearPagePlaceholders,
 	clearPendingTranslations,
 	createMessage,
+	getModelEndpoints,
 	getPageTranslationSession,
+	getProviderAuthStatus,
+	getProviderCatalog,
 	getRuntimeHealth,
 	MESSAGE_TYPES,
 	openOptions,

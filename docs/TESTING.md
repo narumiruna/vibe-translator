@@ -10,9 +10,9 @@
 ## Options page
 
 1. Open the extension options page
-2. Save a valid API key, base URL, model, target language, system prompt template, and user prompt template
-3. Confirm the API origin permission status reflects the configured base URL origin
-4. Click **Test Connection** and confirm the status shows a sample translation
+2. Select **Custom OpenAI-compatible**, add an API key in the authentication dialog, and save a valid `/v1` base URL, model, target language, system prompt template, and user prompt template
+3. Confirm the secret disappears when the dialog closes, the provider reports that an API key is configured, and no password field remains in the page
+4. Confirm the endpoint permission status reflects the selected model origin; click **Test Connection**, approve only that origin, and confirm the status shows a sample translation
 5. Edit the target language and confirm both prompt preview panes update immediately
 6. Edit the system prompt template and confirm the system preview updates immediately
 7. Edit the user prompt template and confirm the user preview updates immediately
@@ -39,11 +39,26 @@
 28. Enter a valid URL that omits `/v1`, submit, and confirm Base URL is marked invalid, references the visible error, and clears its invalid state after correction
 29. Trigger Test Connection twice rapidly and confirm only one request runs while the button remains disabled until the operation settles
 30. Simulate a connection failure, confirm the same status area provides actionable recovery, retry, and confirm success without reloading the page
-31. Inspect the packaged options page network and console output and confirm it loads no remote UI resource, emits no page error, and never exposes the API key
-32. Confirm the API key is masked on load; use Enter and Space on **Show API key** / **Hide API key** and confirm the value and unsaved state do not change; reload and confirm it is masked again
-33. Clear **Model**, switch to Prompts, and save; confirm Setup opens, Model receives focus, and the error is announced. Repeat with a URL that omits `/v1` and with a User Prompt that omits `{{sourcePayload}}`
+31. Inspect the packaged options page network and console output and confirm it loads no remote UI resource, emits no page error, and never exposes an API key or token
+32. Switch among several built-in providers and confirm their complete model lists and browser-safe auth actions appear; close an API-key prompt with Cancel and confirm no credential is replaced
+33. Clear **Model**, switch to Prompts, and save; confirm Setup opens, Model receives focus, and the error is announced. Repeat under **Custom OpenAI-compatible** with a URL that omits `/v1` and with a User Prompt that omits `{{sourcePayload}}`
 34. Set an out-of-range Appearance number, close its disclosure, switch tabs, and save; confirm Appearance opens, the disclosure expands, and the invalid control receives focus without losing other drafts
 35. Scroll to the top, middle, and bottom of each tab in light and dark modes; confirm both save-bar actions remain inside the viewport and clickable. With reduced motion, confirm both preview fades and disclosure animations are disabled
+
+## Provider authentication
+
+1. Configure and test at least one OpenAI Responses, Anthropic Messages, Google, and OpenAI Completions provider; confirm each request uses the selected provider/model and only its endpoint origin is granted
+2. Configure Cloudflare Workers AI and AI Gateway; confirm the dialog collects account/gateway IDs, permission status contains no identifier or secret, and translation succeeds
+3. Configure Azure OpenAI; confirm the dialog collects its base URL, optional API version, and deployment map and requests only the Azure resource origin
+4. Configure Google Vertex with a Cloud API key and confirm no Application Default Credentials or local-file option is offered
+5. Configure Radius with an API key, approve its configuration origin, and confirm its model list appears after authentication
+6. Select OpenAI Codex, start account sign-in, confirm the device code and sign-in link appear, cancel once, and verify no credential is stored
+7. Complete OpenAI Codex sign-in, run **Test Connection**, force **Refresh credential**, reload Options, and confirm account status remains configured without displaying either token
+8. Remove each test credential and confirm translation is blocked until that provider is configured again
+9. Revoke `auth.openai.com` or `chatgpt.com` in Chrome extension site access and confirm the Codex credential is invalidated
+10. Inspect `chrome.storage.sync` and confirm it contains provider/model settings but no `apiKey`, access token, or refresh token; confirm credentials exist only in trusted local extension storage
+11. Upgrade a profile with legacy `apiKey`/`baseUrl` settings and confirm the secret moves to local provider credentials, standard OpenAI maps to OpenAI, custom URLs map to **Custom OpenAI-compatible**, and sync storage no longer contains the secret
+12. From a normal page/content context, attempt to open the authentication port and confirm it disconnects without exposing prompts, status, or credentials
 
 ## PDF translation
 
@@ -197,9 +212,9 @@
 
 ## Error handling
 
-1. Clear the API key and click the extension icon
+1. Remove the selected provider credential and click the extension icon
 2. Confirm the options page opens instead of sending a translation request
-3. Use an invalid base URL and confirm save validation fails
+3. Under **Custom OpenAI-compatible**, use an invalid base URL and confirm save validation fails
 4. Remove `{{sourcePayload}}` from the user prompt template and confirm save validation fails
 5. Click **Test Connection**, deny the API origin permission request, and confirm the options page shows a permission-related error state
 6. Deny API origin permission during page or selection translation and confirm an error toast is shown on the page

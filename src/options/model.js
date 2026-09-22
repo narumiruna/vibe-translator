@@ -5,8 +5,8 @@ import * as Api from "../translation/api.js";
 const CONNECTION_ERROR_FALLBACK =
 	"Connection test failed. Check the endpoint and model.";
 const INVALID_DRAFT_FIELD_IDS = Object.freeze({
-	apiKey: "api-key",
-	baseUrl: "base-url",
+	provider: "provider",
+	customBaseUrl: "custom-base-url",
 	model: "model",
 	targetLanguage: "target-language",
 	systemPromptTemplate: "system-prompt-template",
@@ -70,15 +70,10 @@ function clearEditedFieldError(invalidFields, path) {
 	return next;
 }
 
-function getConnectionErrorMessage(error, apiKey) {
+function getConnectionErrorMessage(error) {
 	const message = typeof error === "string" ? error.trim() : "";
 
-	if (!message) {
-		return CONNECTION_ERROR_FALLBACK;
-	}
-
-	const secret = String(apiKey || "");
-	return secret ? message.replaceAll(secret, "[redacted]") : message;
+	return message || CONNECTION_ERROR_FALLBACK;
 }
 
 function applyAppearancePreset(draft, presetId) {

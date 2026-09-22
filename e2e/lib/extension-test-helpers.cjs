@@ -395,8 +395,18 @@ async function saveOptions(context, extensionId, config, options = {}) {
 			"Expected the bundled options entrypoint to mount.",
 		);
 	}
-	await page.locator("#api-key").fill(config.apiKey);
-	await page.locator("#base-url").fill(config.baseUrl);
+	await page.evaluate(async (apiKey) => {
+		const key = "vibeTranslatorCredentialsV1";
+		const stored = await chrome.storage.local.get(key);
+		await chrome.storage.local.set({
+			[key]: {
+				...(stored[key] || {}),
+				"openai-compatible": { type: "api_key", key: apiKey },
+			},
+		});
+	}, config.apiKey);
+	await page.locator("#provider").selectOption("openai-compatible");
+	await page.locator("#custom-base-url").fill(config.baseUrl);
 	await page.locator("#model").fill(config.model);
 	await page.locator("#target-language").fill(config.targetLanguage);
 	if (options.youtubeSubtitleDisplayMode) {

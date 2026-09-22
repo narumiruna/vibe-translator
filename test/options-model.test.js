@@ -17,7 +17,6 @@ import * as Settings from "../src/shared/settings.js";
 function createValidSettings(overrides = {}) {
 	return {
 		...Settings.DEFAULT_SETTINGS,
-		apiKey: "test-key",
 		model: "test-model",
 		...overrides,
 	};
@@ -100,22 +99,21 @@ test("custom appearance edits and reset stay isolated from unrelated settings", 
 		Appearance.DEFAULT_TRANSLATION_APPEARANCE,
 	);
 	assert.equal(reset.targetLanguage, "日本語");
-	assert.equal(reset.apiKey, "test-key");
+	assert.equal(reset.provider, Settings.DEFAULT_PROVIDER);
 });
 
 test("validation errors map to the controls that need correction", () => {
 	const validation = Settings.validateSettings({
 		...createValidSettings(),
-		apiKey: "",
-		baseUrl: "https://api.example.com/not-v1",
+		provider: Settings.CUSTOM_PROVIDER,
+		customBaseUrl: "https://api.example.com/not-v1",
 		model: "",
 		targetLanguage: "",
 		userPromptTemplate: "Translate without source data.",
 	});
 
 	assert.deepEqual(getInvalidFieldIds(validation.invalidFields), [
-		"api-key",
-		"base-url",
+		"custom-base-url",
 		"model",
 		"target-language",
 		"user-prompt-template",
@@ -130,14 +128,14 @@ test("invalid field focus order depends on keys rather than message wording or o
 			"systemPromptTemplate",
 			"targetLanguage",
 			"model",
-			"baseUrl",
-			"baseUrl",
-			"apiKey",
+			"customBaseUrl",
+			"customBaseUrl",
+			"provider",
 			"unknownField",
 		]),
 		[
-			"api-key",
-			"base-url",
+			"provider",
+			"custom-base-url",
 			"model",
 			"target-language",
 			"system-prompt-template",
@@ -148,16 +146,19 @@ test("invalid field focus order depends on keys rather than message wording or o
 });
 
 test("editing one invalid field retains errors for untouched fields", () => {
-	const invalidFields = new Set(["base-url", "user-prompt-template"]);
-	const updated = clearEditedFieldError(invalidFields, "baseUrl");
+	const invalidFields = new Set(["custom-base-url", "user-prompt-template"]);
+	const updated = clearEditedFieldError(invalidFields, "customBaseUrl");
 
 	assert.deepEqual([...updated], ["user-prompt-template"]);
-	assert.deepEqual([...invalidFields], ["base-url", "user-prompt-template"]);
+	assert.deepEqual(
+		[...invalidFields],
+		["custom-base-url", "user-prompt-template"],
+	);
 	assert.equal(
 		clearEditedFieldError(updated, "translationAppearance"),
 		updated,
 	);
-	assert.equal(clearEditedFieldError(updated, "baseUrl"), updated);
+	assert.equal(clearEditedFieldError(updated, "customBaseUrl"), updated);
 	assert.deepEqual(
 		[...clearEditedFieldError(updated, ["userPromptTemplate"])],
 		[],
@@ -166,18 +167,11 @@ test("editing one invalid field retains errors for untouched fields", () => {
 
 test("connection failures preserve provider details with a safe fallback", () => {
 	assert.equal(
-		getConnectionErrorMessage("  Invalid model name.  ", "secret-key"),
+		getConnectionErrorMessage("  Invalid model name.  "),
 		"Invalid model name.",
 	);
 	assert.equal(
-		getConnectionErrorMessage(
-			"Authentication failed for secret-key.",
-			"secret-key",
-		),
-		"Authentication failed for [redacted].",
-	);
-	assert.equal(
-		getConnectionErrorMessage({ message: "not trusted" }, "secret-key"),
+		getConnectionErrorMessage({ message: "not trusted" }),
 		"Connection test failed. Check the endpoint and model.",
 	);
 });

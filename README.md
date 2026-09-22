@@ -1,6 +1,6 @@
 # Vibe Translator
 
-A Manifest V3 Chrome extension that translates web pages using an OpenAI-compatible API. Translations appear inline next to the original text so you can read both side by side.
+A Manifest V3 Chrome extension that translates web pages through `@earendil-works/pi-ai`. Translations appear inline next to the original text so you can read both side by side.
 
 ## Features
 
@@ -12,7 +12,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 - Text-based PDFs open in a PDF.js reader with selectable original pages, synchronized progressive translations, page highlighting, search, copy, encrypted-file support, and explicit complete-document translation
 - Large pages are split into batches and translated with bounded parallel requests; oversized blocks are broken down recursively
 - Inline code, file paths, URLs, math expressions, and common technical terms are protected by placeholder substitution so they are never mangled
-- Fully configurable: API key, base URL, model, target language, and prompt templates
+- Select any browser-compatible `pi-ai` provider and text model, authenticate with provider-scoped API keys or OpenAI Codex account sign-in, or use a custom OpenAI-compatible endpoint
 - Translation appearance is customizable with three presets, safe typography/layout controls, separate light/dark colors, and live contrast feedback
 - Individual domains can be disabled from the options page
 
@@ -22,7 +22,8 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 |---|---|
 | `manifest.json` | Manifest V3 configuration |
 | `icons/` | Extension icon source and generated PNG sizes |
-| `src/background/` | MV3 listener entrypoint, controller, permissions, injection, and orchestration |
+| `src/auth/` | Browser provider catalog, API adapters, credential storage, endpoint resolution, and OpenAI Codex OAuth |
+| `src/background/` | MV3 listener entrypoint, auth port, controller, permissions, injection, and orchestration |
 | `src/content.js` | Bundled content entrypoint and lifecycle owner |
 | `src/content/` | Extraction, viewport, rendering, selection, styling, and YouTube modules |
 | `src/translation/` | API requests, cache, chunking, responses, and protected fragments |
@@ -41,7 +42,7 @@ A Manifest V3 Chrome extension that translates web pages using an OpenAI-compati
 2. Enable **Developer mode**
 3. Run `npm run build`
 4. Click **Load unpacked** and select `dist/chrome`
-4. Open the extension's **Details → Extension options** to configure the API before use
+5. Open the extension's **Details → Extension options** to select and authenticate a provider before use
 
 ## Configuration
 
@@ -51,9 +52,10 @@ The options interface uses locally bundled React and Radix Themes, Colors, Icons
 
 | Setting | Description |
 |---|---|
-| API Key | Secret key sent in the `Authorization` header |
-| Base URL | Root URL of any OpenAI-compatible API (default: `https://api.openai.com/v1`) |
-| Model | Model name, e.g. `gpt-4.1-mini` |
+| Provider | Any browser-compatible provider registered by `pi-ai`, plus **Custom OpenAI-compatible** |
+| Authentication | Provider-owned API-key flow; OpenAI Codex also supports ChatGPT Plus/Pro account sign-in |
+| Model | A text/chat model from the selected provider's `pi-ai` catalog; custom endpoints accept an exact model ID |
+| Custom Base URL | Responses API root for **Custom OpenAI-compatible**, including `/v1` |
 | Target Language | Language to translate into (default: `Traditional Chinese (Taiwan)`) |
 | System Prompt Template | Stable translation rules; supports `{{targetLanguage}}`, `{{itemCount}}`, and `{{itemKind}}` |
 | User Prompt Template | Translation request and source data; must include `{{sourcePayload}}` and also supports the system-template variables |
@@ -70,10 +72,12 @@ Older underline settings are ignored and safely migrate to the Calm Reading appe
 
 YouTube subtitles default to **Translation only**, preserving the behavior of existing saved settings. The selected mode applies when subtitle translation next starts or an active session is restored.
 
-The options page also shows a live prompt preview and a **Test Connection** button that sends a sample request to confirm the API is reachable.
+The options page also shows authentication and endpoint-permission status, a live prompt preview, and a **Test Connection** button that sends a sample request through the selected `pi-ai` model.
+
+Credentials are stored by provider in `chrome.storage.local` with trusted-extension-context access. They are not synced, rendered back into the options form, or included in diagnostics. Existing `apiKey`/`baseUrl` settings migrate once: the secret moves out of sync storage, the default OpenAI URL maps to OpenAI, and other URLs map to **Custom OpenAI-compatible**. See [Authentication and providers](docs/AUTHENTICATION.md) for provider-specific behavior and browser limitations.
 
 The extension requests access to supported YouTube pages for its in-player subtitle control.
-It separately requests API host permission only for the origin derived from your configured **Base URL**.
+It separately requests optional host access only for the selected model endpoint origin and any origin needed to authenticate or discover that provider.
 When opening a remote PDF reader, it also requests only that PDF source origin and keeps the original PDF tab open.
 PDF bytes stay in the browser, while extracted text is sent to the configured translation provider.
 
@@ -149,10 +153,6 @@ Use `dist/extension-js/chrome/ready.json` for readiness metadata and filter term
 The Husky pre-commit hook formats, lints, and organizes imports in staged supported files with Biome.
 For manual production testing, load `dist/chrome` from `chrome://extensions/`.
 Do not load the repository root because source modules are not the store artifact.
-
-`npm audit` currently reports one transitive advisory as four high-severity dependency paths: `extension` → `extension-develop` → `extension-from-store` → `extract-zip` (`GHSA-jmr9-qjv8-65gv`).
-Extension.js 4.0.32 is the latest reviewed release, and its store-download helper invokes the vulnerable extractor only when importing third-party store archives.
-This project does not use that feature in `dev`, `build`, `preview`, `pack`, or CI; upgrade when Extension.js publishes a patched dependency chain.
 
 ## Notes
 

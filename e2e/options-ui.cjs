@@ -218,7 +218,10 @@ async function main() {
 		);
 		await waitFor(
 			async () =>
-				(await page.locator("#api-key").inputValue()) === config.apiKey,
+				(await page.locator("#provider").inputValue()) ===
+					"openai-compatible" &&
+				(await page.locator("#custom-base-url").inputValue()) ===
+					config.baseUrl,
 			{ timeoutMessage: "Options settings did not load." },
 		);
 		assert.equal(await page.locator(".radix-themes").count(), 1);
@@ -236,20 +239,27 @@ async function main() {
 		assert.equal(await tabList.count(), 1);
 		assert.equal(await page.getByRole("tab").count(), 4);
 
-		const apiKey = page.locator("#api-key");
-		assert.equal(await apiKey.getAttribute("type"), "password");
-		await page.getByRole("button", { name: "Show API key" }).focus();
-		await page.keyboard.press("Enter");
-		assert.equal(await apiKey.getAttribute("type"), "text");
-		assert.equal(await apiKey.inputValue(), config.apiKey);
-		assert.equal(
-			await page
-				.getByRole("button", { name: "Hide API key" })
-				.getAttribute("aria-pressed"),
-			"true",
+		assert.match(
+			(await page.locator("#auth-status").textContent()) || "",
+			/configured with an API key/u,
 		);
-		await page.keyboard.press("Space");
-		assert.equal(await apiKey.getAttribute("type"), "password");
+		assert.equal(await page.locator('input[type="password"]').count(), 0);
+		await page.getByRole("button", { name: "Add API key" }).click();
+		const authDialog = page.getByRole("dialog", {
+			name: "Configure Custom OpenAI-compatible",
+		});
+		await authDialog
+			.locator('input[type="password"]')
+			.fill("replacement-secret");
+		await authDialog.getByRole("button", { name: "Cancel" }).click();
+		await waitFor(async () => (await authDialog.count()) === 0, {
+			timeoutMessage: "Cancelled authentication dialog did not close.",
+		});
+		assert.match(
+			(await page.locator("#auth-status").textContent()) || "",
+			/configured with an API key/u,
+		);
+		assert.equal(await page.locator('input[type="password"]').count(), 0);
 		assert.match(
 			(await page.locator("#save-state").textContent()) || "",
 			/No unsaved changes/u,
@@ -271,7 +281,7 @@ async function main() {
 			.ariaSnapshot();
 		assert.match(tabAccessibilityTree, /tab "Setup" \[selected\]/u);
 		assert.match(setupAccessibilityTree, /Original and translation/u);
-		assert.match(setupAccessibilityTree, /API Key/u);
+		assert.match(setupAccessibilityTree, /Add API key/u);
 		assert.match(setupAccessibilityTree, /Connection Test/u);
 		await setupTab.focus();
 		await page.keyboard.press("ArrowRight");
@@ -357,10 +367,10 @@ async function main() {
 			.fill("Translate without the required source placeholder.");
 		await setupTab.click();
 		await bilingualRadio.check();
-		await page.locator("#base-url").fill("https://example.com/not-v1");
+		await page.locator("#custom-base-url").fill("https://example.com/not-v1");
 		await advancedTab.click();
 		await page.locator("#save-button").click();
-		await expectFocusedField(page, setupTab, "base-url");
+		await expectFocusedField(page, setupTab, "custom-base-url");
 		await waitFor(
 			async () =>
 				/Base URL must include \/v1/u.test(
@@ -371,11 +381,13 @@ async function main() {
 			},
 		);
 		assert.equal(
-			await page.locator("#base-url").getAttribute("aria-invalid"),
+			await page.locator("#custom-base-url").getAttribute("aria-invalid"),
 			"true",
 		);
 		assert.match(
-			(await page.locator("#base-url").getAttribute("aria-describedby")) || "",
+			(await page
+				.locator("#custom-base-url")
+				.getAttribute("aria-describedby")) || "",
 			/form-status/u,
 		);
 		await promptsTab.click();
@@ -384,9 +396,9 @@ async function main() {
 			"true",
 		);
 		await setupTab.click();
-		await page.locator("#base-url").fill(config.baseUrl);
+		await page.locator("#custom-base-url").fill(config.baseUrl);
 		assert.equal(
-			await page.locator("#base-url").getAttribute("aria-invalid"),
+			await page.locator("#custom-base-url").getAttribute("aria-invalid"),
 			null,
 		);
 		await promptsTab.click();
@@ -403,7 +415,7 @@ async function main() {
 			null,
 		);
 		await setupTab.click();
-		await page.locator("#base-url").blur();
+		await page.locator("#custom-base-url").blur();
 		await waitFor(
 			async () =>
 				/Granted for/u.test(
@@ -428,11 +440,14 @@ async function main() {
 		await page.reload({ waitUntil: "domcontentloaded" });
 		await waitFor(
 			async () =>
-				(await page.locator("#api-key").inputValue()) === config.apiKey,
+				(await page.locator("#provider").inputValue()) ===
+					"openai-compatible" &&
+				(await page.locator("#custom-base-url").inputValue()) ===
+					config.baseUrl,
 			{ timeoutMessage: "Saved settings did not reload." },
 		);
 		assert.equal(await bilingualRadio.isChecked(), true);
-		assert.equal(await apiKey.getAttribute("type"), "password");
+		assert.equal(await page.locator('input[type="password"]').count(), 0);
 		assert.equal(
 			await page.locator("#selection-panel-position-mode").inputValue(),
 			"bottom-right",

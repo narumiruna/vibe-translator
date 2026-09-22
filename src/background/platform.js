@@ -11,6 +11,7 @@ export function createBackgroundPlatform(options = {}) {
 		Appearance,
 		EmbeddedFrames,
 		Messages,
+		ProviderRuntime,
 		Settings,
 		SiteProfiles,
 		sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay)),
@@ -24,7 +25,12 @@ export function createBackgroundPlatform(options = {}) {
 		const settings = await Settings.getSettings();
 
 		if (Settings.hasCompleteSettings(settings)) {
-			return settings;
+			try {
+				await ProviderRuntime?.assertConfigured(settings);
+				return settings;
+			} catch (_error) {
+				// Open Settings below when the selected provider is not ready.
+			}
 		}
 
 		await chrome.runtime.openOptionsPage();
@@ -231,40 +237,6 @@ export function createBackgroundPlatform(options = {}) {
 			.catch(() => {});
 	}
 
-	async function fetchModelsDiagnostics(settings) {
-		const startedAt = Date.now();
-		try {
-			const response = await fetch(`${settings.baseUrl}/models`, {
-				headers: { Authorization: `Bearer ${settings.apiKey}` },
-			});
-			const latencyMs = Date.now() - startedAt;
-			let payload = {};
-			try {
-				payload = JSON.parse(await response.text());
-			} catch (_error) {}
-			if (!response.ok) {
-				return {
-					ok: false,
-					latencyMs,
-					error:
-						payload?.error?.message ||
-						`Model listing failed with status ${response.status}.`,
-				};
-			}
-			return {
-				ok: true,
-				latencyMs,
-				count: Array.isArray(payload?.data) ? payload.data.length : 0,
-			};
-		} catch (error) {
-			return {
-				ok: false,
-				latencyMs: Date.now() - startedAt,
-				error: error.message,
-			};
-		}
-	}
-
 	function discoverEmbeddedPageFrames(tabId, pageUrl) {
 		return EmbeddedFrames.discoverEmbeddedFrames({
 			pageUrl,
@@ -276,9 +248,14 @@ export function createBackgroundPlatform(options = {}) {
 	}
 
 	async function ensureApiPermission(settings) {
-		const permissions = {
-			origins: [Settings.getApiPermissionPattern(settings.baseUrl)],
-		};
+		const origins = ProviderRuntime
+			? await ProviderRuntime.getModelEndpointPatterns(settings)
+			: [
+					Settings.getApiPermissionPattern(
+						settings.customBaseUrl || settings.baseUrl,
+					),
+				];
+		const permissions = { origins };
 		return (
 			(await chrome.permissions.contains(permissions)) ||
 			chrome.permissions.request(permissions)
@@ -392,7 +369,6 @@ export function createBackgroundPlatform(options = {}) {
 		discoverEmbeddedPageFrames,
 		ensureApiPermission,
 		ensureContentScript,
-		fetchModelsDiagnostics,
 		getContentScriptFiles,
 		getFrameMessageOptions,
 		isDomainDisabled,

@@ -1,3 +1,5 @@
+import { rspack } from "@rspack/core";
+
 /** @type {import("extension").FileConfig} */
 const config = {
 	browser: {
@@ -16,6 +18,33 @@ const config = {
 			logLevel: "info",
 			logTimestamps: true,
 		},
+	},
+	config(rspackConfig) {
+		rspackConfig.plugins ??= [];
+		rspackConfig.plugins.push(
+			new rspack.DefinePlugin({
+				process: "undefined",
+				"global.process": "undefined",
+			}),
+			// Extension.js defaults service-worker chunks to importScripts(), which is
+			// unavailable in an MV3 module worker. Text adapters are statically bundled;
+			// this loader remains only for unreachable optional SDK branches.
+			new rspack.javascript.EnableChunkLoadingPlugin("import"),
+			{
+				apply(compiler) {
+					compiler.hooks.entryOption.tap(
+						"VibeTranslatorModuleServiceWorkerChunks",
+						(_context, entries) => {
+							const serviceWorker = entries?.["background/service_worker"];
+							if (serviceWorker) {
+								serviceWorker.chunkLoading = "import";
+							}
+						},
+					);
+				},
+			},
+		);
+		return rspackConfig;
 	},
 };
 
