@@ -18,7 +18,8 @@
 		"dev": "EXTENSION_TELEMETRY_DISABLED=1 extension dev --browser=chrome",
 		"build": "EXTENSION_TELEMETRY_DISABLED=1 extension build --browser=chrome",
 		"preview": "EXTENSION_TELEMETRY_DISABLED=1 extension preview --browser=chrome",
-		"zip": "EXTENSION_TELEMETRY_DISABLED=1 extension build --browser=chrome --zip && node scripts/verify-build.mjs",
+		"pack": "EXTENSION_TELEMETRY_DISABLED=1 extension build --browser=chrome --zip && node scripts/verify-build.mjs",
+		"zip": "npm run pack",
 		"build:firefox": "EXTENSION_TELEMETRY_DISABLED=1 extension build --browser=firefox",
 		"verify:build": "node scripts/verify-build.mjs"
 	},

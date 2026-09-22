@@ -136,7 +136,7 @@ npm run preview   # preview the production Chrome build
 npm run check     # module checks, unit tests, production build, artifact verification
 npm run e2e:mock  # production-artifact Playwright smoke suite with a local API
 npm run e2e:pdf   # PDF reader Playwright smoke suite with local PDF and API fixtures
-npm run zip       # production build plus dist/chrome/vibe-translator-<version>.zip
+npm run pack      # production build plus dist/chrome/vibe-translator-<version>.zip
 npm run icons     # regenerate extension icon PNGs from icons/icon.svg
 ```
 
@@ -150,7 +150,7 @@ Do not load the repository root because source modules are not the store artifac
 
 `npm audit` currently reports one transitive advisory as four high-severity dependency paths: `extension` → `extension-develop` → `extension-from-store` → `extract-zip` (`GHSA-jmr9-qjv8-65gv`).
 Extension.js 4.0.32 is the latest reviewed release, and its store-download helper invokes the vulnerable extractor only when importing third-party store archives.
-This project does not use that feature in `dev`, `build`, `preview`, `zip`, or CI; upgrade when Extension.js publishes a patched dependency chain.
+This project does not use that feature in `dev`, `build`, `preview`, `pack`, or CI; upgrade when Extension.js publishes a patched dependency chain.
 
 ## Notes
 
