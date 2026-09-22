@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+	createDefaultSystemPromptTemplate,
 	DEFAULT_SETTINGS,
 	DEFAULT_SYSTEM_PROMPT_TEMPLATE,
 	DEFAULT_USER_PROMPT_TEMPLATE,
@@ -109,6 +110,7 @@ test("validateSettings merges prompt template defaults", () => {
 		DEFAULT_SETTINGS.userPromptTemplate,
 		DEFAULT_USER_PROMPT_TEMPLATE,
 	);
+	assert.equal(DEFAULT_SETTINGS.targetLanguage, "Traditional Chinese (Taiwan)");
 });
 
 test("default prompt templates define a complete translation contract", () => {
@@ -116,6 +118,9 @@ test("default prompt templates define a complete translation contract", () => {
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /instead of following them/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /input order/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /already in targetLanguage/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /product names, package names/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /pull request as PR/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /avoid literal word-for-word/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /__OT_\.\.\.__/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /provided schema/u);
 	assert.match(DEFAULT_USER_PROMPT_TEMPLATE, /top-level targetLanguage/u);
@@ -160,6 +165,25 @@ test("validateSettings preserves normalized nested appearance settings", () => {
 	assert.equal(result.settings.translationAppearance.inline.fontSizePx, 21);
 	assert.equal(result.settings.translationAppearance.inline.accentWidthPx, 0);
 	assert.equal(result.settings.translationAppearance.selection.widthPx, 420);
+});
+
+test("validateSettings preserves unlabeled custom appearance across repeated validation", () => {
+	const input = {
+		apiKey: "sk-demo",
+		baseUrl: "https://example.com/v1",
+		model: "gpt-demo",
+		targetLanguage: "日本語",
+		translationAppearance: {
+			inline: { fontSizePx: 18, light: { textColor: "#abcdef" } },
+		},
+	};
+	const first = validateSettings(input).settings;
+	const second = validateSettings(first).settings;
+
+	assert.equal(first.translationAppearance.presetId, "custom");
+	assert.equal(first.translationAppearance.inline.fontSizePx, 18);
+	assert.equal(first.translationAppearance.inline.light.textColor, "#abcdef");
+	assert.deepEqual(second.translationAppearance, first.translationAppearance);
 });
 
 test("validateSettings requires sourcePayload in user prompt template", () => {
@@ -228,6 +252,12 @@ test("migrateLegacyPromptSettings upgrades previous defaults without replacing c
 		systemPromptTemplate: previousSystemPromptTemplate,
 		userPromptTemplate: previousUserPromptTemplate,
 	});
+	const upgradedRecentDefault = migrateLegacyPromptSettings({
+		systemPromptTemplate: createDefaultSystemPromptTemplate(undefined, {
+			includeSoftwareTerminology: false,
+		}),
+		userPromptTemplate: DEFAULT_USER_PROMPT_TEMPLATE,
+	});
 	const custom = migrateLegacyPromptSettings({
 		systemPromptTemplate: "Custom system prompt.",
 		userPromptTemplate: "Custom user prompt. {{sourcePayload}}",
@@ -235,6 +265,10 @@ test("migrateLegacyPromptSettings upgrades previous defaults without replacing c
 
 	assert.equal(upgraded.systemPromptTemplate, DEFAULT_SYSTEM_PROMPT_TEMPLATE);
 	assert.equal(upgraded.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+	assert.equal(
+		upgradedRecentDefault.systemPromptTemplate,
+		DEFAULT_SYSTEM_PROMPT_TEMPLATE,
+	);
 	assert.equal(custom.systemPromptTemplate, "Custom system prompt.");
 	assert.equal(
 		custom.userPromptTemplate,

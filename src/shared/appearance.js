@@ -55,31 +55,31 @@ const TRANSLATION_APPEARANCE_PRESETS = {
 	"calm-reading": {
 		presetId: "calm-reading",
 		inline: {
-			fontFamily: "serif",
-			fontSizePx: 16,
+			fontFamily: "sans-serif",
+			fontSizePx: 14,
 			fontWeight: 400,
-			lineHeight: 1.72,
+			lineHeight: 1.5,
 			maxWidthPx: 832,
-			marginTopPx: 16,
-			marginBottomPx: 24,
-			paddingVerticalPx: 13,
-			paddingHorizontalPx: 16,
-			borderRadiusPx: 8,
-			accentWidthPx: 3,
-			showBackground: true,
+			marginTopPx: 4,
+			marginBottomPx: 8,
+			paddingVerticalPx: 1,
+			paddingHorizontalPx: 8,
+			borderRadiusPx: 0,
+			accentWidthPx: 2,
+			showBackground: false,
 			showLabel: true,
 			enableFadeAnimation: true,
 			light: {
-				backgroundColor: "#f3f8f5",
-				textColor: "#1f2923",
-				accentColor: "#4b765c",
-				labelColor: "#4b765c",
+				backgroundColor: "#ffffff",
+				textColor: "#57606a",
+				accentColor: "#afb8c1",
+				labelColor: "#6e7781",
 			},
 			dark: {
-				backgroundColor: "#17231c",
-				textColor: "#eef6f0",
-				accentColor: "#78a987",
-				labelColor: "#91b99d",
+				backgroundColor: "#0d1117",
+				textColor: "#8c959f",
+				accentColor: "#484f58",
+				labelColor: "#8c959f",
 			},
 		},
 		selection: createSelectionDefaults(),
@@ -88,14 +88,14 @@ const TRANSLATION_APPEARANCE_PRESETS = {
 		presetId: "minimal",
 		inline: {
 			fontFamily: "sans-serif",
-			fontSizePx: 16,
+			fontSizePx: 14,
 			fontWeight: 400,
-			lineHeight: 1.65,
+			lineHeight: 1.45,
 			maxWidthPx: 832,
-			marginTopPx: 12,
-			marginBottomPx: 20,
+			marginTopPx: 3,
+			marginBottomPx: 6,
 			paddingVerticalPx: 0,
-			paddingHorizontalPx: 12,
+			paddingHorizontalPx: 6,
 			borderRadiusPx: 0,
 			accentWidthPx: 1,
 			showBackground: false,
@@ -103,15 +103,15 @@ const TRANSLATION_APPEARANCE_PRESETS = {
 			enableFadeAnimation: false,
 			light: {
 				backgroundColor: "#ffffff",
-				textColor: "#374151",
-				accentColor: "#9ca3af",
-				labelColor: "#6b7280",
+				textColor: "#57606a",
+				accentColor: "#d0d7de",
+				labelColor: "#6e7781",
 			},
 			dark: {
-				backgroundColor: "#111827",
-				textColor: "#e5e7eb",
-				accentColor: "#6b7280",
-				labelColor: "#9ca3af",
+				backgroundColor: "#0d1117",
+				textColor: "#8c959f",
+				accentColor: "#30363d",
+				labelColor: "#8c959f",
 			},
 		},
 		selection: createSelectionDefaults(),
@@ -245,15 +245,21 @@ function normalizeSelectionTheme(input, fallback) {
 
 function normalizeTranslationAppearance(input) {
 	const source = isRecord(input) ? input : {};
-	const presetId = normalizeEnum(
-		source.presetId,
-		ALL_PRESET_IDS,
-		"calm-reading",
-	);
+	const presetId = ALL_PRESET_IDS.includes(source.presetId)
+		? source.presetId
+		: isRecord(source.inline) && Object.keys(source.inline).length > 0
+			? "custom"
+			: "calm-reading";
+
 	const fallback = createTranslationAppearancePreset(
 		presetId === "custom" ? "calm-reading" : presetId,
 	);
-	const inlineSource = isRecord(source.inline) ? source.inline : {};
+	const inlineSource =
+		PRESET_IDS.includes(presetId) && source.presetId === presetId
+			? fallback.inline
+			: isRecord(source.inline)
+				? source.inline
+				: {};
 	const selectionSource = isRecord(source.selection) ? source.selection : {};
 	const inlineFallback = fallback.inline;
 	const selectionFallback = fallback.selection;

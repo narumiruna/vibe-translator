@@ -10,6 +10,13 @@ function ReadingAppearancePreview({
 	const appearance = Appearance.normalizeTranslationAppearance(value);
 	const inline = appearance.inline;
 	const colors = inline[previewTheme];
+	const hostTextColor = previewTheme === "dark" ? "#a1a1aa" : "#6c6c70";
+	const translationTextColor = inline.showBackground
+		? colors.textColor
+		: hostTextColor;
+	const translationAccentColor = inline.showBackground
+		? colors.accentColor
+		: hostTextColor;
 	const ratio = inline.showBackground
 		? Appearance.calculateContrastRatio(
 				colors.textColor,
@@ -20,7 +27,7 @@ function ReadingAppearancePreview({
 	const language = targetLanguage.trim() || "Target language";
 	const contrastText = inline.showBackground
 		? `${previewTheme === "dark" ? "Dark" : "Light"} text contrast: ${ratio?.toFixed(2) || "unknown"}:1 · ${passes ? "WCAG AA" : "Below WCAG AA (4.5:1)"}`
-		: `${previewTheme === "dark" ? "Dark" : "Light"} contrast cannot be verified because the translation background is disabled.`;
+		: "Text and markers inherit the host page color while the translation background is disabled.";
 
 	return (
 		<>
@@ -40,9 +47,9 @@ function ReadingAppearancePreview({
 						background: inline.showBackground
 							? colors.backgroundColor
 							: "transparent",
-						borderLeft: `${inline.accentWidthPx}px solid ${colors.accentColor}`,
+						borderLeft: `${inline.accentWidthPx}px solid ${translationAccentColor}`,
 						borderRadius: `0 ${inline.borderRadiusPx}px ${inline.borderRadiusPx}px 0`,
-						color: colors.textColor,
+						color: translationTextColor,
 						fontFamily: Appearance.FONT_FAMILY_STACKS[inline.fontFamily],
 						fontSize: `${inline.fontSizePx}px`,
 						fontWeight: inline.fontWeight,
@@ -58,12 +65,27 @@ function ReadingAppearancePreview({
 						<span
 							className="reading-preview-label"
 							id="reading-preview-label"
-							style={{ color: colors.labelColor }}
+							style={{
+								color: inline.showBackground
+									? colors.labelColor
+									: translationTextColor,
+								display: inline.showBackground ? "block" : "inline-block",
+								margin: inline.showBackground ? "0 0 0.4rem" : "0 0.55em 0 0",
+								opacity: inline.showBackground ? 1 : 0.72,
+							}}
+							title={language}
 						>
-							{language}
+							Translation
 						</span>
 					) : null}
-					<p>我為什麼不斷談論未來的程式設計將如何改變？</p>
+					<p
+						style={{
+							display: inline.showBackground ? "block" : "inline",
+							margin: inline.showBackground ? "6px 0 0" : 0,
+						}}
+					>
+						The translation appears here as compact supporting text.
+					</p>
 				</div>
 			</div>
 			<p
@@ -134,7 +156,7 @@ function SelectionAppearancePreview({
 					<Cross2Icon />
 				</span>
 			</div>
-			<p>這是一段簡短的選取文字翻譯預覽。</p>
+			<p>A short selected-text translation preview appears here.</p>
 		</div>
 	);
 }

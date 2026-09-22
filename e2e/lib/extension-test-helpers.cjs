@@ -93,7 +93,8 @@ function getConfig() {
 	);
 
 	const baseUrl = getEnvValue("OPENAI_BASE_URL") || "https://api.openai.com/v1";
-	const targetLanguage = getEnvValue("TARGET_LANGUAGE") || "台灣正體中文";
+	const targetLanguage =
+		getEnvValue("TARGET_LANGUAGE") || "Traditional Chinese (Taiwan)";
 	const browserChannel =
 		getEnvValue("PLAYWRIGHT_BROWSER_CHANNEL") || "chromium";
 	const executablePath = getEnvValue("PLAYWRIGHT_CHROME_EXECUTABLE");

@@ -34,9 +34,9 @@ test("options drafts are independent normalized copies", () => {
 
 	assert.notEqual(draft, settings);
 	assert.notEqual(draft.translationAppearance, settings.translationAppearance);
-	assert.equal(draft.translationAppearance.inline.fontSizePx, 16);
+	assert.equal(draft.translationAppearance.inline.fontSizePx, 14);
 	assert.equal(updated.translationAppearance.inline.fontSizePx, 19);
-	assert.equal(settings.translationAppearance.inline.fontSizePx, 16);
+	assert.equal(settings.translationAppearance.inline.fontSizePx, 14);
 });
 
 test("dirty state compares normalized settings rather than raw formatting", () => {

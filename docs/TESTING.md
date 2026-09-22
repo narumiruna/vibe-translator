@@ -93,7 +93,9 @@
 16. Right-click a blank area and choose **Translate entire page** again
 17. Confirm existing notes are updated in place instead of duplicated and now use the latest saved appearance
 18. Test zero spacing/padding and maximum legal spacing/width in a table, list, `pre`, and narrow viewport; confirm there is no horizontal page overflow
-19. Confirm there is no per-block display toggle UI and no page-level display mode toolbar
+19. Reset to **Calm Reading** and confirm each translation is a compact secondary line with a thin neutral accent, an explicit **Translation** label, and no card background
+20. Translate a GitHub pull request and confirm conversation content is translated while the Development and Notifications sidebars remain untouched
+21. Confirm there is no per-block display toggle UI and no page-level display mode toolbar
 
 ## YouTube subtitle translation
 
@@ -112,7 +114,7 @@
 13. On a video where timed prefetch is unavailable, confirm diagnostics show at most one active visible fallback per caption slot and coalesce later mutations to the latest pending text
 14. Let the initial caption-visibility timeout appear before playback, then play until native captions appear and confirm the icon returns from the recoverable error to active without another click
 15. In **Translation only**, confirm only the native segment owned by the current translation is hidden; sibling native segments remain visible until their own translations are ready
-16. Confirm translated subtitles use the compact player style without the reading-card label or shimmer placeholder
+16. Confirm translated subtitles use the compact player style without the inline translation label or shimmer placeholder
 17. Change Settings to **Original and translation**, restart subtitle translation, and confirm each native cue remains visible with its matching translated line directly below it
 18. Watch several consecutive cues, including cumulative auto-generated captions, and confirm each old translation disappears in the same cue transition instead of surviving over newer native text
 19. Find a caption window with multiple simultaneous segments and confirm each translation stays attached to its exact source while removing one segment leaves valid siblings intact

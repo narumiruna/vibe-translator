@@ -9,6 +9,7 @@ import {
 	CARMINA_ARTICLE_TEXT_SELECTOR,
 	DISQUS_COMMENT_TEXT_SELECTOR,
 	FINDY_ARTICLE_ROOT_SELECTOR,
+	GITHUB_MAIN_CONTENT_SELECTOR,
 	getActiveSiteProfile,
 	normalizeHostname,
 	REDDIT_ROOT_SELECTOR,
@@ -49,6 +50,8 @@ test("resolveSiteProfile matches exact built-in hosts", () => {
 		["www.carminashoemaker.com", "carmina-article"],
 		["findy.co.jp", "findy-article"],
 		["www.findy.co.jp", "findy-article"],
+		["github.com", "github"],
+		["www.github.com", "github"],
 		["reddit.com", "reddit"],
 		["www.reddit.com", "reddit"],
 		["schiit.com", "schiit-article"],
@@ -62,6 +65,7 @@ test("resolveSiteProfile matches exact built-in hosts", () => {
 		["example.com", "default"],
 		["notx.com", "default"],
 		["x.com.evil.example", "default"],
+		["github.com.evil.example", "default"],
 		["reddit.com.evil.example", "default"],
 		["threads.net.evil.example", "default"],
 	];
@@ -123,6 +127,10 @@ test("site profiles compile into generic content capabilities", () => {
 		{
 			host: "findy.co.jp",
 			root: FINDY_ARTICLE_ROOT_SELECTOR,
+		},
+		{
+			host: "github.com",
+			root: GITHUB_MAIN_CONTENT_SELECTOR,
 		},
 		{
 			host: "reddit.com",
@@ -288,6 +296,17 @@ test("Findy article extraction stays inside the news article", () => {
 
 	assert.deepEqual(profile.rootSelectors, [FINDY_ARTICLE_ROOT_SELECTOR]);
 	assert.equal(selectors.SITE_ROOT_SELECTOR, FINDY_ARTICLE_ROOT_SELECTOR);
+});
+
+test("GitHub extraction excludes pull request sidebars", () => {
+	const profile = resolveSiteProfile("github.com");
+	const selectors = createExtractionSelectorsForProfile(profile);
+
+	assert.deepEqual(profile.rootSelectors, [GITHUB_MAIN_CONTENT_SELECTOR]);
+	assert.equal(selectors.SITE_ROOT_SELECTOR, GITHUB_MAIN_CONTENT_SELECTOR);
+	assert.match(GITHUB_MAIN_CONTENT_SELECTOR, /\.Layout-main/u);
+	assert.match(GITHUB_MAIN_CONTENT_SELECTOR, /SplitPageLayout\.Content/u);
+	assert.doesNotMatch(GITHUB_MAIN_CONTENT_SELECTOR, /Sidebar/u);
 });
 
 test("Reddit extraction stays rooted at the main post and comments region", () => {

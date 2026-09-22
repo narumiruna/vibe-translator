@@ -301,13 +301,24 @@ export function createContentRenderer(options = {}) {
 		return extraction;
 	}
 
+	function setNoteLabel(label, targetLanguage) {
+		const language = String(targetLanguage || "").trim();
+
+		label.textContent = "Translation";
+		if (language) {
+			label.setAttribute("title", language);
+		} else {
+			label.removeAttribute("title");
+		}
+	}
+
 	function setNotePending(note, targetLanguage) {
 		const label = note.querySelector(`[${ROOT_ATTR}="note-label"]`);
 		const body = note.querySelector(`[${ROOT_ATTR}="note-body"]`);
 
 		note.setAttribute("data-phase", "pending");
 		note.setAttribute("data-lang", targetLanguage);
-		label.textContent = targetLanguage;
+		setNoteLabel(label, targetLanguage);
 		body.setAttribute("data-state", "pending");
 		body.replaceChildren(document.createTextNode(" "));
 	}
@@ -392,7 +403,7 @@ export function createContentRenderer(options = {}) {
 		withObserverPaused(() => {
 			note.setAttribute("data-phase", "ready");
 			note.setAttribute("data-lang", targetLanguage);
-			label.textContent = targetLanguage;
+			setNoteLabel(label, targetLanguage);
 			body.setAttribute("data-state", "ready");
 			body.replaceChildren();
 			appendFormattedText(body, translation, protectedFragments);

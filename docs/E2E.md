@@ -103,7 +103,7 @@ Put these in `.env` or export them in your shell:
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4.1-mini
-TARGET_LANGUAGE=台灣正體中文
+TARGET_LANGUAGE="Traditional Chinese (Taiwan)"
 ```
 
 For local smoke testing without a real API key, use the mock OpenAI-compatible API mode instead. The mock mode starts a local `/v1/models` and `/v1/responses` server and seeds the extension with its base URL:

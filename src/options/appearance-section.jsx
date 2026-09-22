@@ -358,6 +358,7 @@ function AppearanceSection({
 								checked={inline.showBackground}
 								id="inline-show-background"
 								label="Show background"
+								note="When off, translation text and markers inherit the page color for readability."
 								onChange={(event) =>
 									onAppearanceField(
 										["inline", "showBackground"],
@@ -368,7 +369,7 @@ function AppearanceSection({
 							<CheckboxField
 								checked={inline.showLabel}
 								id="inline-show-label"
-								label="Show language label"
+								label="Show translation label"
 								onChange={(event) =>
 									onAppearanceField(
 										["inline", "showLabel"],

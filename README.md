@@ -54,7 +54,7 @@ The options interface uses locally bundled React and Radix Themes, Colors, Icons
 | API Key | Secret key sent in the `Authorization` header |
 | Base URL | Root URL of any OpenAI-compatible API (default: `https://api.openai.com/v1`) |
 | Model | Model name, e.g. `gpt-4.1-mini` |
-| Target Language | Language to translate into (default: `台灣正體中文`) |
+| Target Language | Language to translate into (default: `Traditional Chinese (Taiwan)`) |
 | System Prompt Template | Stable translation rules; supports `{{targetLanguage}}`, `{{itemCount}}`, and `{{itemKind}}` |
 | User Prompt Template | Translation request and source data; must include `{{sourcePayload}}` and also supports the system-template variables |
 | Reading Appearance | Calm Reading, Minimal, and High Contrast presets plus font, size, spacing, surface, accent, label, animation, and separate light/dark colors |
@@ -65,6 +65,8 @@ The options interface uses locally bundled React and Radix Themes, Colors, Icons
 The Appearance tab previews changes without saving and warns when translation text/background contrast is below WCAG AA. An unsaved-state label distinguishes previewed values from applied settings. **Reset Appearance** changes only the preview until **Save Settings** is used. Saved appearance changes apply the next time a page or selection is translated; existing rendered translations are not updated proactively.
 
 Older underline settings are ignored and safely migrate to the Calm Reading appearance. Arbitrary CSS and font names are not accepted.
+
+![Compact inline translations shown below their source text](docs/images/compact-inline-translation.png)
 
 YouTube subtitles default to **Translation only**, preserving the behavior of existing saved settings. The selected mode applies when subtitle translation next starts or an active session is restored.
 

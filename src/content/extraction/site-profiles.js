@@ -7,6 +7,8 @@ const CARMINA_ARTICLE_ROOT_SELECTOR = "main #module-special-category-header";
 const CARMINA_ARTICLE_TEXT_SELECTOR = `${CARMINA_ARTICLE_ROOT_SELECTOR} .html-output`;
 const DISQUS_COMMENT_TEXT_SELECTOR = '[data-role="message"] p';
 const FINDY_ARTICLE_ROOT_SELECTOR = ".p-single__wrap";
+const GITHUB_MAIN_CONTENT_SELECTOR =
+	'main .Layout-main, main [data-component="SplitPageLayout.Content"]';
 const REDDIT_ROOT_SELECTOR = "main";
 const SCHIIT_ARTICLE_ROOT_SELECTOR =
 	"body:where(.faq, .guides) #content-box .product > .pad";
@@ -56,6 +58,11 @@ const SITE_PROFILES = Object.freeze([
 		id: "findy-article",
 		hosts: Object.freeze(["findy.co.jp", "www.findy.co.jp"]),
 		rootSelectors: Object.freeze([FINDY_ARTICLE_ROOT_SELECTOR]),
+	}),
+	Object.freeze({
+		id: "github",
+		hosts: Object.freeze(["github.com", "www.github.com"]),
+		rootSelectors: Object.freeze([GITHUB_MAIN_CONTENT_SELECTOR]),
 	}),
 	Object.freeze({
 		id: "reddit",
@@ -164,6 +171,7 @@ export {
 	DEFAULT_SITE_PROFILE,
 	DISQUS_COMMENT_TEXT_SELECTOR,
 	FINDY_ARTICLE_ROOT_SELECTOR,
+	GITHUB_MAIN_CONTENT_SELECTOR,
 	getActiveSiteProfile,
 	normalizeHostname,
 	normalizeSelectorList,

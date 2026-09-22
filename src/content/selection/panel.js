@@ -321,7 +321,7 @@ function createSelectionPanelRenderer(options = {}) {
 		panel = doc.createElement("aside");
 		const header = doc.createElement("div");
 		const identity = doc.createElement("div");
-		const icon = createTextElement("span", "selection-panel-icon", "文");
+		const icon = createTextElement("span", "selection-panel-icon", "TR");
 		const title = createTextElement(
 			"p",
 			"selection-panel-title",

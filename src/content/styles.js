@@ -23,9 +23,51 @@ export function applyContentStyles(options = {}) {
 	const inlineDarkBackground = inlineAppearance.showBackground
 		? inlineAppearance.dark.backgroundColor
 		: "transparent";
+	const inlineLightText = inlineAppearance.showBackground
+		? inlineAppearance.light.textColor
+		: "inherit";
+	const inlineDarkText = inlineAppearance.showBackground
+		? inlineAppearance.dark.textColor
+		: "inherit";
+	const inlineLightAccent = inlineAppearance.showBackground
+		? inlineAppearance.light.accentColor
+		: "currentColor";
+	const inlineDarkAccent = inlineAppearance.showBackground
+		? inlineAppearance.dark.accentColor
+		: "currentColor";
+	const inlineLightLabel = inlineAppearance.showBackground
+		? inlineAppearance.light.labelColor
+		: "inherit";
+	const inlineDarkLabel = inlineAppearance.showBackground
+		? inlineAppearance.dark.labelColor
+		: "inherit";
+	const inlineLabelOpacity = inlineAppearance.showBackground ? 1 : 0.72;
+	const inlineLightCodeBackground = inlineAppearance.showBackground
+		? "rgba(60, 60, 67, 0.08)"
+		: "transparent";
+	const inlineDarkCodeBackground = inlineAppearance.showBackground
+		? "rgba(255, 255, 255, 0.11)"
+		: "transparent";
+	const inlineLightCodeText = inlineAppearance.showBackground
+		? "#3a3a3c"
+		: "inherit";
+	const inlineDarkCodeText = inlineAppearance.showBackground
+		? "#f2f2f7"
+		: "inherit";
 	const fadeAnimation = inlineAppearance.enableFadeAnimation
 		? "ot-fade-in 0.18s ease forwards"
 		: "none";
+	const inlineLabelDisplay = inlineAppearance.showLabel
+		? inlineAppearance.showBackground
+			? "block"
+			: "inline-block"
+		: "none";
+	const inlineLabelMargin = inlineAppearance.showBackground
+		? "0 0 0.4rem"
+		: "0 0.55em 0 0";
+	const inlineBodyDisplay = inlineAppearance.showBackground
+		? "block"
+		: "inline";
 	const selectionLightBackground = AppearanceApi.hexToRgbaColor(
 		selectionAppearance.light.surfaceColor,
 		selectionAppearance.surfaceOpacityPercent,
@@ -79,14 +121,14 @@ export function applyContentStyles(options = {}) {
         margin: ${inlineAppearance.marginTopPx}px 0 ${inlineAppearance.marginBottomPx}px;
         padding: ${inlineAppearance.paddingVerticalPx}px ${inlineAppearance.paddingHorizontalPx}px;
         border: 0;
-        border-left: ${inlineAppearance.accentWidthPx}px solid ${inlineAppearance.light.accentColor};
+        border-left: ${inlineAppearance.accentWidthPx}px solid ${inlineLightAccent};
         border-radius: 0 ${inlineAppearance.borderRadiusPx}px ${inlineAppearance.borderRadiusPx}px 0;
         font-family: ${AppearanceApi.FONT_FAMILY_STACKS[inlineAppearance.fontFamily]};
         font-size: ${inlineAppearance.fontSizePx}px;
         font-weight: ${inlineAppearance.fontWeight};
         line-height: ${inlineAppearance.lineHeight};
-        letter-spacing: 0.008em;
-        color: ${inlineAppearance.light.textColor};
+        letter-spacing: normal;
+        color: ${inlineLightText};
         text-align: start;
         background: ${inlineBackground};
         position: static;
@@ -217,30 +259,32 @@ export function applyContentStyles(options = {}) {
 
       @media (prefers-color-scheme: dark) {
         .translation[${ROOT_ATTR}="note"] {
-          border-left-color: ${inlineAppearance.dark.accentColor};
-          color: ${inlineAppearance.dark.textColor};
+          border-left-color: ${inlineDarkAccent};
+          color: ${inlineDarkText};
           background: ${inlineDarkBackground};
         }
       }
 
       .translation [${ROOT_ATTR}="note-label"] {
         all: initial;
-        display: ${inlineAppearance.showLabel ? "block" : "none"};
-        margin: 0 0 0.4rem;
-        color: ${inlineAppearance.light.labelColor};
-        font: 600 0.6875rem/1.2 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-        letter-spacing: 0.06em;
+        display: ${inlineLabelDisplay};
+        margin: ${inlineLabelMargin};
+        color: ${inlineLightLabel};
+        font: 600 0.625rem/1.2 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        letter-spacing: 0.035em;
+        opacity: ${inlineLabelOpacity};
+        vertical-align: 0.08em;
       }
 
       @media (prefers-color-scheme: dark) {
         .translation [${ROOT_ATTR}="note-label"] {
-          color: ${inlineAppearance.dark.labelColor};
+          color: ${inlineDarkLabel};
         }
       }
 
       .translation [${ROOT_ATTR}="note-body"] {
         all: initial;
-        display: block;
+        display: ${inlineBodyDisplay};
         max-width: 100%;
         margin: 0;
         padding: 0;
@@ -255,6 +299,8 @@ export function applyContentStyles(options = {}) {
       }
 
       .translation [${ROOT_ATTR}="note-body"][data-state="pending"] {
+        display: inline-block;
+        width: min(12rem, 72%);
         min-height: 1.2em;
         color: transparent;
         border-radius: 6px;
@@ -275,16 +321,16 @@ export function applyContentStyles(options = {}) {
         display: inline;
         padding: 0.08em 0.34em;
         border-radius: 5px;
-        background: rgba(60, 60, 67, 0.08);
-        color: #3a3a3c;
+        background: ${inlineLightCodeBackground};
+        color: ${inlineLightCodeText};
         text-decoration: none;
         font: 0.92em/1.4 ui-monospace, "SF Mono", "SFMono-Regular", Menlo, monospace;
       }
 
       @media (prefers-color-scheme: dark) {
         .translation [${ROOT_ATTR}="note-body"] code {
-          background: rgba(255, 255, 255, 0.11);
-          color: #f2f2f7;
+          background: ${inlineDarkCodeBackground};
+          color: ${inlineDarkCodeText};
         }
       }
 
