@@ -61,7 +61,7 @@ e2e-youtube:
     @npm run e2e:youtube
 
 zip:
-    @npm run zip
+    @npm run pack
 
 clean:
     @rm -rf dist/chrome dist/firefox
