@@ -1,5 +1,3 @@
-import * as ProtectedFragments from "./protected-fragments.js";
-
 const TRANSLATION_RESPONSE_FORMAT = Object.freeze({
 	type: "json_schema",
 	name: "translation_result",
@@ -32,7 +30,6 @@ const TRANSLATION_RESPONSE_FORMAT = Object.freeze({
 	},
 	strict: true,
 });
-const { validateProtectedFragments } = ProtectedFragments;
 
 class InvalidTranslationResponseError extends Error {
 	constructor(cause) {
@@ -108,50 +105,16 @@ function buildTranslationInput(options) {
 	];
 }
 
-function buildResponsesRequest(settings, items) {
+function applyTranslationResponseFormat(payload) {
 	return {
-		model: settings.model,
-		input: buildTranslationInput({
-			systemPromptTemplate: settings.systemPromptTemplate,
-			userPromptTemplate: settings.userPromptTemplate,
-			items,
-			targetLanguage: settings.targetLanguage,
-		}),
+		...(payload && typeof payload === "object" ? payload : {}),
 		text: {
+			...(payload?.text && typeof payload.text === "object"
+				? payload.text
+				: {}),
 			format: TRANSLATION_RESPONSE_FORMAT,
 		},
 	};
-}
-
-function extractOutputText(payload) {
-	if (
-		payload &&
-		typeof payload.output_text === "string" &&
-		payload.output_text.trim()
-	) {
-		return payload.output_text;
-	}
-
-	const output = Array.isArray(payload?.output) ? payload.output : [];
-	const textParts = [];
-
-	for (const item of output) {
-		if (!item || !Array.isArray(item.content)) {
-			continue;
-		}
-
-		for (const contentItem of item.content) {
-			if (
-				contentItem &&
-				contentItem.type === "output_text" &&
-				typeof contentItem.text === "string"
-			) {
-				textParts.push(contentItem.text);
-			}
-		}
-	}
-
-	return textParts.join("\n");
 }
 
 function stripCodeFences(text) {
@@ -161,19 +124,13 @@ function stripCodeFences(text) {
 		.replace(/\s*```$/, "");
 }
 
-function parseTranslationResponse(payload) {
-	let parsed = payload?.output_parsed;
-
-	if (!parsed) {
-		const fallbackText = stripCodeFences(extractOutputText(payload));
-
-		if (!fallbackText) {
-			throw new Error("Response did not include parsed output.");
-		}
-
-		parsed = JSON.parse(fallbackText);
+function parseTranslationText(text) {
+	const normalized = stripCodeFences(text);
+	if (!normalized) {
+		throw new Error("Response did not include translation output.");
 	}
 
+	const parsed = JSON.parse(normalized);
 	const translations = Array.isArray(parsed) ? parsed : parsed?.translations;
 
 	if (!Array.isArray(translations)) {
@@ -232,57 +189,12 @@ function validateTranslationCoverage(items, translations) {
 	}
 }
 
-async function callResponsesApi(settings, items, fetchImpl) {
-	const requestPayload = buildResponsesRequest(settings, items);
-	const response = await fetchImpl(`${settings.baseUrl}/responses`, {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${settings.apiKey}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify(requestPayload),
-	});
-	const rawText =
-		typeof response.text === "function" ? await response.text() : "";
-	let payload;
-
-	try {
-		payload = rawText ? JSON.parse(rawText) : {};
-	} catch (_error) {
-		payload = { error: { message: rawText || "Invalid JSON response." } };
-	}
-
-	if (!response.ok) {
-		const message =
-			payload?.error &&
-			typeof payload.error.message === "string" &&
-			payload.error.message.trim();
-
-		throw new Error(
-			message || `Translation request failed with status ${response.status}.`,
-		);
-	}
-
-	try {
-		const translations = parseTranslationResponse(payload);
-
-		validateTranslationCoverage(items, translations);
-		validateProtectedFragments(items, translations);
-
-		return translations;
-	} catch (error) {
-		throw new InvalidTranslationResponseError(error);
-	}
-}
-
 export {
-	buildResponsesRequest,
+	applyTranslationResponseFormat,
 	buildTranslationInput,
-	callResponsesApi,
 	estimateTokenCount,
-	extractOutputText,
 	InvalidTranslationResponseError,
-	parseTranslationResponse,
+	parseTranslationText,
 	renderPromptTemplate,
 	stripCodeFences,
 	TRANSLATION_RESPONSE_FORMAT,

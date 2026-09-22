@@ -43,6 +43,7 @@
 - Symptom: Carmina leather pages translate only the hero heading and place its note over the banner. Cause: the primary description is a `div.html-output`, while the semantic heading prevents fallback extraction. Fix: root the Carmina profile at `#module-special-category-header` and target its `.html-output` directly.
 
 - Symptom: reduced-motion preview animations still run. Cause: `.has-fade` and Radix `[data-state="open"]` selectors outrank the media-query reset. Fix: match their specificity in reduced-motion rules and assert computed `animationName`, not only the emulated preference.
+- Symptom: a module background service worker emits `importScripts()` after adding a pi-ai adapter. Cause: the lazy API import creates a split chunk that Extension.js loads as a classic worker script. Fix: statically import the browser-safe API implementation in the background bundle.
 
 ## TASTE
 - Selection translation UI should default to a compact tooltip-sized card; long content can expand, but the default should prefer density over empty space.

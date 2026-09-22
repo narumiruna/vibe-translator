@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import test from "node:test";
+import {
+	clearTranslationCache,
+	requestTranslations,
+} from "../src/translation/api.js";
 
 const require = createRequire(import.meta.url);
 const {
@@ -131,6 +135,34 @@ test("mock API server exposes models and responses endpoints", async () => {
 		});
 		assert.deepEqual(server.getResponseItemIds(), ["a"]);
 		assert.equal(server.getMaxActiveResponseCount(), 1);
+	} finally {
+		await server.close();
+	}
+});
+
+test("pi translation agent streams through the mock Responses API", async () => {
+	clearTranslationCache();
+	const server = await createMockApiServer();
+
+	try {
+		const translations = await requestTranslations({
+			settings: {
+				apiKey: "test-key",
+				baseUrl: server.baseUrl,
+				model: "mock-model",
+				systemPromptTemplate: "Translate into {{targetLanguage}}.",
+				userPromptTemplate: "Source:\n\n{{sourcePayload}}",
+				targetLanguage: "台灣正體中文",
+			},
+			items: [{ id: "a", kind: "paragraph", text: "Alpha" }],
+		});
+
+		assert.deepEqual(translations, [{ id: "a", translation: "[mock:Alpha]" }]);
+		const [request] = server.getResponseRequests();
+		assert.equal(request.stream, true);
+		assert.equal(request.store, false);
+		assert.equal(request.text.format.type, "json_schema");
+		assert.equal(request.text.format.name, "translation_result");
 	} finally {
 		await server.close();
 	}

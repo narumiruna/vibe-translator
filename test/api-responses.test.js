@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-	buildResponsesRequest,
+	applyTranslationResponseFormat,
 	buildTranslationInput,
-	extractOutputText,
-	parseTranslationResponse,
+	parseTranslationText,
+	TRANSLATION_RESPONSE_FORMAT,
 } from "../src/translation/responses.js";
 
 function buildSettings(overrides = {}) {
@@ -32,33 +32,23 @@ test("responses adapter builds prompt input from templates", () => {
 	assert.match(input[1].content, /"id":"a"/);
 });
 
-test("responses adapter builds Responses API request shape", () => {
-	const request = buildResponsesRequest(buildSettings(), [
-		{ id: "a", kind: "paragraph", text: "Hello" },
-	]);
+test("responses adapter adds the translation schema to pi-ai payloads", () => {
+	const request = applyTranslationResponseFormat({
+		model: "demo",
+		stream: true,
+	});
 
 	assert.equal(request.model, "demo");
+	assert.equal(request.stream, true);
+	assert.equal(request.text.format, TRANSLATION_RESPONSE_FORMAT);
 	assert.equal(request.text.format.type, "json_schema");
-	assert.equal(request.input.length, 2);
 });
 
-test("responses adapter extracts and parses output text", () => {
-	const payload = {
-		output: [
-			{
-				content: [
-					{ type: "output_text", text: '{"translations":' },
-					{
-						type: "output_text",
-						text: '[{"id":"a","translatedText":"你好"}]}',
-					},
-				],
-			},
-		],
-	};
-
-	assert.match(extractOutputText(payload), /translations/);
-	assert.deepEqual(parseTranslationResponse(payload), [
-		{ id: "a", translation: "你好" },
-	]);
+test("responses adapter parses fenced translation JSON", () => {
+	assert.deepEqual(
+		parseTranslationText(
+			'```json\n{"translations":[{"id":"a","translatedText":"你好"}]}\n```',
+		),
+		[{ id: "a", translation: "你好" }],
+	);
 });

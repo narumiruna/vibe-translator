@@ -1,3 +1,4 @@
+import { callTranslationAgent } from "./agent.js";
 import * as CacheApi from "./cache.js";
 import * as ChunkPlan from "./chunk-plan.js";
 import * as ProtectedFragments from "./protected-fragments.js";
@@ -32,12 +33,9 @@ const createProgressiveMergeState = ChunkPlan.createProgressiveMergeState;
 const consumeProgressiveTranslations = ChunkPlan.consumeProgressiveTranslations;
 const mergeRecursiveTranslations = ChunkPlan.mergeRecursiveTranslations;
 const getIncompleteSegmentIds = ChunkPlan.getIncompleteSegmentIds;
-const buildResponsesRequest = ResponsesApi.buildResponsesRequest;
 const buildTranslationInput = ResponsesApi.buildTranslationInput;
-const callResponsesApi = ResponsesApi.callResponsesApi;
 const estimateTokenCount = ResponsesApi.estimateTokenCount;
-const extractOutputText = ResponsesApi.extractOutputText;
-const parseTranslationResponse = ResponsesApi.parseTranslationResponse;
+const parseTranslationText = ResponsesApi.parseTranslationText;
 const stripCodeFences = ResponsesApi.stripCodeFences;
 const validateProtectedFragments =
 	ProtectedFragments.validateProtectedFragments;
@@ -90,18 +88,16 @@ async function requestTranslations(options) {
 	let freshTranslations;
 
 	try {
-		freshTranslations = await callResponsesApi(
-			settings,
-			missingItems,
+		freshTranslations = await callTranslationAgent(settings, missingItems, {
 			fetchImpl,
-		);
+			streamFn: options.streamFn,
+		});
 	} catch (error) {
 		if (error instanceof InvalidTranslationResponseError) {
-			freshTranslations = await callResponsesApi(
-				settings,
-				missingItems,
+			freshTranslations = await callTranslationAgent(settings, missingItems, {
 				fetchImpl,
-			);
+				streamFn: options.streamFn,
+			});
 		} else {
 			throw error;
 		}
@@ -129,6 +125,7 @@ async function requestTranslationsBatched(options) {
 				settings,
 				items: chunks[chunkIndex],
 				fetchImpl,
+				streamFn: options.streamFn,
 			});
 		},
 	});
@@ -167,6 +164,7 @@ async function requestTranslationsBatchedProgressive(options) {
 					settings,
 					items: chunkItems,
 					fetchImpl,
+					streamFn: options.streamFn,
 				});
 
 				successes[chunkIndex] = result;
@@ -201,7 +199,6 @@ async function requestTranslationsBatchedProgressive(options) {
 }
 
 export {
-	buildResponsesRequest,
 	buildTranslationInput,
 	chunkTranslationItems,
 	clearTranslationCache,
@@ -211,11 +208,10 @@ export {
 	DEFAULT_MAX_BATCH_CHARS,
 	DEFAULT_MAX_CONCURRENCY,
 	estimateTokenCount,
-	extractOutputText,
 	getIncompleteSegmentIds,
 	maskProtectedFragments,
 	mergeRecursiveTranslations,
-	parseTranslationResponse,
+	parseTranslationText,
 	requestTranslations,
 	requestTranslationsBatched,
 	requestTranslationsBatchedProgressive,

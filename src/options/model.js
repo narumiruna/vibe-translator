@@ -1,6 +1,9 @@
 import * as Appearance from "../shared/appearance.js";
 import * as Settings from "../shared/settings.js";
-import * as Api from "../translation/api.js";
+import {
+	buildTranslationInput,
+	estimateTokenCount,
+} from "../translation/responses.js";
 
 const CONNECTION_ERROR_FALLBACK =
 	"Connection test failed. Check the endpoint and model.";
@@ -116,7 +119,7 @@ function buildPromptPreview(draft) {
 	const targetLanguage =
 		String(draft?.targetLanguage || "").trim() ||
 		Settings.DEFAULT_SETTINGS.targetLanguage;
-	const input = Api.buildTranslationInput({
+	const input = buildTranslationInput({
 		systemPromptTemplate,
 		userPromptTemplate,
 		items: [
@@ -126,8 +129,8 @@ function buildPromptPreview(draft) {
 	});
 	const systemPrompt = input[0]?.content || "";
 	const userPrompt = input[1]?.content || "";
-	const systemTokens = Api.estimateTokenCount(systemPrompt);
-	const userTokens = Api.estimateTokenCount(userPrompt);
+	const systemTokens = estimateTokenCount(systemPrompt);
+	const userTokens = estimateTokenCount(userPrompt);
 
 	return {
 		systemPrompt,

@@ -107,6 +107,79 @@ function buildMockTranslations(requestPayload) {
 	}));
 }
 
+function writeMockResponsesStream(response, requestPayload, translations) {
+	const outputText = JSON.stringify({ translations });
+	const responseId = `resp_mock_${Date.now()}`;
+	const messageId = `msg_mock_${Date.now()}`;
+	const message = {
+		id: messageId,
+		type: "message",
+		status: "completed",
+		role: "assistant",
+		content: [
+			{
+				type: "output_text",
+				text: outputText,
+				annotations: [],
+				logprobs: [],
+			},
+		],
+	};
+	const completedResponse = {
+		id: responseId,
+		object: "response",
+		created_at: Math.floor(Date.now() / 1000),
+		status: "completed",
+		model: requestPayload.model || "mock-model",
+		output: [message],
+		parallel_tool_calls: true,
+		tool_choice: "auto",
+		tools: [],
+		usage: {
+			input_tokens: 10,
+			input_tokens_details: { cached_tokens: 0 },
+			output_tokens: 10,
+			output_tokens_details: { reasoning_tokens: 0 },
+			total_tokens: 20,
+		},
+	};
+	const events = [
+		{
+			type: "response.created",
+			response: { ...completedResponse, status: "in_progress", output: [] },
+		},
+		{
+			type: "response.output_item.added",
+			output_index: 0,
+			item: { ...message, status: "in_progress", content: [] },
+		},
+		{
+			type: "response.output_text.delta",
+			item_id: messageId,
+			output_index: 0,
+			content_index: 0,
+			delta: outputText,
+			logprobs: [],
+		},
+		{
+			type: "response.output_item.done",
+			output_index: 0,
+			item: message,
+		},
+		{ type: "response.completed", response: completedResponse },
+	];
+
+	response.writeHead(200, {
+		"Cache-Control": "no-cache",
+		"Content-Type": "text/event-stream; charset=utf-8",
+		Connection: "keep-alive",
+	});
+	for (const event of events) {
+		response.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+	}
+	response.end("data: [DONE]\n\n");
+}
+
 async function createMockApiServer(options = {}) {
 	const state = {
 		activeResponseCount: 0,
@@ -116,6 +189,7 @@ async function createMockApiServer(options = {}) {
 		responseDelayMs: Number(options.responseDelayMs) || 0,
 		responseItemIds: [],
 		responseRequestCount: 0,
+		responseRequests: [],
 	};
 	const server = http.createServer(async (request, response) => {
 		const requestUrl = new URL(request.url || "/", "http://127.0.0.1");
@@ -147,6 +221,7 @@ async function createMockApiServer(options = {}) {
 
 				const translations = buildMockTranslations(requestPayload);
 
+				state.responseRequests.push(requestPayload);
 				state.responseItemIds.push(
 					...translations.map((translation) => translation.id),
 				);
@@ -175,6 +250,11 @@ async function createMockApiServer(options = {}) {
 							error: { message: "Mock translation failure." },
 						}),
 					);
+					return;
+				}
+
+				if (requestPayload.stream === true) {
+					writeMockResponsesStream(response, requestPayload, translations);
 					return;
 				}
 
@@ -218,6 +298,9 @@ async function createMockApiServer(options = {}) {
 		},
 		getResponseRequestCount() {
 			return state.responseRequestCount;
+		},
+		getResponseRequests() {
+			return structuredClone(state.responseRequests);
 		},
 		failNextResponses(count = 1) {
 			state.failNextResponseCount = Math.max(0, Number(count) || 0);

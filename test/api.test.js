@@ -1,18 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-	buildResponsesRequest,
+	contentText,
+	createFauxCore,
+	fauxAssistantMessage,
+} from "@earendil-works/pi-ai";
+import {
 	buildTranslationInput,
 	chunkTranslationItems,
 	clearTranslationCache,
 	consumeProgressiveTranslations,
 	createProgressiveMergeState,
 	createRecursiveChunkPlan,
-	extractOutputText,
 	getIncompleteSegmentIds,
 	maskProtectedFragments,
 	mergeRecursiveTranslations,
-	parseTranslationResponse,
+	parseTranslationText,
 	requestTranslations,
 	requestTranslationsBatched,
 	requestTranslationsBatchedProgressive,
@@ -33,6 +36,42 @@ function buildSettings(overrides) {
 		targetLanguage: "台灣正體中文",
 		...overrides,
 	};
+}
+
+function createTestStream(handler) {
+	const faux = createFauxCore({
+		api: "translation-test",
+		provider: "translation-test",
+		models: [{ id: "translation-test" }],
+	});
+
+	return (model, context, options) => {
+		faux.appendResponses([
+			async () => {
+				const response = await handler(context, options);
+				return typeof response === "string"
+					? fauxAssistantMessage(response)
+					: response;
+			},
+		]);
+		return faux.streamSimple(model, context, options);
+	};
+}
+
+function readSourcePayload(context) {
+	const userMessage = context.messages.findLast(
+		(message) => message.role === "user",
+	);
+	const prompt = contentText(userMessage?.content || "");
+	return JSON.parse(prompt.split("\n\n").at(-1));
+}
+
+function createJsonStream(handler) {
+	return createTestStream(async (context) =>
+		JSON.stringify({
+			translations: await handler(readSourcePayload(context)),
+		}),
+	);
 }
 
 test("chunkTranslationItems splits by character limit", () => {
@@ -264,94 +303,41 @@ test("buildTranslationInput renders prompt templates with source payload", () =>
 	assert.doesNotMatch(input[1].content, /"items":\[/);
 });
 
-test("buildResponsesRequest uses responses api shape", () => {
-	const payload = buildResponsesRequest(buildSettings(), [
-		{ id: "1", kind: "heading", text: "Hello" },
-	]);
-
-	assert.equal(payload.model, "demo");
-	assert.equal(payload.input.length, 2);
-	assert.equal(payload.text.format.type, "json_schema");
-	assert.equal(payload.text.format.name, "translation_result");
-	assert.equal(payload.text.format.strict, true);
-	assert.deepEqual(payload.text.format.schema.required, ["translations"]);
-	assert.deepEqual(
-		payload.text.format.schema.properties.translations.items.required,
-		["id", "translatedText"],
-	);
-});
-
-test("parseTranslationResponse reads output_parsed translatedText", () => {
-	const parsed = parseTranslationResponse({
-		output_parsed: {
+test("parseTranslationText reads translatedText", () => {
+	const parsed = parseTranslationText(
+		JSON.stringify({
 			translations: [{ id: "1", translatedText: "你好" }],
-		},
-	});
+		}),
+	);
 
 	assert.deepEqual(parsed, [{ id: "1", translation: "你好" }]);
 });
 
-test("parseTranslationResponse still accepts legacy translation field", () => {
-	const parsed = parseTranslationResponse({
-		output_parsed: {
+test("parseTranslationText still accepts legacy translation field", () => {
+	const parsed = parseTranslationText(
+		JSON.stringify({
 			translations: [{ id: "1", translation: "你好" }],
-		},
-	});
+		}),
+	);
 
 	assert.deepEqual(parsed, [{ id: "1", translation: "你好" }]);
-});
-
-test("extractOutputText aggregates output text content", () => {
-	const text = extractOutputText({
-		output: [
-			{
-				type: "message",
-				content: [
-					{ type: "output_text", text: '{"translations":' },
-					{ type: "output_text", text: '[{"id":"1","translation":"你好"}]}' },
-				],
-			},
-		],
-	});
-
-	assert.equal(text, '{"translations":\n[{"id":"1","translation":"你好"}]}');
 });
 
 test("requestTranslations retries once when first response is invalid JSON", async () => {
 	let calls = 0;
-	const fakeFetch = async () => {
+	const streamFn = createTestStream(() => {
 		calls += 1;
-
-		if (calls === 1) {
-			return {
-				ok: true,
-				text: async () =>
-					JSON.stringify({
-						output: [
-							{
-								type: "message",
-								content: [{ type: "output_text", text: "not-json" }],
-							},
-						],
-					}),
-			};
-		}
-
-		return {
-			ok: true,
-			text: async () =>
-				JSON.stringify({
-					output_parsed: {
-						translations: [{ id: "1", translation: "你好" }],
-					},
-				}),
-		};
-	};
+		return calls === 1
+			? "not-json"
+			: JSON.stringify({
+					translations: [{ id: "1", translation: "你好" }],
+				});
+	});
 
 	const result = await requestTranslations({
 		settings: buildSettings(),
 		items: [{ id: "1", text: "Hello" }],
-		fetchImpl: fakeFetch,
+		streamFn,
 	});
 
 	assert.equal(calls, 2);
@@ -361,24 +347,18 @@ test("requestTranslations retries once when first response is invalid JSON", asy
 test("requestTranslations retries once when a successful response is missing an id", async () => {
 	clearTranslationCache();
 	let calls = 0;
-	const fakeFetch = async () => {
+	const streamFn = createTestStream(() => {
 		calls += 1;
-		return {
-			ok: true,
-			text: async () =>
-				JSON.stringify({
-					output_parsed: {
-						translations:
-							calls === 1
-								? [{ id: "a", translation: "甲" }]
-								: [
-										{ id: "a", translation: "甲" },
-										{ id: "b", translation: "乙" },
-									],
-					},
-				}),
-		};
-	};
+		return JSON.stringify({
+			translations:
+				calls === 1
+					? [{ id: "a", translation: "甲" }]
+					: [
+							{ id: "a", translation: "甲" },
+							{ id: "b", translation: "乙" },
+						],
+		});
+	});
 
 	const result = await requestTranslations({
 		settings: buildSettings({ model: "missing-id-retry" }),
@@ -386,7 +366,7 @@ test("requestTranslations retries once when a successful response is missing an 
 			{ id: "a", text: "Alpha" },
 			{ id: "b", text: "Beta" },
 		],
-		fetchImpl: fakeFetch,
+		streamFn,
 	});
 
 	assert.equal(calls, 2);
@@ -399,23 +379,17 @@ test("requestTranslations retries once when a successful response is missing an 
 test("requestTranslations retries once when a protected placeholder is missing", async () => {
 	clearTranslationCache();
 	let calls = 0;
-	const fakeFetch = async () => {
+	const streamFn = createTestStream(() => {
 		calls += 1;
-		return {
-			ok: true,
-			text: async () =>
-				JSON.stringify({
-					output_parsed: {
-						translations: [
-							{
-								id: "protected",
-								translation: calls === 1 ? "執行命令" : "執行 __OT_TOKEN_1__",
-							},
-						],
-					},
-				}),
-		};
-	};
+		return JSON.stringify({
+			translations: [
+				{
+					id: "protected",
+					translation: calls === 1 ? "執行命令" : "執行 __OT_TOKEN_1__",
+				},
+			],
+		});
+	});
 
 	const result = await requestTranslations({
 		settings: buildSettings({ model: "placeholder-retry" }),
@@ -428,7 +402,7 @@ test("requestTranslations retries once when a protected placeholder is missing",
 				],
 			},
 		],
-		fetchImpl: fakeFetch,
+		streamFn,
 	});
 
 	assert.equal(calls, 2);
@@ -437,41 +411,41 @@ test("requestTranslations retries once when a protected placeholder is missing",
 	]);
 });
 
-test("requestTranslations does not retry HTTP failures", async () => {
+test("requestTranslations does not retry provider failures", async () => {
 	clearTranslationCache();
 	let calls = 0;
+	const streamFn = createTestStream(() => {
+		calls += 1;
+		return fauxAssistantMessage("", {
+			stopReason: "error",
+			errorMessage: "Rate limited.",
+		});
+	});
 
 	await assert.rejects(
 		requestTranslations({
-			settings: buildSettings({ model: "http-no-retry" }),
+			settings: buildSettings({ model: "provider-no-retry" }),
 			items: [{ id: "a", text: "Alpha" }],
-			async fetchImpl() {
-				calls += 1;
-				return {
-					ok: false,
-					status: 429,
-					text: async () =>
-						JSON.stringify({ error: { message: "Rate limited." } }),
-				};
-			},
+			streamFn,
 		}),
 		/Rate limited\./,
 	);
 	assert.equal(calls, 1);
 });
 
-test("requestTranslations does not retry network failures", async () => {
+test("requestTranslations does not retry stream failures", async () => {
 	clearTranslationCache();
 	let calls = 0;
+	const streamFn = createTestStream(() => {
+		calls += 1;
+		throw new TypeError("Network unavailable.");
+	});
 
 	await assert.rejects(
 		requestTranslations({
 			settings: buildSettings({ model: "network-no-retry" }),
 			items: [{ id: "a", text: "Alpha" }],
-			async fetchImpl() {
-				calls += 1;
-				throw new TypeError("Network unavailable.");
-			},
+			streamFn,
 		}),
 		/Network unavailable\./,
 	);
@@ -482,30 +456,23 @@ test("requestTranslations reuses cached translations for identical text and sett
 	clearTranslationCache();
 
 	let calls = 0;
-	const fakeFetch = async () => {
+	const streamFn = createTestStream(() => {
 		calls += 1;
-
-		return {
-			ok: true,
-			text: async () =>
-				JSON.stringify({
-					output_parsed: {
-						translations: [{ id: "1", translation: "你好" }],
-					},
-				}),
-		};
-	};
+		return JSON.stringify({
+			translations: [{ id: "1", translation: "你好" }],
+		});
+	});
 	const settings = buildSettings({ model: "demo-cache" });
 
 	const first = await requestTranslations({
 		settings,
 		items: [{ id: "1", kind: "paragraph", text: "Hello" }],
-		fetchImpl: fakeFetch,
+		streamFn,
 	});
 	const second = await requestTranslations({
 		settings,
 		items: [{ id: "2", kind: "paragraph", text: "Hello" }],
-		fetchImpl: fakeFetch,
+		streamFn,
 	});
 
 	assert.equal(calls, 1);
@@ -562,34 +529,18 @@ test("requestTranslations retries incomplete coverage before caching", async () 
 	clearTranslationCache();
 
 	let calls = 0;
-	const fakeFetch = async () => {
+	const streamFn = createTestStream(() => {
 		calls += 1;
-
-		if (calls === 1) {
-			return {
-				ok: true,
-				text: async () =>
-					JSON.stringify({
-						output_parsed: {
-							translations: [{ id: "a", translation: "甲" }],
-						},
-					}),
-			};
-		}
-
-		return {
-			ok: true,
-			text: async () =>
-				JSON.stringify({
-					output_parsed: {
-						translations: [
+		return JSON.stringify({
+			translations:
+				calls === 1
+					? [{ id: "a", translation: "甲" }]
+					: [
 							{ id: "a", translation: "甲" },
 							{ id: "b", translation: "乙" },
 						],
-					},
-				}),
-		};
-	};
+		});
+	});
 	const settings = buildSettings({ model: "demo-coverage" });
 	const items = [
 		{ id: "a", kind: "paragraph", text: "Alpha", protectedFragments: [] },
@@ -599,7 +550,7 @@ test("requestTranslations retries incomplete coverage before caching", async () 
 	const result = await requestTranslations({
 		settings,
 		items,
-		fetchImpl: fakeFetch,
+		streamFn,
 	});
 
 	assert.equal(calls, 2);
@@ -614,7 +565,7 @@ test("requestTranslations retries incomplete coverage before caching", async () 
 			{ id: "c", kind: "paragraph", text: "Alpha", protectedFragments: [] },
 			{ id: "d", kind: "paragraph", text: "Beta", protectedFragments: [] },
 		],
-		fetchImpl: fakeFetch,
+		streamFn,
 	});
 
 	assert.equal(calls, 2);
@@ -634,27 +585,14 @@ test("requestTranslationsBatched runs chunks in parallel and preserves chunk ord
 		b: 10,
 		c: 30,
 	};
-	const fakeFetch = async (_url, options) => {
-		const body = JSON.parse(options.body);
-		const item = JSON.parse(body.input[1].content.split("\n\n").at(-1));
-
+	const streamFn = createJsonStream(async (item) => {
 		inFlight += 1;
 		maxInFlight = Math.max(maxInFlight, inFlight);
 		await new Promise((resolve) => setTimeout(resolve, delays[item.id]));
 		inFlight -= 1;
 
-		return {
-			ok: true,
-			text: async () =>
-				JSON.stringify({
-					output_parsed: {
-						translations: [
-							{ id: item.id, translation: `translated-${item.id}` },
-						],
-					},
-				}),
-		};
-	};
+		return [{ id: item.id, translation: `translated-${item.id}` }];
+	});
 
 	const result = await requestTranslationsBatched({
 		settings: buildSettings(),
@@ -664,7 +602,7 @@ test("requestTranslationsBatched runs chunks in parallel and preserves chunk ord
 			[{ id: "c", kind: "paragraph", text: "C", protectedFragments: [] }],
 		],
 		concurrency: 2,
-		fetchImpl: fakeFetch,
+		streamFn,
 	});
 
 	assert.equal(maxInFlight, 2);
@@ -714,25 +652,13 @@ test("requestTranslationsBatchedProgressive emits chunks in completion order", a
 	clearTranslationCache();
 
 	const completionOrder = [];
-	const fakeFetch = async (_url, options) => {
-		const body = JSON.parse(options.body);
-		const item = JSON.parse(body.input[1].content.split("\n\n").at(-1));
+	const streamFn = createJsonStream(async (item) => {
 		const delays = { a: 40, b: 5, c: 20 };
 
 		await new Promise((resolve) => setTimeout(resolve, delays[item.id]));
 
-		return {
-			ok: true,
-			text: async () =>
-				JSON.stringify({
-					output_parsed: {
-						translations: [
-							{ id: item.id, translation: `translated-${item.id}` },
-						],
-					},
-				}),
-		};
-	};
+		return [{ id: item.id, translation: `translated-${item.id}` }];
+	});
 
 	const result = await requestTranslationsBatchedProgressive({
 		settings: buildSettings(),
@@ -742,7 +668,7 @@ test("requestTranslationsBatchedProgressive emits chunks in completion order", a
 			[{ id: "c", kind: "paragraph", text: "C", protectedFragments: [] }],
 		],
 		concurrency: 3,
-		fetchImpl: fakeFetch,
+		streamFn,
 		onChunkResolved: async ({ chunkItems }) => {
 			completionOrder.push(chunkItems[0].id);
 		},
@@ -757,6 +683,10 @@ test("requestTranslationsBatchedProgressive stops scheduling stale chunks", asyn
 	clearTranslationCache();
 	let current = true;
 	let requestCount = 0;
+	const streamFn = createJsonStream((item) => {
+		requestCount += 1;
+		return [{ id: item.id, translation: `translated-${item.id}` }];
+	});
 	const result = await requestTranslationsBatchedProgressive({
 		settings: buildSettings({ model: "stale-progressive-batch" }),
 		chunks: ["a", "b", "c"].map((id) => [
@@ -764,22 +694,7 @@ test("requestTranslationsBatchedProgressive stops scheduling stale chunks", asyn
 		]),
 		concurrency: 1,
 		shouldContinue: () => current,
-		async fetchImpl(_url, options) {
-			requestCount += 1;
-			const body = JSON.parse(options.body);
-			const item = JSON.parse(body.input[1].content.split("\n\n").at(-1));
-			return {
-				ok: true,
-				text: async () =>
-					JSON.stringify({
-						output_parsed: {
-							translations: [
-								{ id: item.id, translation: `translated-${item.id}` },
-							],
-						},
-					}),
-			};
-		},
+		streamFn,
 		onChunkResolved() {
 			current = false;
 		},
@@ -804,24 +719,18 @@ test("requestTranslationsBatchedProgressive preserves every id in a grouped subt
 	);
 	const chunks = chunkTranslationItems(plan.expandedItems);
 	let requestCount = 0;
+	const streamFn = createJsonStream((payload) => {
+		requestCount += 1;
+		return payload.items.map((item) => ({
+			id: item.id,
+			translatedText: `translated-${item.id}`,
+		}));
+	});
 	const result = await requestTranslationsBatchedProgressive({
 		settings: buildSettings({ model: "grouped-subtitles" }),
 		chunks,
 		concurrency: 5,
-		async fetchImpl(_url, options) {
-			requestCount += 1;
-			const body = JSON.parse(options.body);
-			const payload = JSON.parse(body.input[1].content.split("\n\n").at(-1));
-			const translations = payload.items.map((item) => ({
-				id: item.id,
-				translatedText: `translated-${item.id}`,
-			}));
-
-			return {
-				ok: true,
-				text: async () => JSON.stringify({ output_parsed: { translations } }),
-			};
-		},
+		streamFn,
 	});
 
 	assert.equal(requestCount, 1);
@@ -842,30 +751,16 @@ test("requestTranslationsBatchedProgressive sends one item per request for norma
 		200,
 	);
 	const requestPayloadIds = [];
-	const fakeFetch = async (_url, options) => {
-		const body = JSON.parse(options.body);
-		const payload = JSON.parse(body.input[1].content.split("\n\n").at(-1));
-
+	const streamFn = createJsonStream((payload) => {
 		requestPayloadIds.push([payload.id]);
-
-		return {
-			ok: true,
-			text: async () =>
-				JSON.stringify({
-					output_parsed: {
-						translations: [
-							{ id: payload.id, translation: `translated-${payload.id}` },
-						],
-					},
-				}),
-		};
-	};
+		return [{ id: payload.id, translation: `translated-${payload.id}` }];
+	});
 
 	const result = await requestTranslationsBatchedProgressive({
 		settings: buildSettings(),
 		chunks: plan.chunks,
 		concurrency: 2,
-		fetchImpl: fakeFetch,
+		streamFn,
 	});
 
 	assert.deepEqual(requestPayloadIds, [["a"], ["b"]]);

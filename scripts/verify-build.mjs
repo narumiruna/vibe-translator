@@ -13,7 +13,7 @@ const baselinePath = path.join(
 );
 const maximumOptionsBytes = 950_000;
 const maximumPdfBytes = 1_700_000;
-const maximumUnpackedBytes = 2_900_000;
+const maximumUnpackedBytes = 3_100_000;
 const forbiddenPathPatterns = [
 	/(^|\/)node_modules\//u,
 	/(^|\/)test(s)?\//u,
