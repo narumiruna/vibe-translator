@@ -245,11 +245,11 @@ function normalizeSelectionTheme(input, fallback) {
 
 function normalizeTranslationAppearance(input) {
 	const source = isRecord(input) ? input : {};
-	const presetId = normalizeEnum(
-		source.presetId,
-		ALL_PRESET_IDS,
-		"calm-reading",
-	);
+	const presetId = ALL_PRESET_IDS.includes(source.presetId)
+		? source.presetId
+		: isRecord(source.inline) && Object.keys(source.inline).length > 0
+			? "custom"
+			: "calm-reading";
 
 	const fallback = createTranslationAppearancePreset(
 		presetId === "custom" ? "calm-reading" : presetId,

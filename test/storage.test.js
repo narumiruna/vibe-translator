@@ -167,6 +167,25 @@ test("validateSettings preserves normalized nested appearance settings", () => {
 	assert.equal(result.settings.translationAppearance.selection.widthPx, 420);
 });
 
+test("validateSettings preserves unlabeled custom appearance across repeated validation", () => {
+	const input = {
+		apiKey: "sk-demo",
+		baseUrl: "https://example.com/v1",
+		model: "gpt-demo",
+		targetLanguage: "日本語",
+		translationAppearance: {
+			inline: { fontSizePx: 18, light: { textColor: "#abcdef" } },
+		},
+	};
+	const first = validateSettings(input).settings;
+	const second = validateSettings(first).settings;
+
+	assert.equal(first.translationAppearance.presetId, "custom");
+	assert.equal(first.translationAppearance.inline.fontSizePx, 18);
+	assert.equal(first.translationAppearance.inline.light.textColor, "#abcdef");
+	assert.deepEqual(second.translationAppearance, first.translationAppearance);
+});
+
 test("validateSettings requires sourcePayload in user prompt template", () => {
 	const result = validateSettings({
 		apiKey: "sk-demo",

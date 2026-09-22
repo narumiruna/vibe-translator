@@ -127,7 +127,7 @@ test("normalizeTranslationAppearance clamps unsafe and malformed values", () => 
 		},
 	});
 
-	assert.equal(normalized.presetId, "calm-reading");
+	assert.equal(normalized.presetId, "custom");
 	assert.deepEqual(
 		{
 			fontFamily: normalized.inline.fontFamily,
@@ -189,6 +189,21 @@ test("normalizeTranslationAppearance clamps unsafe and malformed values", () => 
 		textColor: "#d1d1d6",
 		accentColor: "#112233",
 	});
+});
+
+test("appearance normalization preserves unlabeled custom values across repeated passes", () => {
+	for (const input of [
+		{ inline: { fontSizePx: 18, light: { textColor: "#abcdef" } } },
+		{
+			presetId: "removed-preset",
+			inline: { fontSizePx: 19, dark: { accentColor: "#123456" } },
+		},
+	]) {
+		const normalized = normalizeTranslationAppearance(input);
+
+		assert.equal(normalized.presetId, "custom");
+		assert.deepEqual(normalizeTranslationAppearance(normalized), normalized);
+	}
 });
 
 test("partial custom appearance fills missing nested values without mutating input", () => {

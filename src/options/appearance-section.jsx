@@ -358,6 +358,7 @@ function AppearanceSection({
 								checked={inline.showBackground}
 								id="inline-show-background"
 								label="Show background"
+								note="When off, translation text and markers inherit the page color for readability."
 								onChange={(event) =>
 									onAppearanceField(
 										["inline", "showBackground"],
