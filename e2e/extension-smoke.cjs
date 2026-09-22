@@ -136,7 +136,7 @@ async function runAppearanceOptionsSmoke(
 		await existingNote.evaluate(
 			(element) => getComputedStyle(element).backgroundColor,
 		),
-		"rgb(243, 248, 245)",
+		"rgba(0, 0, 0, 0)",
 	);
 
 	const page = await context.newPage();
@@ -267,7 +267,7 @@ async function runAppearanceOptionsSmoke(
 		await page.locator("#translation-appearance-preset").inputValue(),
 		"calm-reading",
 	);
-	assert.equal(await page.locator("#inline-font-size").inputValue(), "16");
+	assert.equal(await page.locator("#inline-font-size").inputValue(), "14");
 	assert.match(
 		(await page.locator("#save-state").textContent()) || "",
 		/Unsaved changes/i,
@@ -345,9 +345,9 @@ async function runAppearanceOptionsSmoke(
 
 	assert.equal(
 		await existingNote.evaluate(
-			(element) => getComputedStyle(element).backgroundColor,
+			(element) => getComputedStyle(element).fontSize,
 		),
-		"rgb(243, 248, 245)",
+		"14px",
 		"Saving appearance should not proactively restyle existing translations.",
 	);
 	await callBackground(context, "translatePage", {
@@ -356,8 +356,8 @@ async function runAppearanceOptionsSmoke(
 	await waitFor(
 		async () =>
 			(await existingNote.evaluate(
-				(element) => getComputedStyle(element).backgroundColor,
-			)) === "rgba(0, 0, 0, 0)",
+				(element) => getComputedStyle(element).fontSize,
+			)) === "18px",
 		{
 			timeoutMs: REQUEST_TIMEOUT_MS,
 			timeoutMessage:
@@ -533,20 +533,20 @@ async function runPageTranslationSmoke(context, serverOrigin, artifactsDir) {
 		};
 	});
 
-	assert.notEqual(
+	assert.equal(
 		noteAppearance.backgroundColor,
 		"rgba(0, 0, 0, 0)",
-		"Expected translations to use a distinct reading surface.",
+		"Expected default translations to remain visually lightweight.",
 	);
-	assert.equal(noteAppearance.borderLeftWidth, "3px");
+	assert.equal(noteAppearance.borderLeftWidth, "2px");
 	assert.equal(noteAppearance.textDecorationLine, "none");
-	assert.match(
+	assert.equal(
 		(
 			(await firstNote.locator('[data-ot-role="note-label"]').textContent()) ||
 			""
 		).trim(),
-		/\S/,
-		"Expected a restrained target-language label.",
+		"Translation",
+		"Expected a clear translation status label.",
 	);
 	await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
 	const darkAppearance = await firstNote.evaluate((note) => {
@@ -558,7 +558,7 @@ async function runPageTranslationSmoke(context, serverOrigin, artifactsDir) {
 		};
 	});
 
-	assert.equal(darkAppearance.backgroundColor, "rgb(23, 35, 28)");
+	assert.equal(darkAppearance.backgroundColor, "rgba(0, 0, 0, 0)");
 	assert.equal(darkAppearance.animationName, "none");
 	await expectVisibleText(
 		page,

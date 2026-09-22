@@ -26,6 +26,17 @@ export function applyContentStyles(options = {}) {
 	const fadeAnimation = inlineAppearance.enableFadeAnimation
 		? "ot-fade-in 0.18s ease forwards"
 		: "none";
+	const inlineLabelDisplay = inlineAppearance.showLabel
+		? inlineAppearance.showBackground
+			? "block"
+			: "inline-block"
+		: "none";
+	const inlineLabelMargin = inlineAppearance.showBackground
+		? "0 0 0.4rem"
+		: "0 0.55em 0 0";
+	const inlineBodyDisplay = inlineAppearance.showBackground
+		? "block"
+		: "inline";
 	const selectionLightBackground = AppearanceApi.hexToRgbaColor(
 		selectionAppearance.light.surfaceColor,
 		selectionAppearance.surfaceOpacityPercent,
@@ -85,7 +96,7 @@ export function applyContentStyles(options = {}) {
         font-size: ${inlineAppearance.fontSizePx}px;
         font-weight: ${inlineAppearance.fontWeight};
         line-height: ${inlineAppearance.lineHeight};
-        letter-spacing: 0.008em;
+        letter-spacing: normal;
         color: ${inlineAppearance.light.textColor};
         text-align: start;
         background: ${inlineBackground};
@@ -225,11 +236,12 @@ export function applyContentStyles(options = {}) {
 
       .translation [${ROOT_ATTR}="note-label"] {
         all: initial;
-        display: ${inlineAppearance.showLabel ? "block" : "none"};
-        margin: 0 0 0.4rem;
+        display: ${inlineLabelDisplay};
+        margin: ${inlineLabelMargin};
         color: ${inlineAppearance.light.labelColor};
-        font: 600 0.6875rem/1.2 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-        letter-spacing: 0.06em;
+        font: 600 0.625rem/1.2 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        letter-spacing: 0.035em;
+        vertical-align: 0.08em;
       }
 
       @media (prefers-color-scheme: dark) {
@@ -240,7 +252,7 @@ export function applyContentStyles(options = {}) {
 
       .translation [${ROOT_ATTR}="note-body"] {
         all: initial;
-        display: block;
+        display: ${inlineBodyDisplay};
         max-width: 100%;
         margin: 0;
         padding: 0;
@@ -255,6 +267,8 @@ export function applyContentStyles(options = {}) {
       }
 
       .translation [${ROOT_ATTR}="note-body"][data-state="pending"] {
+        display: inline-block;
+        width: min(12rem, 72%);
         min-height: 1.2em;
         color: transparent;
         border-radius: 6px;

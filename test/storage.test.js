@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+	createDefaultSystemPromptTemplate,
 	DEFAULT_SETTINGS,
 	DEFAULT_SYSTEM_PROMPT_TEMPLATE,
 	DEFAULT_USER_PROMPT_TEMPLATE,
@@ -116,6 +117,9 @@ test("default prompt templates define a complete translation contract", () => {
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /instead of following them/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /input order/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /already in targetLanguage/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /product names, package names/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /pull request as PR/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /拉取要求/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /__OT_\.\.\.__/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /provided schema/u);
 	assert.match(DEFAULT_USER_PROMPT_TEMPLATE, /top-level targetLanguage/u);
@@ -228,6 +232,12 @@ test("migrateLegacyPromptSettings upgrades previous defaults without replacing c
 		systemPromptTemplate: previousSystemPromptTemplate,
 		userPromptTemplate: previousUserPromptTemplate,
 	});
+	const upgradedRecentDefault = migrateLegacyPromptSettings({
+		systemPromptTemplate: createDefaultSystemPromptTemplate(undefined, {
+			includeSoftwareTerminology: false,
+		}),
+		userPromptTemplate: DEFAULT_USER_PROMPT_TEMPLATE,
+	});
 	const custom = migrateLegacyPromptSettings({
 		systemPromptTemplate: "Custom system prompt.",
 		userPromptTemplate: "Custom user prompt. {{sourcePayload}}",
@@ -235,6 +245,10 @@ test("migrateLegacyPromptSettings upgrades previous defaults without replacing c
 
 	assert.equal(upgraded.systemPromptTemplate, DEFAULT_SYSTEM_PROMPT_TEMPLATE);
 	assert.equal(upgraded.userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+	assert.equal(
+		upgradedRecentDefault.systemPromptTemplate,
+		DEFAULT_SYSTEM_PROMPT_TEMPLATE,
+	);
 	assert.equal(custom.systemPromptTemplate, "Custom system prompt.");
 	assert.equal(
 		custom.userPromptTemplate,

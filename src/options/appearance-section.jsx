@@ -368,7 +368,7 @@ function AppearanceSection({
 							<CheckboxField
 								checked={inline.showLabel}
 								id="inline-show-label"
-								label="Show language label"
+								label="Show translation label"
 								onChange={(event) =>
 									onAppearanceField(
 										["inline", "showLabel"],

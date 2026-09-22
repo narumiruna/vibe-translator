@@ -58,12 +58,24 @@ function ReadingAppearancePreview({
 						<span
 							className="reading-preview-label"
 							id="reading-preview-label"
-							style={{ color: colors.labelColor }}
+							style={{
+								color: colors.labelColor,
+								display: inline.showBackground ? "block" : "inline-block",
+								margin: inline.showBackground ? "0 0 0.4rem" : "0 0.55em 0 0",
+							}}
+							title={language}
 						>
-							{language}
+							Translation
 						</span>
 					) : null}
-					<p>我為什麼不斷談論未來的程式設計將如何改變？</p>
+					<p
+						style={{
+							display: inline.showBackground ? "block" : "inline",
+							margin: inline.showBackground ? "6px 0 0" : 0,
+						}}
+					>
+						我為什麼不斷談論未來的程式設計將如何改變？
+					</p>
 				</div>
 			</div>
 			<p

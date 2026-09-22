@@ -132,9 +132,9 @@
 
 .reading-preview-source-label,
 .reading-preview-label {
-	font-size: 11px;
+	font-size: 10px;
 	font-weight: 600;
-	letter-spacing: 0.06em;
+	letter-spacing: 0.035em;
 }
 
 .reading-preview p {
@@ -156,9 +156,8 @@
 }
 
 .reading-preview-label {
-	display: block;
-	margin-bottom: 0.4rem;
 	line-height: 1.2;
+	vertical-align: 0.08em;
 }
 
 .contrast-status {

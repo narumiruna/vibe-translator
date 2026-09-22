@@ -263,7 +263,7 @@ test("YouTube uses the compact persistent subtitle behavior", () => {
 	assert.equal(shouldKeepSessionAlive(youtubeProfile), true);
 });
 
-test("ordinary pages preserve inline reading-card behavior", () => {
+test("ordinary pages preserve inline note behavior", () => {
 	assert.equal(isSubtitleProfile(defaultProfile), false);
 	assert.equal(getMeaningfulCharacterMinimum(defaultProfile), 2);
 	assert.equal(getSegmentKind(defaultProfile, "heading"), "heading");

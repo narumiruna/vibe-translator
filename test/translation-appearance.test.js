@@ -11,35 +11,35 @@ import {
 	TRANSLATION_APPEARANCE_PRESETS,
 } from "../src/shared/appearance.js";
 
-test("Calm Reading preserves the current inline and selection appearance", () => {
+test("Calm Reading defaults to a compact neutral inline appearance", () => {
 	assert.deepEqual(DEFAULT_TRANSLATION_APPEARANCE, {
 		presetId: "calm-reading",
 		inline: {
-			fontFamily: "serif",
-			fontSizePx: 16,
+			fontFamily: "sans-serif",
+			fontSizePx: 14,
 			fontWeight: 400,
-			lineHeight: 1.72,
+			lineHeight: 1.5,
 			maxWidthPx: 832,
-			marginTopPx: 16,
-			marginBottomPx: 24,
-			paddingVerticalPx: 13,
-			paddingHorizontalPx: 16,
-			borderRadiusPx: 8,
-			accentWidthPx: 3,
-			showBackground: true,
+			marginTopPx: 4,
+			marginBottomPx: 8,
+			paddingVerticalPx: 1,
+			paddingHorizontalPx: 8,
+			borderRadiusPx: 0,
+			accentWidthPx: 2,
+			showBackground: false,
 			showLabel: true,
 			enableFadeAnimation: true,
 			light: {
-				backgroundColor: "#f3f8f5",
-				textColor: "#1f2923",
-				accentColor: "#4b765c",
-				labelColor: "#4b765c",
+				backgroundColor: "#ffffff",
+				textColor: "#57606a",
+				accentColor: "#afb8c1",
+				labelColor: "#6e7781",
 			},
 			dark: {
-				backgroundColor: "#17231c",
-				textColor: "#eef6f0",
-				accentColor: "#78a987",
-				labelColor: "#91b99d",
+				backgroundColor: "#0d1117",
+				textColor: "#8c959f",
+				accentColor: "#484f58",
+				labelColor: "#8c959f",
 			},
 		},
 		selection: {
@@ -84,7 +84,7 @@ test("appearance presets return independent complete copies", () => {
 	minimal.inline.light.textColor = "#000000";
 	assert.equal(
 		createTranslationAppearancePreset("minimal").inline.light.textColor,
-		"#374151",
+		"#57606a",
 	);
 });
 
@@ -146,27 +146,27 @@ test("normalizeTranslationAppearance clamps unsafe and malformed values", () => 
 			enableFadeAnimation: normalized.inline.enableFadeAnimation,
 		},
 		{
-			fontFamily: "serif",
+			fontFamily: "sans-serif",
 			fontSizePx: 24,
 			fontWeight: 400,
 			lineHeight: 1.3,
 			maxWidthPx: 832,
 			marginTopPx: 0,
 			marginBottomPx: 48,
-			paddingVerticalPx: 13,
+			paddingVerticalPx: 1,
 			paddingHorizontalPx: 32,
 			borderRadiusPx: 0,
 			accentWidthPx: 8,
-			showBackground: true,
+			showBackground: false,
 			showLabel: false,
 			enableFadeAnimation: true,
 		},
 	);
 	assert.deepEqual(normalized.inline.light, {
-		backgroundColor: "#f3f8f5",
+		backgroundColor: "#ffffff",
 		textColor: "#abcdef",
-		accentColor: "#4b765c",
-		labelColor: "#4b765c",
+		accentColor: "#afb8c1",
+		labelColor: "#6e7781",
 	});
 	assert.deepEqual(
 		{
@@ -204,9 +204,24 @@ test("partial custom appearance fills missing nested values without mutating inp
 	assert.equal(normalized.presetId, "custom");
 	assert.equal(normalized.inline.fontFamily, "inherit");
 	assert.equal(normalized.inline.fontSizePx, 18);
-	assert.equal(normalized.inline.lineHeight, 1.72);
+	assert.equal(normalized.inline.lineHeight, 1.5);
 	assert.equal(normalized.selection.widthPx, 320);
 	assert.equal(normalized.selection.light.surfaceColor, "#ffffff");
+});
+
+test("named presets upgrade stale inline values while preserving selection settings", () => {
+	const normalized = normalizeTranslationAppearance({
+		presetId: "calm-reading",
+		inline: {
+			fontFamily: "serif",
+			fontSizePx: 16,
+			showBackground: true,
+		},
+		selection: { widthPx: 360 },
+	});
+
+	assert.deepEqual(normalized.inline, DEFAULT_TRANSLATION_APPEARANCE.inline);
+	assert.equal(normalized.selection.widthPx, 360);
 });
 
 test("getContrastingTextColor chooses the stronger black or white contrast", () => {
@@ -221,5 +236,5 @@ test("calculateContrastRatio validates colors and returns WCAG ratios", () => {
 	assert.equal(calculateContrastRatio("#ffffff", "#ffffff"), 1);
 	assert.equal(calculateContrastRatio(" #000000 ", "#ffffff"), 21);
 	assert.equal(calculateContrastRatio("bad", "#ffffff"), null);
-	assert.ok(calculateContrastRatio("#1f2923", "#f3f8f5") > 4.5);
+	assert.ok(calculateContrastRatio("#57606a", "#ffffff") > 4.5);
 });
