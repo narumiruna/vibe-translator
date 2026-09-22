@@ -37,7 +37,7 @@ function createDefaultSystemPromptTemplate(leadInstruction, options = {}) {
 	if (options.includeSoftwareTerminology !== false) {
 		rules.push(
 			"Preserve product names, package names, file paths, commands, code, identifiers, account names, commit hashes, and established technical terms unless a standard localized form is clearly preferred.",
-			"For Traditional Chinese software-development text, translate pull request as PR, or as 合併請求 when a localized term is needed; keep commit, review, and merge in English. Never use literal forms such as 拉取要求 or 提取要求, and keep equivalent terms consistent across all items.",
+			"For Traditional Chinese software-development text, translate pull request as PR, or use the established localized term when context requires it; keep commit, review, and merge in English, avoid literal word-for-word variants, and keep equivalent terms consistent across all items.",
 		);
 	}
 
@@ -151,7 +151,7 @@ const DEFAULT_SETTINGS = Object.freeze({
 	showTranslationDebugInfo: false,
 	selectionPanelPositionMode: "near-selection",
 	youtubeSubtitleDisplayMode: "translation-only",
-	targetLanguage: "台灣正體中文",
+	targetLanguage: "Traditional Chinese (Taiwan)",
 	disabledDomains: "",
 });
 

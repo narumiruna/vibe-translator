@@ -74,7 +74,7 @@ function ReadingAppearancePreview({
 							margin: inline.showBackground ? "6px 0 0" : 0,
 						}}
 					>
-						我為什麼不斷談論未來的程式設計將如何改變？
+						The translation appears here as compact supporting text.
 					</p>
 				</div>
 			</div>
@@ -146,7 +146,7 @@ function SelectionAppearancePreview({
 					<Cross2Icon />
 				</span>
 			</div>
-			<p>這是一段簡短的選取文字翻譯預覽。</p>
+			<p>A short selected-text translation preview appears here.</p>
 		</div>
 	);
 }

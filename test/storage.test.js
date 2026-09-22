@@ -110,6 +110,7 @@ test("validateSettings merges prompt template defaults", () => {
 		DEFAULT_SETTINGS.userPromptTemplate,
 		DEFAULT_USER_PROMPT_TEMPLATE,
 	);
+	assert.equal(DEFAULT_SETTINGS.targetLanguage, "Traditional Chinese (Taiwan)");
 });
 
 test("default prompt templates define a complete translation contract", () => {
@@ -119,7 +120,7 @@ test("default prompt templates define a complete translation contract", () => {
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /already in targetLanguage/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /product names, package names/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /pull request as PR/u);
-	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /拉取要求/u);
+	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /avoid literal word-for-word/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /__OT_\.\.\.__/u);
 	assert.match(DEFAULT_SYSTEM_PROMPT_TEMPLATE, /provided schema/u);
 	assert.match(DEFAULT_USER_PROMPT_TEMPLATE, /top-level targetLanguage/u);

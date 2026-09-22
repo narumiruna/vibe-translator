@@ -99,7 +99,7 @@ function SetupSection({
 						name="targetLanguage"
 						note="Translate pages and selected text into this language."
 						onChange={(event) => onField("targetLanguage", event.target.value)}
-						placeholder="台灣正體中文"
+						placeholder="Traditional Chinese (Taiwan)"
 						required
 						value={draft.targetLanguage}
 					/>

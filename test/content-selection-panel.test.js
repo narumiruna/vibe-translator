@@ -297,6 +297,11 @@ test("selection panel renderer cleanup removes lifecycle handlers", () => {
 
 	assert.equal(harness.listeners.has("keydown"), true);
 	assert.equal(harness.viewportListeners.has("resize"), true);
+	assert.equal(
+		harness.document.querySelector('[data-ot-role="selection-panel-icon"]')
+			?.textContent,
+		"TR",
+	);
 
 	harness.renderer.cleanup();
 

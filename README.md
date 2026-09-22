@@ -54,7 +54,7 @@ The options interface uses locally bundled React and Radix Themes, Colors, Icons
 | API Key | Secret key sent in the `Authorization` header |
 | Base URL | Root URL of any OpenAI-compatible API (default: `https://api.openai.com/v1`) |
 | Model | Model name, e.g. `gpt-4.1-mini` |
-| Target Language | Language to translate into (default: `台灣正體中文`) |
+| Target Language | Language to translate into (default: `Traditional Chinese (Taiwan)`) |
 | System Prompt Template | Stable translation rules; supports `{{targetLanguage}}`, `{{itemCount}}`, and `{{itemKind}}` |
 | User Prompt Template | Translation request and source data; must include `{{sourcePayload}}` and also supports the system-template variables |
 | Reading Appearance | Calm Reading, Minimal, and High Contrast presets plus font, size, spacing, surface, accent, label, animation, and separate light/dark colors |
