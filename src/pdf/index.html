@@ -8,17 +8,19 @@
 		<link rel="stylesheet" href="./index.css" />
 	</head>
 	<body>
-		<header class="toolbar" aria-label="PDF reader controls">
+		<header class="toolbar">
 			<div class="document-heading">
 				<strong id="document-title">Vibe PDF Reader</strong>
 				<span id="document-status" role="status" aria-live="polite">Starting…</span>
 			</div>
-			<div class="control-group" aria-label="Source controls">
+			<!-- biome-ignore lint/a11y/useSemanticElements: Keep the toolbar's flex layout while labeling its control group. -->
+			<div class="control-group" role="group" aria-label="Source controls">
 				<button id="open-original" type="button" disabled>Open original</button>
 				<label class="file-button" for="local-file">Choose PDF</label>
 				<input id="local-file" type="file" accept="application/pdf,.pdf" />
 			</div>
-			<div class="control-group" aria-label="Page controls">
+			<!-- biome-ignore lint/a11y/useSemanticElements: Keep the toolbar's flex layout while labeling its control group. -->
+			<div class="control-group" role="group" aria-label="Page controls">
 				<button id="previous-page" type="button" aria-label="Previous page">− Page</button>
 				<span id="page-status">Page – / –</span>
 				<button id="next-page" type="button" aria-label="Next page">+ Page</button>
@@ -26,7 +28,8 @@
 				<span id="zoom-status">100%</span>
 				<button id="zoom-in" type="button" aria-label="Zoom in">+</button>
 			</div>
-			<div class="control-group" aria-label="Translation controls">
+			<!-- biome-ignore lint/a11y/useSemanticElements: Keep the toolbar's flex layout while labeling its control group. -->
+			<div class="control-group" role="group" aria-label="Translation controls">
 				<button id="translate-all" type="button" disabled>Translate entire document</button>
 				<button id="pause-translation" type="button" disabled>Pause</button>
 				<button id="retry-failed" type="button" disabled>Retry failed</button>
@@ -46,6 +49,7 @@
 				<div class="pane-heading">
 					<h1 id="source-title">Original PDF</h1>
 				</div>
+				<!-- biome-ignore lint/a11y/noNoninteractiveTabindex: The scroll pane needs keyboard focus for scrolling. -->
 				<div id="source-scroll" class="pane-scroll source-scroll" tabindex="0">
 					<div id="source-pages" class="source-pages"></div>
 				</div>
@@ -61,6 +65,7 @@
 					<button id="copy-page" type="button" disabled>Copy page</button>
 					<button id="copy-document" type="button" disabled>Copy document</button>
 				</div>
+				<!-- biome-ignore lint/a11y/noNoninteractiveTabindex: The scroll pane needs keyboard focus for scrolling. -->
 				<div id="translation-scroll" class="pane-scroll translation-scroll" tabindex="0">
 					<div id="translation-pages"></div>
 				</div>
