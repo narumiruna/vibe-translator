@@ -4,7 +4,7 @@
 	"scripts": {
 		"check": "npx --no-install biome ci && npm run lint:modules && npm test && npm run build && npm run verify:build",
 		"lint:modules": "find src scripts -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
-		"test": "vitest run test",
+		"test": "vitest run",
 		"e2e:smoke": "node e2e/extension-smoke.cjs",
 		"e2e:mock": "PLAYWRIGHT_MOCK_API=1 node e2e/extension-smoke.cjs",
 		"e2e:options": "PLAYWRIGHT_MOCK_API=1 node e2e/options-ui.cjs",
