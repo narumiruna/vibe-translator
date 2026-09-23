@@ -1,11 +1,9 @@
 import { createProvider, envApiKeyAuth } from "@earendil-works/pi-ai";
 
 import { browserApiFor, withBrowserApi } from "./browser-apis.js";
-import {
-	browserBuiltinProviders,
-	openaiCodexProvider,
-} from "./browser-provider-catalog.js";
-import { createBrowserCodexOAuth, OPENAI_PROVIDER_ID } from "./codex-oauth.js";
+import { createBrowserOAuth } from "./browser-oauth.js";
+import { browserBuiltinProviders } from "./browser-provider-catalog.js";
+import { getGitHubCopilotBaseUrl } from "./github-copilot-oauth.js";
 
 const CUSTOM_PROVIDER_ID = "openai-compatible";
 const RADIUS_CONFIG_URL = "https://radius.pi.dev/v1/config";
@@ -106,31 +104,23 @@ function browserVertexProvider(provider) {
 	};
 }
 
-function createBrowserCodexProvider() {
-	const provider = openaiCodexProvider();
-	return {
-		...provider,
-		auth: { oauth: createBrowserCodexOAuth() },
-	};
-}
-
 function browserProvider(provider) {
-	if (provider.id === OPENAI_PROVIDER_ID) {
-		return createBrowserCodexProvider();
-	}
-
-	const withoutNodeOAuth = {
+	const oauth = createBrowserOAuth(provider.id);
+	const browserCompatible = {
 		...provider,
-		auth: provider.auth.apiKey ? { apiKey: provider.auth.apiKey } : {},
+		auth: {
+			...(provider.auth.apiKey ? { apiKey: provider.auth.apiKey } : {}),
+			...(oauth ? { oauth } : {}),
+		},
 	};
 
 	if (provider.id === "azure-openai-responses") {
-		return browserAzureProvider(withoutNodeOAuth);
+		return browserAzureProvider(browserCompatible);
 	}
 	if (provider.id === "google-vertex") {
-		return browserVertexProvider(withoutNodeOAuth);
+		return browserVertexProvider(browserCompatible);
 	}
-	return withoutNodeOAuth;
+	return browserCompatible;
 }
 
 function createBrowserProviders() {
@@ -187,6 +177,10 @@ function replaceEndpointVariables(value, env = {}) {
 }
 
 function modelEndpointUrls(provider, model, credential) {
+	if (provider.id === "github-copilot" && credential?.type === "oauth") {
+		return [getGitHubCopilotBaseUrl(credential.access)];
+	}
+
 	if (provider.id === "azure-openai-responses") {
 		const configured =
 			credential?.type === "api_key"
@@ -215,7 +209,6 @@ function modelEndpointUrls(provider, model, credential) {
 export {
 	BROWSER_EXCLUDED_PROVIDERS,
 	CUSTOM_PROVIDER_ID,
-	createBrowserCodexProvider,
 	createBrowserProviders,
 	createCustomProvider,
 	modelEndpointUrls,

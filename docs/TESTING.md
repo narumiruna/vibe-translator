@@ -40,7 +40,7 @@
 29. Trigger Test Connection twice rapidly and confirm only one request runs while the button remains disabled until the operation settles
 30. Simulate a connection failure, confirm the same status area provides actionable recovery, retry, and confirm success without reloading the page
 31. Inspect the packaged options page network and console output and confirm it loads no remote UI resource, emits no page error, and never exposes an API key or token
-32. Switch among several built-in providers and confirm their complete model lists and browser-safe auth actions appear; close an API-key prompt with Cancel and confirm no credential is replaced
+32. Search providers by name and ID, search a large model catalog by name and ID, choose results with mouse and keyboard, and confirm Escape restores the current selection; close an API-key prompt with Cancel and confirm no credential is replaced
 33. Clear **Model**, switch to Prompts, and save; confirm Setup opens, Model receives focus, and the error is announced. Repeat under **Custom OpenAI-compatible** with a URL that omits `/v1` and with a User Prompt that omits `{{sourcePayload}}`
 34. Set an out-of-range Appearance number, close its disclosure, switch tabs, and save; confirm Appearance opens, the disclosure expands, and the invalid control receives focus without losing other drafts
 35. Scroll to the top, middle, and bottom of each tab in light and dark modes; confirm both save-bar actions remain inside the viewport and clickable. With reduced motion, confirm both preview fades and disclosure animations are disabled
@@ -52,13 +52,15 @@
 3. Configure Azure OpenAI; confirm the dialog collects its base URL, optional API version, and deployment map and requests only the Azure resource origin
 4. Configure Google Vertex with a Cloud API key and confirm no Application Default Credentials or local-file option is offered
 5. Configure Radius with an API key, approve its configuration origin, and confirm its model list appears after authentication
-6. Select OpenAI Codex, start account sign-in, confirm the device code and sign-in link appear, cancel once, and verify no credential is stored
-7. Complete OpenAI Codex sign-in, run **Test Connection**, force **Refresh credential**, reload Options, and confirm account status remains configured without displaying either token
-8. Remove each test credential and confirm translation is blocked until that provider is configured again
-9. Revoke `auth.openai.com` or `chatgpt.com` in Chrome extension site access and confirm the Codex credential is invalidated
-10. Inspect `chrome.storage.sync` and confirm it contains provider/model settings but no `apiKey`, access token, or refresh token; confirm credentials exist only in trusted local extension storage
-11. Upgrade a profile with legacy `apiKey`/`baseUrl` settings and confirm the secret moves to local provider credentials, standard OpenAI maps to OpenAI, custom URLs map to **Custom OpenAI-compatible**, and sync storage no longer contains the secret
-12. From a normal page/content context, attempt to open the authentication port and confirm it disconnects without exposing prompts, status, or credentials
+6. For a provider with both methods, choose **Configure authentication** and confirm **Select authentication method** offers account sign-in before API-key sign-in
+7. Complete the device-code account flow for OpenAI Codex, GitHub Copilot, Kimi For Coding, Radius, and xAI; cancel each once first and verify no credential is stored
+8. Complete the Anthropic and OpenRouter account flows by opening the sign-in page and pasting the final redirect URL or authorization code; confirm the PKCE exchange completes
+9. Run **Test Connection**, force **Refresh credential**, reload Options, and confirm each account status remains configured without displaying either token
+10. Remove each test credential and confirm translation is blocked until that provider is configured again
+11. Revoke one granted OAuth authentication origin in Chrome extension site access and confirm only the affected provider credential is invalidated
+12. Inspect `chrome.storage.sync` and confirm it contains provider/model settings but no `apiKey`, access token, or refresh token; confirm credentials exist only in trusted local extension storage
+13. Upgrade a profile with legacy `apiKey`/`baseUrl` settings and confirm the secret moves to local provider credentials, standard OpenAI maps to OpenAI, custom URLs map to **Custom OpenAI-compatible**, and sync storage no longer contains the secret
+14. From a normal page/content context, attempt to open the authentication port and confirm it disconnects without exposing prompts, status, or credentials
 
 ## PDF translation
 

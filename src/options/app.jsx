@@ -41,7 +41,9 @@ const INITIAL_AUTH_FLOW = Object.freeze({
 	event: null,
 	open: false,
 	prompt: null,
+	providerId: "",
 	providerName: "provider",
+	selectingMethod: false,
 	value: "",
 });
 
@@ -244,9 +246,10 @@ function OptionsApp() {
 			promptResolution.current = { reject, resolve };
 			setAuthFlow((current) => ({
 				...current,
-				event: null,
+				event: current.event?.type === "auth_url" ? current.event : null,
 				open: true,
 				prompt,
+				selectingMethod: false,
 				value: prompt.type === "select" ? prompt.options[0]?.id || "" : "",
 			}));
 		});
@@ -264,6 +267,19 @@ function OptionsApp() {
 
 	function submitAuthPrompt(event) {
 		event.preventDefault();
+		if (authFlow.selectingMethod) {
+			const authType = authFlow.value;
+			setAuthFlow((current) => ({
+				...current,
+				event: { type: "progress", message: "Starting authentication…" },
+				prompt: null,
+				selectingMethod: false,
+				value: "",
+			}));
+			void runAuthentication(authFlow.providerId, authType);
+			return;
+		}
+
 		const pending = promptResolution.current;
 		if (!pending) {
 			return;
@@ -285,39 +301,87 @@ function OptionsApp() {
 		promptResolution.current = null;
 		optionsApi.auth.cancel();
 		setAuthFlow(INITIAL_AUTH_FLOW);
+		if (authFlow.selectingMethod) {
+			setAuthBusy(false);
+		}
 	}
 
-	async function handleAuthenticate(authType) {
+	function handleAuthenticate() {
 		if (authBusy) {
 			return;
 		}
 		const provider = catalog.find((item) => item.id === draft.provider);
+		const methods = provider?.authMethods || [];
+		if (methods.length === 0) {
+			setBanner({
+				message: "This provider has no interactive authentication method.",
+				tone: "red",
+			});
+			return;
+		}
+
 		setAuthBusy(true);
 		setBanner(null);
+		if (methods.length === 1) {
+			setAuthFlow({
+				...INITIAL_AUTH_FLOW,
+				event: { type: "progress", message: "Starting authentication…" },
+				open: true,
+				providerId: provider.id,
+				providerName: provider.name,
+			});
+			void runAuthentication(provider.id, methods[0].type);
+			return;
+		}
+
+		const methodOptions = [
+			methods.some((method) => method.type === "oauth")
+				? { id: "oauth", label: "Sign in with an account" }
+				: null,
+			methods.some((method) => method.type === "api_key")
+				? { id: "api_key", label: "Sign in with an API key" }
+				: null,
+		].filter(Boolean);
 		setAuthFlow({
 			...INITIAL_AUTH_FLOW,
 			open: true,
-			providerName: provider?.name || draft.provider,
+			prompt: {
+				message: "Select authentication method:",
+				options: methodOptions,
+				type: "select",
+			},
+			providerId: provider.id,
+			providerName: provider.name,
+			selectingMethod: true,
+			value: methodOptions[0].id,
 		});
+	}
+
+	async function runAuthentication(providerId, authType) {
+		const provider = catalog.find((item) => item.id === providerId);
+		const method = provider?.authMethods.find((item) => item.type === authType);
 		try {
+			if (!method) {
+				throw new Error("The selected authentication method is unavailable.");
+			}
 			const granted = await optionsApi.requestOrigins(
-				provider?.setupOrigins || [],
+				method.setupOrigins || [],
 			);
 			if (!granted) {
 				throw new Error("Provider authentication permission was denied.");
 			}
-			await optionsApi.auth.login(draft.provider, authType, {
+			await optionsApi.auth.login(providerId, authType, {
 				onEvent: handleAuthEvent,
 				onPrompt: promptForCredential,
 			});
 			const providers = await optionsApi.getCatalog(draftRef.current);
 			const refreshedProvider = providers.find(
-				(item) => item.id === draft.provider,
+				(item) => item.id === providerId,
 			);
 			setCatalog(providers);
 			setDraft((current) => {
 				if (
-					current.provider !== draft.provider ||
+					current.provider !== providerId ||
 					refreshedProvider?.models.some((model) => model.id === current.model)
 				) {
 					return current;
@@ -329,7 +393,7 @@ function OptionsApp() {
 				draftRef.current = next;
 				return next;
 			});
-			await refreshAuthStatus(draft.provider, providers);
+			await refreshAuthStatus(providerId, providers);
 			await refreshPermission(draftRef.current);
 			setBanner({
 				message: `${provider?.name || "Provider"} authentication saved.`,

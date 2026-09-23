@@ -12,7 +12,7 @@ A Manifest V3 Chrome extension that translates web pages through `@earendil-work
 - Text-based PDFs open in a PDF.js reader with selectable original pages, synchronized progressive translations, page highlighting, search, copy, encrypted-file support, and explicit complete-document translation
 - Large pages are split into batches and translated with bounded parallel requests; oversized blocks are broken down recursively
 - Inline code, file paths, URLs, math expressions, and common technical terms are protected by placeholder substitution so they are never mangled
-- Select any browser-compatible `pi-ai` provider and text model, authenticate with provider-scoped API keys or OpenAI Codex account sign-in, or use a custom OpenAI-compatible endpoint
+- Select any browser-compatible `pi-ai` provider and text model, search large provider/model catalogs, authenticate with provider-scoped API keys or supported account OAuth, or use a custom OpenAI-compatible endpoint
 - Translation appearance is customizable with three presets, safe typography/layout controls, separate light/dark colors, and live contrast feedback
 - Individual domains can be disabled from the options page
 
@@ -22,7 +22,7 @@ A Manifest V3 Chrome extension that translates web pages through `@earendil-work
 |---|---|
 | `manifest.json` | Manifest V3 configuration |
 | `icons/` | Extension icon source and generated PNG sizes |
-| `src/auth/` | Browser provider catalog, API adapters, credential storage, endpoint resolution, and OpenAI Codex OAuth |
+| `src/auth/` | Browser provider catalog, API adapters, credential storage, endpoint resolution, and provider OAuth flows |
 | `src/background/` | MV3 listener entrypoint, auth port, controller, permissions, injection, and orchestration |
 | `src/content.js` | Bundled content entrypoint and lifecycle owner |
 | `src/content/` | Extraction, viewport, rendering, selection, styling, and YouTube modules |
@@ -53,8 +53,8 @@ The options interface uses locally bundled React and Radix Themes, Colors, Icons
 | Setting | Description |
 |---|---|
 | Provider | Any browser-compatible provider registered by `pi-ai`, plus **Custom OpenAI-compatible** |
-| Authentication | Provider-owned API-key flow; OpenAI Codex also supports ChatGPT Plus/Pro account sign-in |
-| Model | A text/chat model from the selected provider's `pi-ai` catalog; custom endpoints accept an exact model ID |
+| Authentication | API-key flow for browser-compatible providers; account OAuth for Anthropic, GitHub Copilot, Kimi For Coding, OpenAI Codex, OpenRouter, Radius, and xAI |
+| Model | A searchable text/chat model catalog for the selected provider; custom endpoints accept an exact model ID |
 | Custom Base URL | Responses API root for **Custom OpenAI-compatible**, including `/v1` |
 | Target Language | Language to translate into (default: `Traditional Chinese (Taiwan)`) |
 | System Prompt Template | Stable translation rules; supports `{{targetLanguage}}`, `{{itemCount}}`, and `{{itemKind}}` |

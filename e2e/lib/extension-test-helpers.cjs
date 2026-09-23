@@ -405,7 +405,8 @@ async function saveOptions(context, extensionId, config, options = {}) {
 			},
 		});
 	}, config.apiKey);
-	await page.locator("#provider").selectOption("openai-compatible");
+	await page.locator("#provider").fill("openai-compatible");
+	await page.locator("#provider").press("Enter");
 	await page.locator("#custom-base-url").fill(config.baseUrl);
 	await page.locator("#model").fill(config.model);
 	await page.locator("#target-language").fill(config.targetLanguage);

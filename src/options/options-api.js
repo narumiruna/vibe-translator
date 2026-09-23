@@ -180,8 +180,12 @@ function createOptionsApi(options = {}) {
 		return send(messagesApi.MESSAGE_TYPES.TEST_CONNECTION, settings);
 	}
 
-	async function openUrl(url) {
-		await chromeApi.tabs.create({ url });
+	async function openUrl(value) {
+		const url = new URL(String(value || ""));
+		if (!["http:", "https:"].includes(url.protocol)) {
+			throw new Error("Authentication links must use HTTP or HTTPS.");
+		}
+		await chromeApi.tabs.create({ url: url.href });
 	}
 
 	return {

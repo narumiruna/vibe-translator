@@ -9,7 +9,7 @@ import { Text } from "@radix-ui/themes";
 import {
 	Button,
 	FormSection,
-	NativeSelect,
+	SearchableSelect,
 	StatusCard,
 	TextInput,
 } from "./components.jsx";
@@ -20,6 +20,7 @@ function AuthenticationDialog({ flow, onCancel, onOpenUrl, onSubmit }) {
 	}
 
 	const prompt = flow.prompt;
+	const authUrl = flow.event?.type === "auth_url" ? flow.event : null;
 	const deviceCode = flow.event?.type === "device_code" ? flow.event : null;
 	const info = ["info", "progress"].includes(flow.event?.type)
 		? flow.event
@@ -34,6 +35,17 @@ function AuthenticationDialog({ flow, onCancel, onOpenUrl, onSubmit }) {
 				role="dialog"
 			>
 				<h2 id="auth-dialog-title">Configure {flow.providerName}</h2>
+				{authUrl ? (
+					<div className="auth-url-flow">
+						<Text as="p" size="2">
+							{authUrl.instructions ||
+								"Continue authentication in your browser."}
+						</Text>
+						<Button onClick={() => onOpenUrl(authUrl.url)} type="button">
+							Open sign-in page
+						</Button>
+					</div>
+				) : null}
 				{prompt ? (
 					<form onSubmit={onSubmit}>
 						<label className="field" htmlFor="auth-prompt-value">
@@ -80,7 +92,7 @@ function AuthenticationDialog({ flow, onCancel, onOpenUrl, onSubmit }) {
 				{deviceCode ? (
 					<div className="device-code-flow">
 						<Text as="p" size="2">
-							Open OpenAI and enter this one-time code:
+							Open the sign-in page and enter this one-time code:
 						</Text>
 						<output className="device-code">{deviceCode.userCode}</output>
 						<div className="auth-dialog-actions">
@@ -101,7 +113,7 @@ function AuthenticationDialog({ flow, onCancel, onOpenUrl, onSubmit }) {
 						</div>
 					</div>
 				) : null}
-				{!prompt && !deviceCode ? (
+				{!prompt && !deviceCode && !authUrl ? (
 					<div>
 						<Text as="p" aria-live="polite" size="2">
 							{info?.message || "Starting authentication…"}
@@ -161,21 +173,22 @@ function SetupSection({
 				description="Choose any browser-compatible provider and model from pi-ai."
 			>
 				<div className="field-stack">
-					<NativeSelect
+					<SearchableSelect
 						id="provider"
+						invalid={invalidFields.has("provider")}
 						label="Provider"
 						name="provider"
-						note={`${catalog.length} providers are available in this browser build.`}
-						onChange={(event) => onProvider(event.target.value)}
+						note={`${catalog.length} providers are available in this browser build. Type to search by provider name or ID.`}
+						onValueChange={onProvider}
+						options={catalog.map((item) => ({
+							keywords: [item.id],
+							label: `${item.name} (${item.models.length})`,
+							value: item.id,
+						}))}
+						placeholder="Search providers"
 						required
 						value={draft.provider}
-					>
-						{catalog.map((item) => (
-							<option key={item.id} value={item.id}>
-								{item.name} ({item.models.length})
-							</option>
-						))}
-					</NativeSelect>
+					/>
 					{customProvider ? (
 						<>
 							<TextInput
@@ -216,26 +229,28 @@ function SetupSection({
 							/>
 						</>
 					) : (
-						<NativeSelect
+						<SearchableSelect
 							id="model"
+							invalid={invalidFields.has("model")}
 							label="Model"
 							name="model"
 							note={
 								selectedModel
-									? `${selectedModel.api} · ${selectedModel.contextWindow.toLocaleString()} token context${selectedModel.reasoning ? " · reasoning" : ""}`
+									? `${selectedModel.api} · ${selectedModel.contextWindow.toLocaleString()} token context${selectedModel.reasoning ? " · reasoning" : ""} · Type to search by model name or ID.`
 									: "Select a model from this provider."
 							}
 							onBlur={onBlurProvider}
-							onChange={(event) => onField("model", event.target.value)}
+							onValueChange={(value) => onField("model", value)}
+							options={models.map((item) => ({
+								keywords: [item.id, item.name, item.api],
+								label:
+									item.name === item.id ? item.id : `${item.name} — ${item.id}`,
+								value: item.id,
+							}))}
+							placeholder="Search models"
 							required
 							value={draft.model}
-						>
-							{models.map((item) => (
-								<option key={item.id} value={item.id}>
-									{item.name} — {item.id}
-								</option>
-							))}
-						</NativeSelect>
+						/>
 					)}
 				</div>
 
@@ -249,20 +264,19 @@ function SetupSection({
 						</Text>
 					</div>
 					<div className="credential-actions">
-						{provider?.authMethods.map((method) => (
+						{provider?.authMethods.length > 0 ? (
 							<Button
 								disabled={auth.busy}
 								highContrast
-								key={method.type}
-								onClick={() => onAuthenticate(method.type)}
+								onClick={onAuthenticate}
 								type="button"
 								variant="soft"
 							>
-								{method.type === "oauth"
-									? "Sign in with account"
-									: "Add API key"}
+								{auth.status.loggedIn
+									? "Change authentication"
+									: "Configure authentication"}
 							</Button>
-						))}
+						) : null}
 						{auth.status.loggedIn && auth.status.type === "oauth" ? (
 							<Button
 								disabled={auth.busy}

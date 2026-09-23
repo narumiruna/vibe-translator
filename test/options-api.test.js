@@ -33,6 +33,11 @@ function createChromeFake(options = {}) {
 					return options.response || { ok: true };
 				},
 			},
+			tabs: {
+				async create(details) {
+					calls.push(["createTab", details]);
+				},
+			},
 		},
 	};
 }
@@ -130,6 +135,21 @@ test("options API requests permission only when it is missing", async () => {
 	assert.equal(
 		requestFake.calls.filter(([name]) => name === "request").length,
 		1,
+	);
+});
+
+test("options API opens only HTTP authentication links", async () => {
+	const fake = createChromeFake();
+	const api = createOptionsApi({ chrome: fake.chrome, messagesApi: Messages });
+
+	await api.openUrl("https://auth.example.com/login");
+	assert.deepEqual(fake.calls.at(-1), [
+		"createTab",
+		{ url: "https://auth.example.com/login" },
+	]);
+	await assert.rejects(
+		api.openUrl("javascript:alert(1)"),
+		/links must use HTTP or HTTPS/u,
 	);
 });
 

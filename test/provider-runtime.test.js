@@ -5,6 +5,7 @@ import test from "node:test";
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 
 import { BROWSER_APIS } from "../src/auth/browser-apis.js";
+import { getBrowserOAuthProviderIds } from "../src/auth/browser-oauth.js";
 import { CREDENTIALS_KEY } from "../src/auth/credential-store.js";
 import { LEGACY_MIGRATION_KEY, ProviderRuntime } from "../src/auth/runtime.js";
 import * as Settings from "../src/shared/settings.js";
@@ -84,8 +85,22 @@ test("provider runtime exposes every browser-compatible pi-ai catalog", async ()
 		providers
 			.find((provider) => provider.id === "anthropic")
 			.authMethods.map((method) => method.type),
-		["api_key"],
+		["api_key", "oauth"],
 	);
+	for (const providerId of getBrowserOAuthProviderIds()) {
+		const provider = providers.find((item) => item.id === providerId);
+		assert.ok(provider, `Missing browser OAuth provider ${providerId}`);
+		assert.ok(
+			provider.authMethods.some((method) => method.type === "oauth"),
+			`Missing OAuth method for ${providerId}`,
+		);
+		assert.ok(
+			provider.authMethods
+				.find((method) => method.type === "oauth")
+				.setupOrigins.every((origin) => origin.endsWith("/*")),
+			`Invalid OAuth setup origin for ${providerId}`,
+		);
+	}
 	for (const apiId of new Set(
 		providers.flatMap((provider) => provider.models.map((model) => model.api)),
 	)) {

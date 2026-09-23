@@ -218,7 +218,7 @@ async function main() {
 		);
 		await waitFor(
 			async () =>
-				(await page.locator("#provider").inputValue()) ===
+				(await page.locator("#provider-value").inputValue()) ===
 					"openai-compatible" &&
 				(await page.locator("#custom-base-url").inputValue()) ===
 					config.baseUrl,
@@ -228,6 +228,68 @@ async function main() {
 		assert.match(
 			(await page.locator("#permission-status").textContent()) || "",
 			/Granted for/u,
+		);
+
+		const providerSearch = page.locator("#provider");
+		await providerSearch.fill("OpenRouter");
+		await waitFor(
+			async () =>
+				(await page.locator("#provider-options [role='option']").count()) === 1,
+			{ timeoutMessage: "Provider search did not filter the custom listbox." },
+		);
+		assert.match(
+			(await page.locator("#provider-options").textContent()) || "",
+			/OpenRouter/u,
+		);
+		await providerSearch.press("Escape");
+		assert.match(
+			await providerSearch.inputValue(),
+			/Custom OpenAI-compatible/u,
+		);
+
+		await providerSearch.fill("openrouter");
+		await providerSearch.press("Enter");
+		await waitFor(
+			async () =>
+				(await page.locator("#provider-value").inputValue()) === "openrouter" &&
+				(await page.locator("#model-value").inputValue()).length > 0,
+			{ timeoutMessage: "Searchable provider selection did not load models." },
+		);
+		const modelSearch = page.locator("#model");
+		const modelOptionCount = await page.locator("#model-value option").count();
+		await modelSearch.fill("claude");
+		await waitFor(
+			async () => {
+				const matches = await page
+					.locator("#model-options [role='option']")
+					.count();
+				return matches > 0 && matches < modelOptionCount;
+			},
+			{ timeoutMessage: "Model search did not filter the custom listbox." },
+		);
+		await modelSearch.press("Escape");
+
+		await page
+			.getByRole("button", { name: "Configure authentication" })
+			.click();
+		const methodDialog = page.getByRole("dialog", {
+			name: "Configure OpenRouter",
+		});
+		assert.deepEqual(
+			await methodDialog.locator("select option").allTextContents(),
+			["Sign in with an account", "Sign in with an API key"],
+		);
+		await methodDialog.getByRole("button", { name: "Cancel" }).click();
+
+		await providerSearch.fill("openai-compatible");
+		await providerSearch.press("Enter");
+		await page.locator("#model").fill(config.model);
+		await waitFor(
+			async () =>
+				/configured with an API key/u.test(
+					(await page.locator("#auth-status").textContent()) || "",
+				),
+			{ timeoutMessage: "Custom provider auth status did not recover." },
 		);
 
 		const tabList = page.getByRole("tablist", { name: "Settings sections" });
@@ -244,7 +306,7 @@ async function main() {
 			/configured with an API key/u,
 		);
 		assert.equal(await page.locator('input[type="password"]').count(), 0);
-		await page.getByRole("button", { name: "Add API key" }).click();
+		await page.getByRole("button", { name: "Change authentication" }).click();
 		const authDialog = page.getByRole("dialog", {
 			name: "Configure Custom OpenAI-compatible",
 		});
@@ -281,7 +343,7 @@ async function main() {
 			.ariaSnapshot();
 		assert.match(tabAccessibilityTree, /tab "Setup" \[selected\]/u);
 		assert.match(setupAccessibilityTree, /Original and translation/u);
-		assert.match(setupAccessibilityTree, /Add API key/u);
+		assert.match(setupAccessibilityTree, /Change authentication/u);
 		assert.match(setupAccessibilityTree, /Connection Test/u);
 		await setupTab.focus();
 		await page.keyboard.press("ArrowRight");
@@ -440,7 +502,7 @@ async function main() {
 		await page.reload({ waitUntil: "domcontentloaded" });
 		await waitFor(
 			async () =>
-				(await page.locator("#provider").inputValue()) ===
+				(await page.locator("#provider-value").inputValue()) ===
 					"openai-compatible" &&
 				(await page.locator("#custom-base-url").inputValue()) ===
 					config.baseUrl,

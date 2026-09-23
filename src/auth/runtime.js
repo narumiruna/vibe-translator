@@ -1,6 +1,7 @@
 import { createModels } from "@earendil-works/pi-ai";
 
-import { AUTH_ORIGINS, OPENAI_PROVIDER_ID } from "./codex-oauth.js";
+import { getBrowserOAuthOrigins } from "./browser-oauth.js";
+import { OPENAI_PROVIDER_ID } from "./codex-oauth.js";
 import { ChromeCredentialStore } from "./credential-store.js";
 import {
 	CUSTOM_PROVIDER_ID,
@@ -32,12 +33,14 @@ function summarizeModel(model) {
 }
 
 function summarizeProvider(provider) {
+	const oauthOrigins = getBrowserOAuthOrigins(provider.id);
 	return {
 		authMethods: [
 			...(provider.auth.apiKey?.login
 				? [
 						{
 							label: provider.auth.apiKey.name,
+							setupOrigins: [],
 							type: "api_key",
 						},
 					]
@@ -46,6 +49,7 @@ function summarizeProvider(provider) {
 				? [
 						{
 							label: provider.auth.oauth.loginLabel || provider.auth.oauth.name,
+							setupOrigins: oauthOrigins,
 							type: "oauth",
 						},
 					]
@@ -55,11 +59,14 @@ function summarizeProvider(provider) {
 		models: provider.getModels().map(summarizeModel),
 		name: provider.name,
 		setupOrigins:
-			provider.id === OPENAI_PROVIDER_ID
-				? [...AUTH_ORIGINS]
-				: provider.id === "radius"
-					? [toPermissionPattern(RADIUS_CONFIG_URL)]
-					: [],
+			provider.id === "radius"
+				? [
+						...new Set([
+							...oauthOrigins,
+							toPermissionPattern(RADIUS_CONFIG_URL),
+						]),
+					]
+				: oauthOrigins,
 	};
 }
 
