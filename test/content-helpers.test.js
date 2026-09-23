@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { createContentHelpers } from "../src/content/helpers.js";
 import { estimateTokenCount } from "../src/translation/responses.js";
 

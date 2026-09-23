@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { createOptionsApi } from "../src/options/options-api.js";
 import * as Messages from "../src/shared/messages.js";
 import * as Settings from "../src/shared/settings.js";

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 import { createBackgroundController } from "../src/background/controller.js";
 import { createBackgroundPlatform } from "../src/background/platform.js";

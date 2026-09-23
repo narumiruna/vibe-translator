@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 import * as YoutubeDiagnosticsApi from "../src/content/youtube/diagnostics.js";
 import * as YoutubePlayerControlApi from "../src/content/youtube/player-control.js";

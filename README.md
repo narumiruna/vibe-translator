@@ -32,7 +32,7 @@ A Manifest V3 Chrome extension that translates web pages through `@earendil-work
 | `src/pdf/` | PDF.js reader, source validation, text and layout analysis, rendering, and persistent translation cache |
 | `extension.config.mjs` | Extension.js development profile and context logging configuration |
 | `scripts/verify-build.mjs` | Production manifest, file-reference, content-bundle, and size checks |
-| `test/` | Node unit tests and compatibility fixtures |
+| `test/` | Vitest unit tests and compatibility fixtures |
 | `e2e/` | Playwright tests that load `dist/chrome` |
 | `docs/TESTING.md` | Manual QA checklist |
 
