@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { createContentRulesForProfile } from "../src/content/extraction/rules.js";
 import {
 	ANTIREZ_PROSE_CONTAINER_SELECTOR,

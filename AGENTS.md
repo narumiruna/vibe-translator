@@ -7,7 +7,7 @@ This repository is a bundled Manifest V3 Chrome extension built with Extension.j
 ## Build, Test, and Development Commands
 
 - `just check`: runs module syntax checks, unit tests, a production build, and artifact verification.
-- `just test`: runs `node --test test/*.test.js`.
+- [UNREVIEWED] `just test`: runs the Vitest suite via `npm test`; use `npm test -- test/api.test.js` to run one test file.
 - `just zip`: creates and verifies the versioned Extension.js Chrome Web Store zip.
 - `just clean`: removes generated `chrome-translator-*.zip` archives.
 - When code changes are made, run `biome format --write && biome lint --write`.
@@ -20,7 +20,8 @@ Use plain JavaScript and keep modules focused; avoid adding dependencies unless 
 
 ## Testing Guidelines
 
-Unit tests use Node’s built-in test runner. Add or update tests in `test/*.test.js` when changing chunking, storage validation, masking, or merge behavior. Prefer targeted fixture-based cases over broad mocks. For UI and injection changes, also run the manual checklist in [docs/TESTING.md](/home/narumi/workspace/chrome-translator/docs/TESTING.md).
+- [UNREVIEWED] Unit tests use Vitest; add or update tests in `test/*.test.js` when changing chunking, storage validation, masking, or merge behavior, and prefer targeted fixture-based cases over broad mocks.
+- For UI and injection changes, also run the manual checklist in [docs/TESTING.md](/home/narumi/workspace/chrome-translator/docs/TESTING.md).
 
 ## Commit & Pull Request Guidelines
 

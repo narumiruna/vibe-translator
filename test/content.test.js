@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { afterAll, test } from "vitest";
 
 const originalWindow = global.window;
 const originalDocument = global.document;
@@ -860,7 +860,7 @@ test("perspective scroll containers do not block direct note insertion targets",
 	assert.equal(_isSafeNoteInsertionTarget(threadText, threadsSelectors), false);
 });
 
-test.after(() => {
+afterAll(() => {
 	global.window = originalWindow;
 	global.document = originalDocument;
 	global.chrome = originalChrome;

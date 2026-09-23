@@ -6,7 +6,7 @@
 - `pi-ai@0.87.1` raises the background artifact from about 1.37 MB to 1.70 MB, above the reviewed 1.45 MB budget; split or trim the SDK before upgrading from 0.85.1.
 - Extension.js bundles additional HTML only when the manifest references it; the PDF reader uses `side_panel.default_path`, emits under `sidebar/`, and emits its PDF worker as one root JavaScript chunk that build verification must include.
 - During in-flight page translation, `chrome.tabs.sendMessage` can fail when the tab reloads, closes, or loses its content script; treat this as normal session teardown instead of logging a hard error.
-- The sandbox may not have the `just` binary installed even when `/home/runner/work/vibe-translator/vibe-translator/justfile` exists, so run the equivalent `node --check ... && node --test test/*.test.js` commands directly when needed.
+- If `just` is unavailable, run `npm run check` or `npm test` directly; unit tests use Vitest, not `node --test`.
 - Symptom: `just` recipes expand `$$name` to a PID plus literal text. Cause: unlike Make, just recipes pass `$name` directly to the shell. Fix: use `$name` and `$(...)` in recipes.
 - Chrome context menu click handlers do not expose page click coordinates, so selection-adjacent UI should anchor to the current DOM selection range instead.
 - Symptom: `Cannot create item with duplicate id ...` runtime errors during menu setup. Cause: `chrome.contextMenus.create`/`removeAll` need callback-wrapped sequencing and `runtime.lastError` consumption. Fix: use the existing context menu promise helpers instead of raw `await chrome.contextMenus.*`.

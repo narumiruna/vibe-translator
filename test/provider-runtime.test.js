@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import test from "node:test";
-
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
+import { test } from "vitest";
 
 import { BROWSER_APIS } from "../src/auth/browser-apis.js";
 import { getBrowserOAuthProviderIds } from "../src/auth/browser-oauth.js";

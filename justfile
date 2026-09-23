@@ -31,7 +31,7 @@ check:
     @npm run check
 
 test:
-    @node --test test/*.test.js
+    @npm test
 
 build:
     @npm run build
