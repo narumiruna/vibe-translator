@@ -146,7 +146,8 @@ async function runAppearanceOptionsSmoke(
 		async () =>
 			(await page.locator("#translation-appearance-preset").inputValue()) ===
 				"calm-reading" &&
-			(await page.locator("#provider").inputValue()) === "openai-compatible" &&
+			(await page.locator("#provider-value").inputValue()) ===
+				"openai-compatible" &&
 			(await page.locator("#custom-base-url").inputValue()) === config.baseUrl,
 		{
 			timeoutMessage: "Default appearance did not load.",

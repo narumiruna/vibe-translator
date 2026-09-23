@@ -1,4 +1,4 @@
-import { AUTH_ORIGINS, OPENAI_PROVIDER_ID } from "../auth/codex-oauth.js";
+import { getProvidersForOAuthOrigins } from "../auth/browser-oauth.js";
 import { ProviderRuntime } from "../auth/runtime.js";
 import * as SiteProfiles from "../content/extraction/site-profiles.js";
 import * as Appearance from "../shared/appearance.js";
@@ -142,10 +142,11 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 chrome.permissions.onRemoved.addListener((permissions) => {
-	if (permissions.origins?.some((origin) => AUTH_ORIGINS.includes(origin))) {
-		providerRuntime.invalidateCredential(OPENAI_PROVIDER_ID).catch((error) =>
-			logger.error("codex-credential-invalidation-failed", {
+	for (const providerId of getProvidersForOAuthOrigins(permissions.origins)) {
+		providerRuntime.invalidateCredential(providerId, "oauth").catch((error) =>
+			logger.error("oauth-credential-invalidation-failed", {
 				error: error.message,
+				providerId,
 			}),
 		);
 	}

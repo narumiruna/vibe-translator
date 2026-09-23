@@ -15,7 +15,7 @@ import {
 	TextArea,
 	TextField,
 } from "@radix-ui/themes";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 function FormSection({
 	children,
@@ -160,6 +160,257 @@ function NativeSelect({ children, id, label, note, ...props }) {
 	);
 }
 
+function filterSearchableOptions(options, query) {
+	const normalizedQuery = query.trim().toLocaleLowerCase();
+	if (!normalizedQuery) {
+		return options;
+	}
+	return options.filter((option) =>
+		[option.label, option.value, ...(option.keywords || [])].some((candidate) =>
+			candidate.toLocaleLowerCase().includes(normalizedQuery),
+		),
+	);
+}
+
+function SearchableSelect({
+	id,
+	invalid = false,
+	label,
+	name,
+	note,
+	onBlur,
+	onValueChange,
+	options,
+	placeholder = "Search",
+	required = false,
+	value,
+}) {
+	const containerRef = useRef(null);
+	const selected = options.find((option) => option.value === value);
+	const selectedLabel = selected?.label || "";
+	const [activeIndex, setActiveIndex] = useState(-1);
+	const [open, setOpen] = useState(false);
+	const [query, setQuery] = useState(selectedLabel);
+	const [searchTerm, setSearchTerm] = useState("");
+	const listId = `${id}-options`;
+	const filteredOptions = useMemo(
+		() => filterSearchableOptions(options, searchTerm),
+		[options, searchTerm],
+	);
+	const disabled = options.length === 0;
+
+	useEffect(() => {
+		if (!open) {
+			setQuery(selectedLabel);
+		}
+	}, [open, selectedLabel]);
+
+	useEffect(() => {
+		if (!open || activeIndex < 0) {
+			return;
+		}
+		containerRef.current
+			?.querySelector(`[data-index="${activeIndex}"]`)
+			?.scrollIntoView?.({ block: "nearest" });
+	}, [activeIndex, open]);
+
+	useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+		function closeFromOutside(event) {
+			if (!containerRef.current?.contains(event.target)) {
+				setQuery(selectedLabel);
+				setSearchTerm("");
+				setOpen(false);
+				setActiveIndex(-1);
+			}
+		}
+		document.addEventListener("mousedown", closeFromOutside);
+		return () => document.removeEventListener("mousedown", closeFromOutside);
+	}, [open, selectedLabel]);
+
+	function setInitialActiveIndex(items) {
+		const selectedIndex = items.findIndex((option) => option.value === value);
+		setActiveIndex(selectedIndex >= 0 ? selectedIndex : items.length ? 0 : -1);
+	}
+
+	function openPicker(input) {
+		if (disabled) {
+			return;
+		}
+		setOpen(true);
+		setSearchTerm("");
+		setInitialActiveIndex(options);
+		input.select();
+	}
+
+	function closePicker(restoreSelection = false) {
+		if (restoreSelection) {
+			setQuery(selectedLabel);
+		}
+		setSearchTerm("");
+		setOpen(false);
+		setActiveIndex(-1);
+	}
+
+	function choose(option) {
+		const changed = option.value !== value;
+		setQuery(option.label);
+		closePicker();
+		if (changed) {
+			onValueChange(option.value);
+		}
+	}
+
+	function handleChange(event) {
+		const next = event.target.value;
+		const matches = filterSearchableOptions(options, next);
+		setQuery(next);
+		setSearchTerm(next);
+		setOpen(true);
+		setInitialActiveIndex(matches);
+	}
+
+	function handleKeyDown(event) {
+		if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+			event.preventDefault();
+			if (!open) {
+				openPicker(event.currentTarget);
+				return;
+			}
+			if (filteredOptions.length === 0) {
+				return;
+			}
+			const direction = event.key === "ArrowDown" ? 1 : -1;
+			setActiveIndex((current) =>
+				current < 0
+					? direction > 0
+						? 0
+						: filteredOptions.length - 1
+					: (current + direction + filteredOptions.length) %
+						filteredOptions.length,
+			);
+			return;
+		}
+		if (event.key === "Enter" && open) {
+			event.preventDefault();
+			const option = filteredOptions[activeIndex];
+			if (option) {
+				choose(option);
+			}
+			return;
+		}
+		if (event.key === "Escape" && open) {
+			event.preventDefault();
+			event.stopPropagation();
+			closePicker(true);
+		}
+	}
+
+	function handleBlur(event) {
+		requestAnimationFrame(() => {
+			if (!containerRef.current?.contains(document.activeElement)) {
+				closePicker(true);
+			}
+		});
+		onBlur?.(event);
+	}
+
+	return (
+		<FieldLabel id={id} label={label} note={note}>
+			{(noteId) => (
+				<div className="searchable-select" ref={containerRef}>
+					<input
+						aria-activedescendant={
+							open && activeIndex >= 0
+								? `${listId}-option-${activeIndex}`
+								: undefined
+						}
+						aria-autocomplete="list"
+						aria-controls={listId}
+						aria-describedby={
+							[noteId, invalid ? "form-status" : ""]
+								.filter(Boolean)
+								.join(" ") || undefined
+						}
+						aria-expanded={open}
+						aria-invalid={invalid || undefined}
+						autoComplete="off"
+						className="searchable-select-input"
+						disabled={disabled}
+						id={id}
+						onBlur={handleBlur}
+						onChange={handleChange}
+						onClick={(event) => {
+							if (!open) {
+								openPicker(event.currentTarget);
+							}
+						}}
+						onFocus={(event) => openPicker(event.currentTarget)}
+						onKeyDown={handleKeyDown}
+						placeholder={disabled ? "No options available" : placeholder}
+						required={required}
+						role="combobox"
+						type="search"
+						value={query}
+					/>
+					<select
+						aria-hidden="true"
+						id={`${id}-value`}
+						name={name}
+						onChange={(event) => onValueChange(event.target.value)}
+						tabIndex={-1}
+						value={value}
+					>
+						{options.map((option) => (
+							<option key={option.value} value={option.value}>
+								{option.label}
+							</option>
+						))}
+					</select>
+					<div
+						className="searchable-select-options"
+						hidden={!open}
+						id={listId}
+						role="listbox"
+					>
+						{filteredOptions.length === 0 ? (
+							<div
+								aria-disabled="true"
+								className="searchable-select-empty"
+								role="option"
+								tabIndex={-1}
+							>
+								No matches
+							</div>
+						) : (
+							filteredOptions.map((option, index) => (
+								<div
+									aria-selected={option.value === value}
+									className="searchable-select-option"
+									data-active={index === activeIndex}
+									data-index={index}
+									id={`${listId}-option-${index}`}
+									key={option.value}
+									onMouseDown={(event) => {
+										event.preventDefault();
+										choose(option);
+									}}
+									role="option"
+									tabIndex={-1}
+								>
+									{option.label}
+								</div>
+							))
+						)}
+					</div>
+				</div>
+			)}
+		</FieldLabel>
+	);
+}
+
 function CheckboxField({ checked, id, label, note, onChange }) {
 	const noteId = note ? `${id}-note` : undefined;
 
@@ -233,6 +484,7 @@ export {
 	NativeSelect,
 	NumberInput,
 	PasswordInput,
+	SearchableSelect,
 	StatusBanner,
 	StatusCard,
 	TextAreaInput,

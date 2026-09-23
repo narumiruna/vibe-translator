@@ -5,6 +5,7 @@ import test from "node:test";
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 
 import { BROWSER_APIS } from "../src/auth/browser-apis.js";
+import { getBrowserOAuthProviderIds } from "../src/auth/browser-oauth.js";
 import { CREDENTIALS_KEY } from "../src/auth/credential-store.js";
 import { LEGACY_MIGRATION_KEY, ProviderRuntime } from "../src/auth/runtime.js";
 import * as Settings from "../src/shared/settings.js";
@@ -84,13 +85,52 @@ test("provider runtime exposes every browser-compatible pi-ai catalog", async ()
 		providers
 			.find((provider) => provider.id === "anthropic")
 			.authMethods.map((method) => method.type),
-		["api_key"],
+		["api_key", "oauth"],
+	);
+	for (const providerId of getBrowserOAuthProviderIds()) {
+		const provider = providers.find((item) => item.id === providerId);
+		assert.ok(provider, `Missing browser OAuth provider ${providerId}`);
+		assert.ok(
+			provider.authMethods.some((method) => method.type === "oauth"),
+			`Missing OAuth method for ${providerId}`,
+		);
+		assert.ok(
+			provider.authMethods
+				.find((method) => method.type === "oauth")
+				.setupOrigins.every((origin) => origin.endsWith("/*")),
+			`Invalid OAuth setup origin for ${providerId}`,
+		);
+	}
+	assert.deepEqual(
+		providers
+			.find((provider) => provider.id === "radius")
+			.authMethods.find((method) => method.type === "api_key").setupOrigins,
+		["https://radius.pi.dev/*"],
 	);
 	for (const apiId of new Set(
 		providers.flatMap((provider) => provider.models.map((model) => model.api)),
 	)) {
 		assert.ok(BROWSER_APIS[apiId], `Missing browser API adapter for ${apiId}`);
 	}
+});
+
+test("provider runtime invalidates only the expected credential type", async () => {
+	const runtime = new ProviderRuntime({ chrome: createChrome() });
+	const providerId = "anthropic";
+	const apiKey = { type: "api_key", key: "api-key" };
+
+	await runtime.credentials.modify(providerId, async () => apiKey);
+	await runtime.invalidateCredential(providerId, "oauth");
+	assert.deepEqual(await runtime.credentials.read(providerId), apiKey);
+
+	await runtime.credentials.modify(providerId, async () => ({
+		type: "oauth",
+		access: "access-token",
+		expires: Date.now() + 60_000,
+		refresh: "refresh-token",
+	}));
+	await runtime.invalidateCredential(providerId, "oauth");
+	assert.equal(await runtime.credentials.read(providerId), undefined);
 });
 
 test("provider runtime migrates legacy secrets into trusted local credentials", async () => {
