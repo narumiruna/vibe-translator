@@ -110,8 +110,12 @@ class ChromeCredentialStore {
 		return this.enqueue(async () => {
 			throwIfAborted(options);
 			const all = await this.readAll();
+			const credential = all[providerId];
 
-			if (!(providerId in all)) {
+			if (
+				!credential ||
+				(options?.expectedType && credential.type !== options.expectedType)
+			) {
 				return;
 			}
 

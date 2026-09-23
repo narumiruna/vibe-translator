@@ -34,13 +34,15 @@ function summarizeModel(model) {
 
 function summarizeProvider(provider) {
 	const oauthOrigins = getBrowserOAuthOrigins(provider.id);
+	const apiKeyOrigins =
+		provider.id === "radius" ? [toPermissionPattern(RADIUS_CONFIG_URL)] : [];
 	return {
 		authMethods: [
 			...(provider.auth.apiKey?.login
 				? [
 						{
 							label: provider.auth.apiKey.name,
-							setupOrigins: [],
+							setupOrigins: apiKeyOrigins,
 							type: "api_key",
 						},
 					]
@@ -58,15 +60,6 @@ function summarizeProvider(provider) {
 		id: provider.id,
 		models: provider.getModels().map(summarizeModel),
 		name: provider.name,
-		setupOrigins:
-			provider.id === "radius"
-				? [
-						...new Set([
-							...oauthOrigins,
-							toPermissionPattern(RADIUS_CONFIG_URL),
-						]),
-					]
-				: oauthOrigins,
 	};
 }
 
@@ -255,9 +248,12 @@ class ProviderRuntime {
 		await this.models.logout(providerId, { signal });
 	}
 
-	async invalidateCredential(providerId = OPENAI_PROVIDER_ID) {
+	async invalidateCredential(providerId = OPENAI_PROVIDER_ID, expectedType) {
 		await this.initialize();
-		await this.credentials.delete(providerId);
+		await this.credentials.delete(
+			providerId,
+			expectedType ? { expectedType } : undefined,
+		);
 	}
 
 	async getModel(settings) {

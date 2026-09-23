@@ -143,7 +143,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
 chrome.permissions.onRemoved.addListener((permissions) => {
 	for (const providerId of getProvidersForOAuthOrigins(permissions.origins)) {
-		providerRuntime.invalidateCredential(providerId).catch((error) =>
+		providerRuntime.invalidateCredential(providerId, "oauth").catch((error) =>
 			logger.error("oauth-credential-invalidation-failed", {
 				error: error.message,
 				providerId,

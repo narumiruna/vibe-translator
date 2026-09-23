@@ -101,11 +101,36 @@ test("provider runtime exposes every browser-compatible pi-ai catalog", async ()
 			`Invalid OAuth setup origin for ${providerId}`,
 		);
 	}
+	assert.deepEqual(
+		providers
+			.find((provider) => provider.id === "radius")
+			.authMethods.find((method) => method.type === "api_key").setupOrigins,
+		["https://radius.pi.dev/*"],
+	);
 	for (const apiId of new Set(
 		providers.flatMap((provider) => provider.models.map((model) => model.api)),
 	)) {
 		assert.ok(BROWSER_APIS[apiId], `Missing browser API adapter for ${apiId}`);
 	}
+});
+
+test("provider runtime invalidates only the expected credential type", async () => {
+	const runtime = new ProviderRuntime({ chrome: createChrome() });
+	const providerId = "anthropic";
+	const apiKey = { type: "api_key", key: "api-key" };
+
+	await runtime.credentials.modify(providerId, async () => apiKey);
+	await runtime.invalidateCredential(providerId, "oauth");
+	assert.deepEqual(await runtime.credentials.read(providerId), apiKey);
+
+	await runtime.credentials.modify(providerId, async () => ({
+		type: "oauth",
+		access: "access-token",
+		expires: Date.now() + 60_000,
+		refresh: "refresh-token",
+	}));
+	await runtime.invalidateCredential(providerId, "oauth");
+	assert.equal(await runtime.credentials.read(providerId), undefined);
 });
 
 test("provider runtime migrates legacy secrets into trusted local credentials", async () => {
