@@ -243,6 +243,7 @@ export function createContentRuntime(options = {}) {
 		rememberSourceText,
 		resetSourceIdCounterForTest,
 		resetSourceTextSnapshotsForTest,
+		shouldTranslateText,
 	} = createSourceAnalyzer({
 		document,
 		window,
