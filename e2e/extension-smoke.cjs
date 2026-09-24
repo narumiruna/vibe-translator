@@ -352,9 +352,14 @@ async function runAppearanceOptionsSmoke(
 		"14px",
 		"Saving appearance should not proactively restyle existing translations.",
 	);
-	await callBackground(context, "translatePage", {
+	const retranslation = await callBackground(context, "translatePage", {
 		pageUrl: existingTranslationPage.url(),
 	});
+	assert.equal(
+		retranslation.ok,
+		true,
+		`Retranslation failed: ${retranslation.error || "unknown error"}`,
+	);
 	await waitFor(
 		async () =>
 			(await existingNote.evaluate(

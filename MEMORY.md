@@ -2,6 +2,7 @@
 
 ## GOTCHA
 
+- Symptom: retranslating a page throws `ReferenceError: shouldTranslateText is not defined` even though the first translation succeeded. Cause: the fallback text walker in `src/content.js` referenced an analyzer helper without destructuring it from `createSourceAnalyzer`; assert the background response on repeat translation, not just existing note styling.
 - PDF.js 6 uses `Map.prototype.getOrInsertComputed`, which is unavailable in the packaged Chrome used by extension E2E; keep the reviewed `pdfjs-dist@5.4.624` pin until the minimum Chrome version supports that API.
 - `pi-ai@0.87.1` raises the background artifact from about 1.37 MB to 1.70 MB, above the reviewed 1.45 MB budget; split or trim the SDK before upgrading from 0.85.1.
 - Extension.js bundles additional HTML only when the manifest references it; the PDF reader uses `side_panel.default_path`, emits under `sidebar/`, and emits its PDF worker as one root JavaScript chunk that build verification must include.
