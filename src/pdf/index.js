@@ -15,6 +15,7 @@ import {
 	buildPdfTranslationCopy,
 	createBoundedPdfBatches,
 	decodeLaunchToken,
+	getPdfHighlightBounds,
 	hashText,
 	renderSearchText,
 	sanitizeDocumentId,
@@ -721,18 +722,13 @@ function revealSourceBlock(block) {
 				.get(block.pageNumber)
 				.page.getViewport({ scale: state.zoom });
 			for (const box of block.boxes) {
-				const rectangle = viewport.convertToViewportRectangle([
-					box.x,
-					box.y,
-					box.x + box.width,
-					box.y + box.height,
-				]);
+				const bounds = getPdfHighlightBounds(viewport, box);
 				const highlight = document.createElement("div");
 				highlight.className = "source-highlight";
-				highlight.style.left = `${Math.min(rectangle[0], rectangle[2])}px`;
-				highlight.style.top = `${Math.min(rectangle[1], rectangle[3])}px`;
-				highlight.style.width = `${Math.abs(rectangle[2] - rectangle[0])}px`;
-				highlight.style.height = `${Math.abs(rectangle[3] - rectangle[1])}px`;
+				highlight.style.left = `${bounds.left}px`;
+				highlight.style.top = `${bounds.top}px`;
+				highlight.style.width = `${bounds.width}px`;
+				highlight.style.height = `${bounds.height}px`;
 				pageElement.append(highlight);
 			}
 			setTimeout(() => {

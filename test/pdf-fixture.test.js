@@ -7,6 +7,8 @@ import {
 	removeRepeatedFurniture,
 } from "../src/pdf/extraction.js";
 
+import { getPdfHighlightBounds } from "../src/pdf/reader-utils.js";
+
 const fixtureUrl = new URL("./fixtures/pdf/two-column.pdf", import.meta.url);
 const encryptedUrl = new URL("./fixtures/pdf/encrypted.pdf", import.meta.url);
 
@@ -63,6 +65,32 @@ test("project PDF fixture exposes three text pages in column order", async () =>
 				(block) => block.originalOnly && /formula/.test(block.text),
 			),
 			true,
+		);
+	} finally {
+		await task.destroy();
+	}
+});
+
+test("PDF highlights use supported viewport point transforms at different rotations", async () => {
+	const { document, task } = await loadPdf(fixtureUrl);
+	try {
+		const page = await document.getPage(1);
+		const box = { x: 10, y: 20, width: 30, height: 40 };
+		const viewport = page.getViewport({ scale: 2 });
+		assert.deepEqual(getPdfHighlightBounds(viewport, box), {
+			left: 20,
+			top: viewport.height - 120,
+			width: 60,
+			height: 80,
+		});
+		assert.deepEqual(
+			getPdfHighlightBounds(page.getViewport({ scale: 2, rotation: 90 }), box),
+			{
+				left: 40,
+				top: 20,
+				width: 80,
+				height: 60,
+			},
 		);
 	} finally {
 		await task.destroy();

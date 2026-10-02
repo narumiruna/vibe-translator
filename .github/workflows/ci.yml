@@ -35,6 +35,9 @@ jobs:
       - name: Run production-artifact smoke tests
         run: PLAYWRIGHT_HEADLESS=1 npm run e2e:mock
 
+      - name: Run production-artifact PDF regression
+        run: PLAYWRIGHT_HEADLESS=1 npm run e2e:pdf
+
       - name: Create verified Chrome ZIP
         run: npm run zip
 
