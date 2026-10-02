@@ -84,6 +84,20 @@ function splitPdfBlocks(blocks, maximumCharacters) {
 	});
 }
 
+function getPdfHighlightBounds(viewport, box) {
+	const start = viewport.convertToViewportPoint(box.x, box.y);
+	const end = viewport.convertToViewportPoint(
+		box.x + box.width,
+		box.y + box.height,
+	);
+	return {
+		left: Math.min(start[0], end[0]),
+		top: Math.min(start[1], end[1]),
+		width: Math.abs(end[0] - start[0]),
+		height: Math.abs(end[1] - start[1]),
+	};
+}
+
 function hashText(text) {
 	let hash = 2166136261;
 	for (let index = 0; index < text.length; index += 1) {
@@ -125,6 +139,7 @@ export {
 	buildPdfTranslationCopy,
 	createBoundedPdfBatches,
 	decodeLaunchToken,
+	getPdfHighlightBounds,
 	hashText,
 	renderSearchText,
 	sanitizeDocumentId,

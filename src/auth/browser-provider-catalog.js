@@ -13,6 +13,7 @@ import { googleVertexProvider } from "@earendil-works/pi-ai/providers/google-ver
 import { groqProvider } from "@earendil-works/pi-ai/providers/groq";
 import { huggingfaceProvider } from "@earendil-works/pi-ai/providers/huggingface";
 import { kimiCodingProvider } from "@earendil-works/pi-ai/providers/kimi-coding";
+import { metaProvider } from "@earendil-works/pi-ai/providers/meta";
 import { minimaxProvider } from "@earendil-works/pi-ai/providers/minimax";
 import { minimaxCnProvider } from "@earendil-works/pi-ai/providers/minimax-cn";
 import { mistralProvider } from "@earendil-works/pi-ai/providers/mistral";
@@ -54,6 +55,7 @@ const BROWSER_PROVIDER_FACTORIES = Object.freeze([
 	groqProvider,
 	huggingfaceProvider,
 	kimiCodingProvider,
+	metaProvider,
 	minimaxProvider,
 	minimaxCnProvider,
 	mistralProvider,

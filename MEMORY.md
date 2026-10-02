@@ -2,9 +2,11 @@
 
 ## GOTCHA
 
+- `pi-ai@1.0.0` adds Meta text models and classifier-only TypeSafe; browser catalog coverage must compare providers with nonempty `getModels()` rather than every built-in provider.
+
 - Symptom: retranslating a page throws `ReferenceError: shouldTranslateText is not defined` even though the first translation succeeded. Cause: the fallback text walker in `src/content.js` referenced an analyzer helper without destructuring it from `createSourceAnalyzer`; assert the background response on repeat translation, not just existing note styling.
-- PDF.js 6 uses `Map.prototype.getOrInsertComputed`, which is unavailable in the packaged Chrome used by extension E2E; keep the reviewed `pdfjs-dist@5.4.624` pin until the minimum Chrome version supports that API.
-- `pi-ai@0.87.1` raises the background artifact from about 1.37 MB to 1.70 MB, above the reviewed 1.45 MB budget; split or trim the SDK before upgrading from 0.85.1.
+- PDF.js 6 requires native `Map.prototype.getOrInsertComputed` and removes `PageViewport.convertToViewportRectangle`; use `convertToViewportPoint` for both box corners and run the packaged PDF regression when upgrading.
+- Full `pi-ai` SDK entrypoints retain unused SDK resources and duplicate catalog metadata. Keep `scripts/browser-sdk-rules.mjs` streaming-only and catalog metadata lossless; validate the compiled SDK fixtures before upgrading rather than raising artifact budgets.
 - Extension.js bundles additional HTML only when the manifest references it; the PDF reader uses `side_panel.default_path`, emits under `sidebar/`, and emits its PDF worker as one root JavaScript chunk that build verification must include.
 - During in-flight page translation, `chrome.tabs.sendMessage` can fail when the tab reloads, closes, or loses its content script; treat this as normal session teardown instead of logging a hard error.
 - If `just` is unavailable, run `npm run check` or `npm test` directly; unit tests use Vitest, not `node --test`.

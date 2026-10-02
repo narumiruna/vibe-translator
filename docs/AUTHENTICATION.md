@@ -4,16 +4,17 @@ Vibe Translator uses `@earendil-works/pi-ai` for provider catalogs, model metada
 
 ## Supported provider boundary
 
-The browser build registers all 39 browser-compatible built-in `pi-ai` providers and their text/chat models, plus **Custom OpenAI-compatible**. The bundled catalog currently contains more than 1,200 models and follows the installed `pi-ai` version.
+The browser build registers all 40 browser-compatible built-in `pi-ai` providers and their text/chat models, plus **Custom OpenAI-compatible**. The bundled catalog currently contains more than 1,200 models and follows the installed `pi-ai` version.
 
 - Every listed provider except OpenAI Codex exposes its browser-safe `pi-ai` API-key flow.
 - Anthropic, GitHub Copilot, Kimi For Coding, OpenAI Codex, OpenRouter, Radius, and xAI also expose account OAuth.
 - **OpenAI Codex** supports ChatGPT Plus/Pro account sign-in instead of an API-key flow.
+- **Meta** exposes API-key authentication only; its account OAuth flow is not implemented in the browser runtime.
 - **Radius** loads its model catalog after a Radius API key or account credential is saved.
 - **Custom OpenAI-compatible** accepts an API key, a Responses API base URL containing `/v1`, and an exact model ID.
 - Models may advertise image input, but Vibe Translator sends text only. Image-generation models are not listed.
 
-Amazon Bedrock is intentionally excluded because its adapter requires the Node-only AWS SDK and credential chain. The extension replaces `pi-ai`'s Node callback servers with Manifest V3-safe device-code or manual callback flows and advertises only OAuth implementations that can run in the background service worker.
+Amazon Bedrock is intentionally excluded because its adapter requires the Node-only AWS SDK and credential chain. TypeSafe is excluded because it offers classifier models, not text/chat models. The extension replaces `pi-ai`'s Node callback servers with Manifest V3-safe device-code or manual callback flows and advertises only OAuth implementations that can run in the background service worker.
 
 ## Configure an API-key provider
 
@@ -68,4 +69,4 @@ If endpoint access is denied or later revoked, translation stops and Options rep
 
 ## Browser implementation note
 
-`pi-ai` provider definitions use lazy API and OAuth adapters by default. Manifest V3 service workers cannot execute Node callback servers or load those adapters dynamically after startup, so Vibe Translator statically registers the nine text APIs and browser-specific OAuth flows used by its provider catalog while retaining `pi-ai` provider, model, credential-refresh, request, and response behavior. The production artifact check rejects Node built-in imports and verifies the reviewed size budget.
+`pi-ai` provider definitions use lazy API and OAuth adapters by default. Manifest V3 service workers cannot execute Node callback servers or load those adapters dynamically after startup, so Vibe Translator statically registers the nine text APIs and browser-specific OAuth flows used by its provider catalog while retaining `pi-ai` provider, model, credential-refresh, request, and response behavior. The build rules in `scripts/browser-sdk-rules.mjs` keep only the OpenAI Responses/Chat Completions, Anthropic beta Messages, and Google streaming-content SDK resources used by those adapters. Required upstream classes, resources, and methods are checked before unused SDK code is removed. Repeated catalog metadata is emitted through factories that preserve every model value and keep nested metadata independently mutable. Regression tests exercise the trimmed browser SDKs with local streaming fixtures and compare every encoded catalog with the installed SDK data. The production artifact check rejects Node built-in imports and verifies the reviewed size budget.
