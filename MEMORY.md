@@ -2,6 +2,8 @@
 
 ## GOTCHA
 
+- `pi-ai@1.0.0` adds Meta text models and classifier-only TypeSafe; browser catalog coverage must compare providers with nonempty `getModels()` rather than every built-in provider.
+
 - Symptom: retranslating a page throws `ReferenceError: shouldTranslateText is not defined` even though the first translation succeeded. Cause: the fallback text walker in `src/content.js` referenced an analyzer helper without destructuring it from `createSourceAnalyzer`; assert the background response on repeat translation, not just existing note styling.
 - PDF.js 6 uses `Map.prototype.getOrInsertComputed`, which is unavailable in the packaged Chrome used by extension E2E; keep the reviewed `pdfjs-dist@5.4.624` pin until the minimum Chrome version supports that API.
 - `pi-ai@0.87.1` raises the background artifact from about 1.37 MB to 1.70 MB, above the reviewed 1.45 MB budget; split or trim the SDK before upgrading from 0.85.1.

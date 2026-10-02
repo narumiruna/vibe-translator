@@ -4,16 +4,17 @@ Vibe Translator uses `@earendil-works/pi-ai` for provider catalogs, model metada
 
 ## Supported provider boundary
 
-The browser build registers all 39 browser-compatible built-in `pi-ai` providers and their text/chat models, plus **Custom OpenAI-compatible**. The bundled catalog currently contains more than 1,200 models and follows the installed `pi-ai` version.
+The browser build registers all 40 browser-compatible built-in `pi-ai` providers and their text/chat models, plus **Custom OpenAI-compatible**. The bundled catalog currently contains more than 1,200 models and follows the installed `pi-ai` version.
 
 - Every listed provider except OpenAI Codex exposes its browser-safe `pi-ai` API-key flow.
 - Anthropic, GitHub Copilot, Kimi For Coding, OpenAI Codex, OpenRouter, Radius, and xAI also expose account OAuth.
 - **OpenAI Codex** supports ChatGPT Plus/Pro account sign-in instead of an API-key flow.
+- **Meta** exposes API-key authentication only; its account OAuth flow is not implemented in the browser runtime.
 - **Radius** loads its model catalog after a Radius API key or account credential is saved.
 - **Custom OpenAI-compatible** accepts an API key, a Responses API base URL containing `/v1`, and an exact model ID.
 - Models may advertise image input, but Vibe Translator sends text only. Image-generation models are not listed.
 
-Amazon Bedrock is intentionally excluded because its adapter requires the Node-only AWS SDK and credential chain. The extension replaces `pi-ai`'s Node callback servers with Manifest V3-safe device-code or manual callback flows and advertises only OAuth implementations that can run in the background service worker.
+Amazon Bedrock is intentionally excluded because its adapter requires the Node-only AWS SDK and credential chain. TypeSafe is excluded because it offers classifier models, not text/chat models. The extension replaces `pi-ai`'s Node callback servers with Manifest V3-safe device-code or manual callback flows and advertises only OAuth implementations that can run in the background service worker.
 
 ## Configure an API-key provider
 

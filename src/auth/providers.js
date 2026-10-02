@@ -7,7 +7,10 @@ import { getGitHubCopilotBaseUrl } from "./github-copilot-oauth.js";
 
 const CUSTOM_PROVIDER_ID = "openai-compatible";
 const RADIUS_CONFIG_URL = "https://radius.pi.dev/v1/config";
-const BROWSER_EXCLUDED_PROVIDERS = Object.freeze(["amazon-bedrock"]);
+const BROWSER_EXCLUDED_PROVIDERS = Object.freeze([
+	"amazon-bedrock",
+	"typesafe",
+]);
 
 function requiredPromptValue(value, prompt) {
 	const normalized = String(value || "").trim();

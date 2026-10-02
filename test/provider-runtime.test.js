@@ -57,6 +57,7 @@ test("provider runtime exposes every browser-compatible pi-ai catalog", async ()
 	const providerIds = providers.map((provider) => provider.id);
 
 	const expectedProviderIds = builtinProviders()
+		.filter((provider) => provider.getModels().length > 0)
 		.map((provider) => provider.id)
 		.filter((providerId) => providerId !== "amazon-bedrock");
 	assert.deepEqual(
@@ -70,6 +71,14 @@ test("provider runtime exposes every browser-compatible pi-ai catalog", async ()
 	assert.ok(providerIds.includes("openrouter"));
 	assert.ok(providerIds.includes("openai-compatible"));
 	assert.equal(providerIds.includes("amazon-bedrock"), false);
+	assert.equal(providerIds.includes("typesafe"), false);
+	assert.ok(providerIds.includes("meta"));
+	assert.deepEqual(
+		providers
+			.find((provider) => provider.id === "meta")
+			.authMethods.map((method) => method.type),
+		["api_key"],
+	);
 	assert.ok(
 		providers.find((provider) => provider.id === "openrouter").models.length >
 			300,
@@ -111,6 +120,24 @@ test("provider runtime exposes every browser-compatible pi-ai catalog", async ()
 	)) {
 		assert.ok(BROWSER_APIS[apiId], `Missing browser API adapter for ${apiId}`);
 	}
+});
+
+test("Meta models resolve browser endpoint permissions without exposing credentials", async () => {
+	const runtime = new ProviderRuntime({ chrome: createChrome() });
+	await runtime.credentials.modify("meta", async () => ({
+		type: "api_key",
+		key: "meta-secret",
+	}));
+	const model = runtime.models.getModels("meta")[0];
+	assert.ok(model);
+	assert.equal(model.api, "openai-responses");
+	assert.deepEqual(
+		await runtime.getModelEndpointPatterns({
+			provider: "meta",
+			model: model.id,
+		}),
+		["https://api.meta.ai/*"],
+	);
 });
 
 test("provider runtime invalidates only the expected credential type", async () => {
