@@ -3,7 +3,7 @@
 	"private": true,
 	"scripts": {
 		"check": "npx --no-install biome ci && npm run lint:modules && npm test && npm run build && npm run verify:build",
-		"lint:modules": "find src scripts -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
+		"lint:modules": "find src scripts -type f \\( -name '*.js' -o -name '*.mjs' -o -name '*.cjs' \\) -print0 | xargs -0 -n1 node --check",
 		"test": "vitest run",
 		"e2e:smoke": "node e2e/extension-smoke.cjs",
 		"e2e:mock": "PLAYWRIGHT_MOCK_API=1 node e2e/extension-smoke.cjs",
@@ -29,6 +29,7 @@
 	"devDependencies": {
 		"@axe-core/playwright": "^4.13.0",
 		"@biomejs/biome": "2.5.15",
+		"acorn": "8.18.0",
 		"es-module-lexer": "3.0.2",
 		"extension": "4.1.30",
 		"husky": "9.1.7",

@@ -1,5 +1,7 @@
 import { rspack } from "@rspack/core";
 
+import { browserSdkRules } from "./scripts/browser-sdk-rules.mjs";
+
 /** @type {import("extension").FileConfig} */
 const config = {
 	browser: {
@@ -20,6 +22,9 @@ const config = {
 		},
 	},
 	config(rspackConfig) {
+		rspackConfig.module ??= {};
+		rspackConfig.module.rules ??= [];
+		rspackConfig.module.rules.push(...browserSdkRules);
 		rspackConfig.plugins ??= [];
 		rspackConfig.plugins.push(
 			new rspack.DefinePlugin({
