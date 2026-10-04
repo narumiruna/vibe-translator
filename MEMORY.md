@@ -2,6 +2,8 @@
 
 ## GOTCHA
 
+- Anthropic SDK 0.129 exports `Anthropic`, `Beta`, and `Messages` as classes inside exported IIFEs, not top-level class declarations; the browser SDK trimmer must inspect the wrapper body and remove unused static resources there too.
+
 - `pi-ai@1.0.0` adds Meta text models and classifier-only TypeSafe; browser catalog coverage must compare providers with nonempty `getModels()` rather than every built-in provider.
 
 - Symptom: retranslating a page throws `ReferenceError: shouldTranslateText is not defined` even though the first translation succeeded. Cause: the fallback text walker in `src/content.js` referenced an analyzer helper without destructuring it from `createSourceAnalyzer`; assert the background response on repeat translation, not just existing note styling.

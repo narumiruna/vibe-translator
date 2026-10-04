@@ -111,6 +111,42 @@ test("SDK trimming retains text resources, auth configuration, and errors", asyn
 	assert.equal(typeof Client.Text, "function");
 });
 
+test("SDK trimming handles exported classes wrapped in an IIFE", async () => {
+	const source = `
+const API = {
+ Text: class { create() { return "translated"; } },
+ Images: class { constructor() { throw new Error("Unused resource"); } },
+};
+export var Client = /* @__PURE__ */ (() => {
+ class Client {
+  constructor() {
+   this.options = { timeout: 100 };
+   this.text = new API.Text(this);
+   this.images = new API.Images(this);
+  }
+  create() { return this.text.create(); }
+ }
+ Client.Text = API.Text;
+ Client.Images = API.Images;
+ Client.AuthenticationError = Error;
+ return Client;
+})();`;
+	const output = trimTextSdk(source, {
+		className: "Client",
+		namespaceResources: true,
+		resources: ["text"],
+		methods: ["constructor", "create"],
+	});
+	const { Client } = await importSource(output);
+	const client = new Client();
+	assert.equal(client.create(), "translated");
+	assert.equal(client.options.timeout, 100);
+	assert.equal(client.images, undefined);
+	assert.equal(Client.Images, undefined);
+	assert.equal(Client.AuthenticationError, Error);
+	assert.equal(typeof Client.Text, "function");
+});
+
 test("SDK trimming preserves required constructor functions and helpers", async () => {
 	const source = `export class Models {
  constructor() {

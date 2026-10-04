@@ -8,12 +8,43 @@ function trimTextSdk(source, options) {
 		);
 	}
 	const ast = parse(source, { ecmaVersion: "latest", sourceType: "module" });
-	const declaration = ast.body
-		.map((node) => node.declaration || node)
-		.find(
-			(node) =>
-				node.type === "ClassDeclaration" && node.id.name === options.className,
+	let declaration;
+	let statements = ast.body;
+	for (const topLevel of ast.body) {
+		const node = topLevel.declaration || topLevel;
+		if (
+			node.type === "ClassDeclaration" &&
+			node.id.name === options.className
+		) {
+			declaration = node;
+			break;
+		}
+		// Some SDK releases wrap exported classes and their static resources in an IIFE.
+		const binding = node.declarations?.find(
+			(item) => item.id.name === options.className,
 		);
+		const factory = binding?.init;
+		const body = factory?.callee?.body?.body;
+		if (factory?.type !== "CallExpression" || !Array.isArray(body)) {
+			continue;
+		}
+		const wrappedClass = body.find(
+			(item) =>
+				item.type === "ClassDeclaration" && item.id.name === options.className,
+		);
+		if (
+			wrappedClass &&
+			body.some(
+				(item) =>
+					item.type === "ReturnStatement" &&
+					item.argument?.name === options.className,
+			)
+		) {
+			declaration = wrappedClass;
+			statements = body;
+			break;
+		}
+	}
 	if (!declaration) {
 		throw new Error(`Text SDK class not found: ${options.className}`);
 	}
@@ -70,7 +101,7 @@ function trimTextSdk(source, options) {
 		}
 	}
 
-	for (const statement of ast.body) {
+	for (const statement of statements) {
 		const assignment = statement.expression;
 		const target = assignment?.left;
 		if (
