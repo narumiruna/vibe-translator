@@ -42,6 +42,41 @@ test("translation cache separates provider backend identities", () => {
 	assert.equal(cache.get(secondBackend, item), null);
 });
 
+test("translation cache separates normalized thinking levels", () => {
+	const cache = createTranslationCache();
+	const item = { id: "a", kind: "paragraph", text: "Alpha" };
+	const settings = buildSettings();
+	cache.set(settings, item, "Default result");
+	assert.equal(
+		cache.get(buildSettings({ thinkingLevel: "default" }), item),
+		"Default result",
+	);
+	assert.equal(
+		cache.get(buildSettings({ thinkingLevel: "invalid" }), item),
+		"Default result",
+	);
+	for (const thinkingLevel of [
+		"off",
+		"minimal",
+		"low",
+		"medium",
+		"high",
+		"xhigh",
+		"max",
+	]) {
+		const levelSettings = buildSettings({ thinkingLevel });
+		assert.equal(cache.get(levelSettings, item), null);
+		cache.set(levelSettings, item, thinkingLevel);
+		assert.equal(
+			cache.get(
+				buildSettings({ thinkingLevel: ` ${thinkingLevel.toUpperCase()} ` }),
+				item,
+			),
+			thinkingLevel,
+		);
+	}
+});
+
 test("translation cache evicts least recently used entries", () => {
 	const cache = createTranslationCache({ limit: 2 });
 	const settings = buildSettings();

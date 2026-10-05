@@ -2,6 +2,8 @@
 
 ## GOTCHA
 
+- pi-ai ignores reasoning levels for models with `reasoning: false`; custom endpoints must opt in when a basic level is explicitly selected, while Default and unsupported saved levels must keep that flag false to avoid sending `reasoning.effort: "none"`.
+
 - Anthropic SDK 0.129 exports `Anthropic`, `Beta`, and `Messages` as classes inside exported IIFEs, not top-level class declarations; the browser SDK trimmer must inspect the wrapper body and remove unused static resources there too.
 
 - `pi-ai@1.0.0` adds Meta text models and classifier-only TypeSafe; browser catalog coverage must compare providers with nonempty `getModels()` rather than every built-in provider.

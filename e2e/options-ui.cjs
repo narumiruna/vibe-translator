@@ -247,6 +247,67 @@ async function main() {
 			/Custom OpenAI-compatible/u,
 		);
 
+		const thinkingLevel = page.getByRole("combobox", {
+			name: "Thinking Level",
+		});
+		assert.equal(await thinkingLevel.inputValue(), "default");
+		assert.deepEqual(
+			await thinkingLevel
+				.locator("option")
+				.evaluateAll((options) => options.map((option) => option.value)),
+			["default", "off", "minimal", "low", "medium", "high"],
+		);
+		await thinkingLevel.focus();
+		await thinkingLevel.press("End");
+		assert.equal(await thinkingLevel.inputValue(), "high");
+		assert.match(
+			(await page.locator("#save-state").textContent()) || "",
+			/Unsaved changes/u,
+		);
+
+		await providerSearch.fill("openai");
+		await page.getByRole("option", { name: /^OpenAI \(/u }).click();
+		const chooseThinkingModel = async (id) => {
+			const label = await page
+				.locator(`#model-value option[value="${id}"]`)
+				.textContent();
+			await page.locator("#model").fill(id);
+			await page.getByRole("option", { name: label, exact: true }).click();
+		};
+		await chooseThinkingModel("gpt-5.2");
+		assert.equal(await thinkingLevel.inputValue(), "high");
+		assert.deepEqual(
+			await thinkingLevel
+				.locator("option")
+				.evaluateAll((options) => options.map((option) => option.value)),
+			["default", "off", "low", "medium", "high", "xhigh"],
+		);
+		await thinkingLevel.selectOption("xhigh");
+		await chooseThinkingModel("gpt-5-mini");
+		assert.equal(await thinkingLevel.inputValue(), "xhigh");
+		assert.equal(
+			await thinkingLevel.locator('option[value="xhigh"]').isDisabled(),
+			true,
+		);
+		assert.match(
+			(await page.locator("#thinking-level-note").textContent()) || "",
+			/Model defaults will be used/u,
+		);
+		await chooseThinkingModel("gpt-4.1-mini");
+		assert.deepEqual(
+			await thinkingLevel
+				.locator("option:not(:disabled)")
+				.evaluateAll((options) => options.map((option) => option.value)),
+			["default", "off"],
+		);
+		await chooseThinkingModel("gpt-5.2");
+		assert.equal(await thinkingLevel.inputValue(), "xhigh");
+		assert.equal(
+			await thinkingLevel.locator('option[value="xhigh"]').isEnabled(),
+			true,
+		);
+		await thinkingLevel.selectOption("default");
+
 		await providerSearch.fill("openrouter");
 		await providerSearch.press("Enter");
 		await waitFor(
@@ -429,6 +490,7 @@ async function main() {
 			.fill("Translate without the required source placeholder.");
 		await setupTab.click();
 		await bilingualRadio.check();
+		await thinkingLevel.selectOption("high");
 		await page.locator("#custom-base-url").fill("https://example.com/not-v1");
 		await advancedTab.click();
 		await page.locator("#save-button").click();
@@ -509,6 +571,7 @@ async function main() {
 			{ timeoutMessage: "Saved settings did not reload." },
 		);
 		assert.equal(await bilingualRadio.isChecked(), true);
+		assert.equal(await thinkingLevel.inputValue(), "high");
 		assert.equal(await page.locator('input[type="password"]').count(), 0);
 		assert.equal(
 			await page.locator("#selection-panel-position-mode").inputValue(),

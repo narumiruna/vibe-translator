@@ -16,10 +16,68 @@ import {
 	normalizeDisabledDomains,
 	normalizeSelectionPanelPositionMode,
 	normalizeShowTranslationDebugInfo,
+	normalizeThinkingLevel,
 	normalizeYoutubeSubtitleDisplayMode,
+	saveSettings,
+	THINKING_LEVELS,
 	validateSettings,
 	YOUTUBE_SUBTITLE_DISPLAY_MODES,
 } from "../src/shared/settings.js";
+
+test("thinking levels normalize known values and preserve legacy defaults", () => {
+	assert.equal(DEFAULT_SETTINGS.thinkingLevel, "default");
+	assert.equal(validateSettings({}).settings.thinkingLevel, "default");
+	for (const level of THINKING_LEVELS) {
+		assert.equal(normalizeThinkingLevel(` ${level.toUpperCase()} `), level);
+		assert.equal(
+			validateSettings({ thinkingLevel: level }).settings.thinkingLevel,
+			level,
+		);
+	}
+	for (const value of [
+		undefined,
+		null,
+		"",
+		"extreme",
+		42,
+		true,
+		{},
+		[],
+		["high"],
+	]) {
+		assert.equal(normalizeThinkingLevel(value), "default");
+		assert.equal(
+			validateSettings({ thinkingLevel: value }).settings.thinkingLevel,
+			"default",
+		);
+	}
+});
+
+test("thinking levels persist through sync storage and reload", async () => {
+	const originalChrome = global.chrome;
+	let stored = {};
+	global.chrome = {
+		storage: {
+			sync: {
+				async get() {
+					return structuredClone(stored);
+				},
+				async set(value) {
+					stored = structuredClone(value);
+				},
+			},
+		},
+	};
+	try {
+		for (const thinkingLevel of THINKING_LEVELS) {
+			const saved = await saveSettings({ ...DEFAULT_SETTINGS, thinkingLevel });
+			assert.equal(saved.thinkingLevel, thinkingLevel);
+			assert.equal((await getSettings()).thinkingLevel, thinkingLevel);
+		}
+	} finally {
+		global.chrome = originalChrome;
+	}
+});
 
 test("normalizeBaseUrl trims trailing slash", () => {
 	assert.equal(
@@ -413,6 +471,7 @@ test("getSettings returns migrated and normalized stored settings", async () => 
 		assert.equal(settings.provider, CUSTOM_PROVIDER);
 		assert.equal(settings.customBaseUrl, "https://example.com/v1");
 		assert.equal(settings.model, "demo-model");
+		assert.equal(settings.thinkingLevel, "default");
 		assert.equal("apiKey" in settings, false);
 		assert.equal(settings.targetLanguage, "日本語");
 		assert.match(settings.systemPromptTemplate, /^Translate carefully\./);

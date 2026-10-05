@@ -6,9 +6,11 @@ import {
 } from "@radix-ui/react-icons";
 import { Text } from "@radix-ui/themes";
 
+import { BASIC_THINKING_LEVELS } from "../shared/settings.js";
 import {
 	Button,
 	FormSection,
+	NativeSelect,
 	SearchableSelect,
 	StatusCard,
 	TextInput,
@@ -163,6 +165,19 @@ function SetupSection({
 	const models = provider?.models || [];
 	const selectedModel = models.find((item) => item.id === draft.model);
 	const customProvider = draft.provider === "openai-compatible";
+	const thinkingLevels = customProvider
+		? BASIC_THINKING_LEVELS
+		: selectedModel?.thinkingLevels || [];
+	const unsupportedThinkingLevel =
+		draft.thinkingLevel !== "default" &&
+		!thinkingLevels.includes(draft.thinkingLevel);
+	const thinkingNote = unsupportedThinkingLevel
+		? "The saved level is unavailable for this model. Model defaults will be used until you choose a supported level."
+		: customProvider
+			? "The endpoint must support the selected reasoning effort. Default keeps existing behavior; higher levels may increase latency and cost."
+			: !selectedModel?.reasoning
+				? "This model does not support thinking. The setting is ignored."
+				: "Default keeps existing model behavior. Higher levels may increase latency and cost.";
 
 	return (
 		<div className="setup-grid">
@@ -252,6 +267,29 @@ function SetupSection({
 							value={draft.model}
 						/>
 					)}
+					<NativeSelect
+						disabled={!customProvider && !selectedModel}
+						id="thinking-level"
+						label="Thinking Level"
+						name="thinkingLevel"
+						note={thinkingNote}
+						onChange={(event) => onField("thinkingLevel", event.target.value)}
+						value={draft.thinkingLevel}
+					>
+						<option value="default">Default</option>
+						{thinkingLevels.map((level) => (
+							<option key={level} value={level}>
+								{level === "xhigh"
+									? "Extra High"
+									: level[0].toUpperCase() + level.slice(1)}
+							</option>
+						))}
+						{unsupportedThinkingLevel ? (
+							<option disabled value={draft.thinkingLevel}>
+								{draft.thinkingLevel} (unavailable)
+							</option>
+						) : null}
+					</NativeSelect>
 				</div>
 
 				<div className="credential-panel">

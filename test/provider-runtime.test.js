@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 import { test } from "vitest";
 
 import { BROWSER_APIS } from "../src/auth/browser-apis.js";
 import { getBrowserOAuthProviderIds } from "../src/auth/browser-oauth.js";
 import { CREDENTIALS_KEY } from "../src/auth/credential-store.js";
-import { LEGACY_MIGRATION_KEY, ProviderRuntime } from "../src/auth/runtime.js";
+import {
+	LEGACY_MIGRATION_KEY,
+	ProviderRuntime,
+	summarizeModel,
+} from "../src/auth/runtime.js";
 import * as Settings from "../src/shared/settings.js";
 import {
 	clearTranslationCache,
@@ -120,6 +125,105 @@ test("provider runtime exposes every browser-compatible pi-ai catalog", async ()
 	)) {
 		assert.ok(BROWSER_APIS[apiId], `Missing browser API adapter for ${apiId}`);
 	}
+});
+
+test("model summaries expose only supported thinking levels", () => {
+	const runtime = new ProviderRuntime({ chrome: createChrome() });
+	for (const provider of runtime.models.getProviders()) {
+		for (const model of provider.getModels()) {
+			assert.deepEqual(
+				summarizeModel(model).thinkingLevels,
+				getSupportedThinkingLevels(model),
+			);
+		}
+	}
+	assert.deepEqual(
+		summarizeModel({ id: "plain", reasoning: false }).thinkingLevels,
+		["off"],
+	);
+	assert.deepEqual(
+		summarizeModel({
+			id: "limited",
+			reasoning: true,
+			thinkingLevelMap: { off: null, minimal: null, xhigh: "xhigh", max: null },
+		}).thinkingLevels,
+		["low", "medium", "high", "xhigh"],
+	);
+});
+
+test("provider completion forwards supported thinking levels and preserves defaults", async () => {
+	const runtime = new ProviderRuntime({
+		chrome: createChrome(),
+		fetch: globalThis.fetch,
+	});
+	await runtime.credentials.modify("openai", async () => ({
+		type: "api_key",
+		key: "test-secret",
+	}));
+	await runtime.credentials.modify("anthropic", async () => ({
+		type: "api_key",
+		key: "test-secret",
+	}));
+	const calls = [];
+	runtime.models.completeSimple = async (model, context, options) => {
+		calls.push({ model, context, options });
+		return {
+			content: [{ type: "text", text: "Translated" }],
+			stopReason: "stop",
+		};
+	};
+	const signal = new AbortController().signal;
+	const input = { systemPrompt: "System", userPrompt: "User" };
+	const cases = [
+		{
+			provider: "openai",
+			model: "gpt-5-mini",
+			levels: ["minimal", "low", "medium", "high"],
+		},
+		{
+			provider: "openai",
+			model: "gpt-5.2",
+			levels: ["low", "medium", "high", "xhigh"],
+		},
+		{
+			provider: "anthropic",
+			model: "claude-opus-4-6",
+			levels: ["minimal", "low", "medium", "high", "max"],
+		},
+	];
+	for (const settings of cases) {
+		for (const thinkingLevel of settings.levels) {
+			const response = await runtime.complete(
+				{ ...settings, thinkingLevel: ` ${thinkingLevel.toUpperCase()} ` },
+				input,
+				{ signal },
+			);
+			assert.equal(response.text, "Translated");
+			assert.equal(calls.at(-1).options.reasoning, thinkingLevel);
+			assert.equal(calls.at(-1).options.signal, signal);
+			assert.equal(calls.at(-1).options.fetch, globalThis.fetch);
+			assert.equal(calls.at(-1).options.transport, "sse");
+		}
+	}
+	for (const thinkingLevel of [
+		undefined,
+		"default",
+		"off",
+		"xhigh",
+		"max",
+		"invalid",
+	]) {
+		await runtime.complete(
+			{ provider: "openai", model: "gpt-5-mini", thinkingLevel },
+			input,
+		);
+		assert.equal("reasoning" in calls.at(-1).options, false);
+	}
+	await runtime.complete(
+		{ provider: "openai", model: "gpt-4.1-mini", thinkingLevel: "high" },
+		input,
+	);
+	assert.equal("reasoning" in calls.at(-1).options, false);
 });
 
 test("Meta models resolve browser endpoint permissions without exposing credentials", async () => {
@@ -272,6 +376,65 @@ test("provider translation cache follows the runtime model identity", async () =
 	assert.deepEqual(seenIdentities, ["backend-one", "backend-two"]);
 	assert.deepEqual(first, [{ id: "a", translation: "result-1" }]);
 	assert.deepEqual(second, [{ id: "a", translation: "result-2" }]);
+});
+
+test("production custom requests apply thinking levels and separate cached results", async () => {
+	clearTranslationCache();
+	const server = await createMockApiServer();
+	const payloads = [];
+	const runtime = new ProviderRuntime({
+		chrome: createChrome(),
+		fetch(url, init) {
+			payloads.push(JSON.parse(init.body));
+			return globalThis.fetch(url, init);
+		},
+	});
+	const api = createTranslationApi(runtime);
+	const settings = {
+		...Settings.DEFAULT_SETTINGS,
+		provider: Settings.CUSTOM_PROVIDER,
+		customBaseUrl: server.baseUrl,
+		model: "mock-thinking",
+	};
+	try {
+		await runtime.credentials.modify(Settings.CUSTOM_PROVIDER, async () => ({
+			type: "api_key",
+			key: "mock-secret",
+		}));
+		for (const [thinkingLevel, effort] of [
+			[undefined, undefined],
+			["default", undefined],
+			["off", "none"],
+			["minimal", "minimal"],
+			["low", "low"],
+			["medium", "medium"],
+			["high", "high"],
+			["xhigh", undefined],
+			["max", undefined],
+			["default", undefined],
+		]) {
+			const before = payloads.length;
+			await api.requestTranslations({
+				settings: { ...settings, thinkingLevel },
+				items: [{ id: "a", kind: "paragraph", text: "Alpha" }],
+			});
+			if (thinkingLevel === "default") {
+				assert.equal(
+					payloads.length,
+					before,
+					"Default and legacy settings reuse the same cache",
+				);
+			} else {
+				assert.equal(payloads.length, before + 1);
+				assert.equal(payloads.at(-1).reasoning?.effort, effort);
+				if (effort === undefined)
+					assert.equal("reasoning" in payloads.at(-1), false);
+			}
+		}
+	} finally {
+		await server.close();
+		clearTranslationCache();
+	}
 });
 
 test("production translation adapter sends custom provider requests through pi-ai", async () => {

@@ -1,4 +1,12 @@
-import { createModels } from "@earendil-works/pi-ai";
+import {
+	createModels,
+	getSupportedThinkingLevels,
+} from "@earendil-works/pi-ai";
+
+import {
+	BASIC_THINKING_LEVELS,
+	normalizeThinkingLevel,
+} from "../shared/settings.js";
 
 import { getBrowserOAuthOrigins } from "./browser-oauth.js";
 import { OPENAI_PROVIDER_ID } from "./codex-oauth.js";
@@ -29,6 +37,7 @@ function summarizeModel(model) {
 		input: [...(model.input || [])],
 		name: model.name || model.id,
 		reasoning: Boolean(model.reasoning),
+		thinkingLevels: getSupportedThinkingLevels(model),
 	};
 }
 
@@ -181,6 +190,9 @@ class ProviderRuntime {
 			createCustomProvider({
 				baseUrl: settings.customBaseUrl,
 				model: settings.model,
+				reasoning: BASIC_THINKING_LEVELS.includes(
+					normalizeThinkingLevel(settings.thinkingLevel),
+				),
 			}),
 		);
 	}
@@ -326,7 +338,15 @@ class ProviderRuntime {
 				},
 			],
 		};
+		const thinkingLevel = normalizeThinkingLevel(settings.thinkingLevel);
+		const reasoning =
+			thinkingLevel !== "default" &&
+			thinkingLevel !== "off" &&
+			getSupportedThinkingLevels(model).includes(thinkingLevel)
+				? thinkingLevel
+				: undefined;
 		const response = await this.models.completeSimple(model, context, {
+			...(reasoning ? { reasoning } : {}),
 			...(this.fetch ? { fetch: this.fetch } : {}),
 			...(options.signal ? { signal: options.signal } : {}),
 			transport: "sse",

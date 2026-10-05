@@ -55,6 +55,7 @@ The options interface uses locally bundled React and Radix Themes, Colors, Icons
 | Provider | Any browser-compatible provider registered by `pi-ai`, plus **Custom OpenAI-compatible** |
 | Authentication | API-key flow for browser-compatible providers; account OAuth for Anthropic, GitHub Copilot, Kimi For Coding, OpenAI Codex, OpenRouter, Radius, and xAI |
 | Model | A searchable text/chat model catalog for the selected provider; custom endpoints accept an exact model ID |
+| Thinking Level | Default preserves existing model behavior; choose a supported reasoning level from Off through Max. Custom endpoints expose basic levels through High and must support the selected effort. Higher levels may increase latency and cost. |
 | Custom Base URL | Responses API root for **Custom OpenAI-compatible**, including `/v1` |
 | Target Language | Language to translate into (default: `Traditional Chinese (Taiwan)`) |
 | System Prompt Template | Stable translation rules; supports `{{targetLanguage}}`, `{{itemCount}}`, and `{{itemKind}}` |
@@ -71,6 +72,8 @@ Older underline settings are ignored and safely migrate to the Calm Reading appe
 ![Compact inline translations shown below their source text](docs/images/compact-inline-translation.png)
 
 YouTube subtitles default to **Translation only**, preserving the behavior of existing saved settings. The selected mode applies when subtitle translation next starts or an active session is restored.
+
+Thinking level preferences are preserved when switching models. If a saved level is unsupported, Settings marks it unavailable and requests use model defaults until a supported level is selected. Changing the level separates both page and PDF translation caches.
 
 The options page also shows authentication and endpoint-permission status, a live prompt preview, and a **Test Connection** button that sends a sample request through the selected `pi-ai` model.
 
