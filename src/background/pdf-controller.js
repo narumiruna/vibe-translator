@@ -1,3 +1,4 @@
+import { normalizeThinkingLevel } from "../shared/settings.js";
 import { translateItemsProgressively } from "../translation/progressive.js";
 
 const LAUNCH_TTL_MS = 24 * 60 * 60 * 1000;
@@ -11,6 +12,7 @@ async function createSettingsFingerprint(settings, modelCacheIdentity = "") {
 	const source = JSON.stringify({
 		provider: settings.provider,
 		model: settings.model,
+		thinkingLevel: normalizeThinkingLevel(settings.thinkingLevel),
 		customBaseUrl: settings.customBaseUrl,
 		modelCacheIdentity,
 		systemPromptTemplate: settings.systemPromptTemplate,

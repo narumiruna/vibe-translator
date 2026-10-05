@@ -144,7 +144,8 @@ function createCustomProvider(options = {}) {
 		api: "openai-responses",
 		provider: CUSTOM_PROVIDER_ID,
 		baseUrl,
-		reasoning: false,
+		// Unknown endpoints opt in; Default must not send reasoning parameters.
+		reasoning: Boolean(options.reasoning),
 		input: ["text"],
 		cost: {
 			input: 0,

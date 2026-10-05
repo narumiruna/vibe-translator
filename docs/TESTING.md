@@ -44,6 +44,10 @@
 33. Clear **Model**, switch to Prompts, and save; confirm Setup opens, Model receives focus, and the error is announced. Repeat under **Custom OpenAI-compatible** with a URL that omits `/v1` and with a User Prompt that omits `{{sourcePayload}}`
 34. Set an out-of-range Appearance number, close its disclosure, switch tabs, and save; confirm Appearance opens, the disclosure expands, and the invalid control receives focus without losing other drafts
 35. Scroll to the top, middle, and bottom of each tab in light and dark modes; confirm both save-bar actions remain inside the viewport and clickable. With reduced motion, confirm both preview fades and disclosure animations are disabled
+36. Select a reasoning model and confirm **Thinking Level** lists only its supported levels plus **Default**; select a non-default level with the keyboard, save, reload, and confirm it persists
+37. Switch to a model that does not support the saved level and confirm it is marked unavailable, the description explains the fallback, and switching back preserves the preference; choose **Default** to restore existing behavior
+38. Under **Custom OpenAI-compatible**, confirm levels stop at **High**; with a compatible mock endpoint, test **Default**, **Off**, and **High** and confirm requests omit reasoning, send `none`, and send `high`, respectively
+39. Translate the same source after changing Thinking Level and confirm neither page nor PDF cache reuses results from the previous level
 
 ## Provider authentication
 

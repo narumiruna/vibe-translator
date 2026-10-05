@@ -1,3 +1,5 @@
+import { normalizeThinkingLevel } from "../shared/settings.js";
+
 const DEFAULT_TRANSLATION_CACHE_LIMIT = 500;
 const TRANSLATION_SCHEMA_VERSION = 1;
 
@@ -6,6 +8,7 @@ function buildTranslationCacheKey(settings, item) {
 		schemaVersion: TRANSLATION_SCHEMA_VERSION,
 		provider: String(settings?.provider || "").trim(),
 		model: String(settings?.model || "").trim(),
+		thinkingLevel: normalizeThinkingLevel(settings?.thinkingLevel),
 		customBaseUrl: String(settings?.customBaseUrl || "").trim(),
 		modelCacheIdentity: String(settings?.modelCacheIdentity || "").trim(),
 		systemPromptTemplate: String(settings?.systemPromptTemplate || "").trim(),

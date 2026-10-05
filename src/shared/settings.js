@@ -2,6 +2,20 @@ import * as AppearanceApi from "./appearance.js";
 
 const STORAGE_KEY = "settings";
 const DEFAULT_PROVIDER = "openai";
+const BASIC_THINKING_LEVELS = Object.freeze([
+	"off",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+]);
+const THINKING_LEVELS = Object.freeze([
+	"default",
+	...BASIC_THINKING_LEVELS,
+	"xhigh",
+	"max",
+]);
+
 const CUSTOM_PROVIDER = "openai-compatible";
 const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const LEGACY_DEFAULT_INSTRUCTIONS =
@@ -91,6 +105,14 @@ const YOUTUBE_SUBTITLE_DISPLAY_MODES = Object.freeze([
 ]);
 const { normalizeTranslationAppearance } = AppearanceApi;
 
+function normalizeThinkingLevel(value) {
+	if (typeof value !== "string") {
+		return "default";
+	}
+	const normalized = value.trim().toLowerCase();
+	return THINKING_LEVELS.includes(normalized) ? normalized : "default";
+}
+
 function normalizeShowTranslationDebugInfo(value) {
 	return Boolean(value);
 }
@@ -157,6 +179,7 @@ function lintPromptTemplates(input) {
 const DEFAULT_SETTINGS = Object.freeze({
 	provider: DEFAULT_PROVIDER,
 	model: "gpt-4.1-mini",
+	thinkingLevel: "default",
 	customBaseUrl: DEFAULT_OPENAI_BASE_URL,
 	systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_TEMPLATE,
 	userPromptTemplate: DEFAULT_USER_PROMPT_TEMPLATE,
@@ -237,6 +260,7 @@ function validateSettings(input) {
 	const settings = {
 		provider: String(merged.provider || "").trim(),
 		model: String(merged.model || "").trim(),
+		thinkingLevel: normalizeThinkingLevel(merged.thinkingLevel),
 		customBaseUrl: normalizeBaseUrl(merged.customBaseUrl),
 		systemPromptTemplate:
 			String(merged.systemPromptTemplate || "").trim() ||
@@ -355,6 +379,7 @@ async function saveSettings(input) {
 }
 
 export {
+	BASIC_THINKING_LEVELS,
 	CUSTOM_PROVIDER,
 	createDefaultSystemPromptTemplate,
 	DEFAULT_OPENAI_BASE_URL,
@@ -373,11 +398,13 @@ export {
 	normalizeDisabledDomains,
 	normalizeSelectionPanelPositionMode,
 	normalizeShowTranslationDebugInfo,
+	normalizeThinkingLevel,
 	normalizeTranslationAppearance,
 	normalizeYoutubeSubtitleDisplayMode,
 	SELECTION_PANEL_POSITION_MODES,
 	STORAGE_KEY,
 	saveSettings,
+	THINKING_LEVELS,
 	validateSettings,
 	YOUTUBE_SUBTITLE_DISPLAY_MODES,
 };

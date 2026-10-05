@@ -61,6 +61,21 @@ test("dirty state compares normalized settings rather than raw formatting", () =
 	);
 });
 
+test("thinking edits are isolated drafts and participate in dirty state", () => {
+	const settings = createValidSettings();
+	const draft = createOptionsDraft(settings);
+	const updated = updateDraftField(draft, "thinkingLevel", "high");
+	assert.equal(updated.thinkingLevel, "high");
+	assert.equal(draft.thinkingLevel, "default");
+	assert.equal(settings.thinkingLevel, "default");
+	assert.equal(isOptionsDraftDirty(updated, settings), true);
+	assert.equal(
+		isOptionsDraftDirty({ ...updated, thinkingLevel: " DEFAULT " }, settings),
+		false,
+	);
+	assert.equal(createOptionsDraft(updated).thinkingLevel, "high");
+});
+
 test("appearance presets replace inline values but preserve selection customization", () => {
 	const draft = createOptionsDraft(
 		createValidSettings({

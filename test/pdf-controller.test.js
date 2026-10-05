@@ -213,6 +213,43 @@ test("PDF settings fingerprint separates provider and custom endpoint caches", a
 	assert.notEqual(firstCredentialEndpoint, secondCredentialEndpoint);
 });
 
+test("PDF settings fingerprints separate normalized thinking levels", async () => {
+	const settings = { model: "model" };
+	const defaultFingerprint = await createSettingsFingerprint(settings);
+	assert.equal(
+		await createSettingsFingerprint({ ...settings, thinkingLevel: "default" }),
+		defaultFingerprint,
+	);
+	assert.equal(
+		await createSettingsFingerprint({ ...settings, thinkingLevel: "invalid" }),
+		defaultFingerprint,
+	);
+	const fingerprints = [defaultFingerprint];
+	for (const thinkingLevel of [
+		"off",
+		"minimal",
+		"low",
+		"medium",
+		"high",
+		"xhigh",
+		"max",
+	]) {
+		const fingerprint = await createSettingsFingerprint({
+			...settings,
+			thinkingLevel,
+		});
+		assert.equal(
+			await createSettingsFingerprint({
+				...settings,
+				thinkingLevel: ` ${thinkingLevel.toUpperCase()} `,
+			}),
+			fingerprint,
+		);
+		fingerprints.push(fingerprint);
+	}
+	assert.equal(new Set(fingerprints).size, fingerprints.length);
+});
+
 test("PDF controller opens a tokenized reader with exact-origin permission", async () => {
 	const harness = createHarness();
 	const opened = await harness.controller.openPdfTranslator({
